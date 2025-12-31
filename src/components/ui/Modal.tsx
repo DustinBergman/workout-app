@@ -1,4 +1,4 @@
-import { ReactNode, useEffect } from 'react';
+import { ReactNode, useEffect, FC } from 'react';
 import { Button } from './Button';
 
 interface ModalProps {
@@ -9,7 +9,7 @@ interface ModalProps {
   footer?: ReactNode;
 }
 
-export function Modal({ isOpen, onClose, title, children, footer }: ModalProps) {
+export const Modal: FC<ModalProps> = ({ isOpen, onClose, title, children, footer }) => {
   // Close on escape key
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {

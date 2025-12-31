@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, FC } from 'react';
 import { SessionExercise, ExerciseSuggestion, WeightUnit } from '../../types';
 import { Exercise } from '../../types';
 import { Card, Button } from '../ui';
@@ -16,7 +16,7 @@ interface ExerciseAccordionProps {
   suggestion?: ExerciseSuggestion;
 }
 
-export function ExerciseAccordion({
+export const ExerciseAccordion: FC<ExerciseAccordionProps> = ({
   exercise,
   exerciseInfo,
   isExpanded,
@@ -27,7 +27,7 @@ export function ExerciseAccordion({
   onStartTimer,
   weightUnit,
   suggestion,
-}: ExerciseAccordionProps) {
+}) => {
   const [repsInput, setRepsInput] = useState('');
   const [weightInput, setWeightInput] = useState('');
 

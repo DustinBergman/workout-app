@@ -1,21 +1,26 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useApp } from '../context/AppContext';
+import { useState, FC } from 'react';
+import { useAppStore } from '../store/useAppStore';
 import { Button, Card, Input, Modal } from '../components/ui';
 import { getAllExercises, searchExercises } from '../data/exercises';
-import { WorkoutTemplate, TemplateExercise, WorkoutSession, ExerciseSuggestion, Exercise, MuscleGroup, Equipment } from '../types';
-import { getPreWorkoutSuggestions } from '../services/openai';
+import { WorkoutTemplate, TemplateExercise, Exercise, MuscleGroup, Equipment } from '../types';
+import { useStartWorkout } from '../hooks/useStartWorkout';
 
 const MUSCLE_GROUPS: MuscleGroup[] = ['chest', 'back', 'shoulders', 'biceps', 'triceps', 'forearms', 'core', 'quadriceps', 'hamstrings', 'glutes', 'calves', 'traps', 'lats'];
 const EQUIPMENT_OPTIONS: Equipment[] = ['barbell', 'dumbbell', 'cable', 'machine', 'bodyweight', 'kettlebell', 'ez-bar', 'smith-machine', 'resistance-band', 'other'];
 
-function generateId(): string {
+const generateId = (): string => {
   return Math.random().toString(36).substring(2, 15);
-}
+};
 
-export function WorkoutTemplates() {
-  const { state, addTemplate, updateTemplate, deleteTemplate, setActiveSession, addCustomExercise } = useApp();
-  const navigate = useNavigate();
+export const WorkoutTemplates: FC = () => {
+  const templates = useAppStore((state) => state.templates);
+  const preferences = useAppStore((state) => state.preferences);
+  const customExercises = useAppStore((state) => state.customExercises);
+  const addTemplate = useAppStore((state) => state.addTemplate);
+  const updateTemplate = useAppStore((state) => state.updateTemplate);
+  const deleteTemplate = useAppStore((state) => state.deleteTemplate);
+  const addCustomExercise = useAppStore((state) => state.addCustomExercise);
+  const { isLoadingSuggestions, startWorkout } = useStartWorkout();
 
   const [isCreating, setIsCreating] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<WorkoutTemplate | null>(null);
@@ -23,7 +28,6 @@ export function WorkoutTemplates() {
   const [templateExercises, setTemplateExercises] = useState<TemplateExercise[]>([]);
   const [showExercisePicker, setShowExercisePicker] = useState(false);
   const [exerciseSearch, setExerciseSearch] = useState('');
-  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
 
   // Custom exercise creation state
   const [isCreatingExercise, setIsCreatingExercise] = useState(false);
@@ -57,7 +61,7 @@ export function WorkoutTemplates() {
         exerciseId,
         targetSets: 3,
         targetReps: 10,
-        restSeconds: state.preferences.defaultRestSeconds,
+        restSeconds: preferences.defaultRestSeconds,
       },
     ]);
     setShowExercisePicker(false);
@@ -108,52 +112,14 @@ export function WorkoutTemplates() {
     resetForm();
   };
 
-  const startWorkout = async (template: WorkoutTemplate) => {
-    const session: WorkoutSession = {
-      id: generateId(),
-      templateId: template.id,
-      name: template.name,
-      startedAt: new Date().toISOString(),
-      exercises: template.exercises.map((e) => ({
-        exerciseId: e.exerciseId,
-        targetSets: e.targetSets,
-        targetReps: e.targetReps,
-        restSeconds: e.restSeconds,
-        sets: [],
-      })),
-    };
-    setActiveSession(session);
-
-    // Get AI suggestions if API key exists and there's workout history
-    let suggestions: ExerciseSuggestion[] = [];
-    if (state.preferences.openaiApiKey && state.sessions.length > 0) {
-      setIsLoadingSuggestions(true);
-      try {
-        suggestions = await getPreWorkoutSuggestions(
-          state.preferences.openaiApiKey,
-          template,
-          state.sessions,
-          state.preferences.weightUnit
-        );
-      } catch (err) {
-        console.error('Failed to get suggestions:', err);
-        // Continue without suggestions on error
-      } finally {
-        setIsLoadingSuggestions(false);
-      }
-    }
-
-    navigate('/workout', { state: { suggestions } });
-  };
-
-  const allExercises = getAllExercises(state.customExercises);
+  const allExercises = getAllExercises(customExercises);
 
   const getExerciseName = (id: string) => {
     return allExercises.find((e) => e.id === id)?.name || 'Unknown Exercise';
   };
 
   const filteredExercises = exerciseSearch
-    ? searchExercises(exerciseSearch, state.customExercises)
+    ? searchExercises(exerciseSearch, customExercises)
     : allExercises;
 
   const resetNewExerciseForm = () => {
@@ -444,7 +410,7 @@ export function WorkoutTemplates() {
         </Button>
       </div>
 
-      {state.templates.length === 0 ? (
+      {templates.length === 0 ? (
         <Card className="text-center py-8">
           <svg className="w-12 h-12 mx-auto text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
@@ -456,7 +422,7 @@ export function WorkoutTemplates() {
         </Card>
       ) : (
         <div className="space-y-3">
-          {state.templates.map((template) => (
+          {templates.map((template) => (
             <Card key={template.id}>
               <div className="flex items-start justify-between mb-3">
                 <div>

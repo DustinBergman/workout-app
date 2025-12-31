@@ -1,36 +1,23 @@
-import { useState, useRef } from 'react';
-import { useApp } from '../context/AppContext';
+import { useState, useRef, FC } from 'react';
+import { useAppStore } from '../store/useAppStore';
 import { Card, Modal } from '../components/ui';
 import { getExerciseById } from '../data/exercises';
-import { WorkoutSession, SessionExercise } from '../types';
+import { WorkoutSession } from '../types';
 import { WorkoutHeatmap } from '../components/history/WorkoutHeatmap';
+import { calculateSessionStats } from '../hooks/useSessionStats';
 
-export function History() {
-  const { state } = useApp();
+export const History: FC = () => {
+  const sessions = useAppStore((state) => state.sessions);
+  const preferences = useAppStore((state) => state.preferences);
+  const customExercises = useAppStore((state) => state.customExercises);
   const [selectedSession, setSelectedSession] = useState<WorkoutSession | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'heatmap'>('list');
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  const sortedSessions = [...state.sessions].sort(
+  const sortedSessions = [...sessions].sort(
     (a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
   );
-
-  const getSessionStats = (session: WorkoutSession) => {
-    let totalSets = 0;
-    let totalVolume = 0;
-    let totalReps = 0;
-
-    session.exercises.forEach((ex: SessionExercise) => {
-      ex.sets.forEach((set) => {
-        totalSets++;
-        totalVolume += set.weight * set.reps;
-        totalReps += set.reps;
-      });
-    });
-
-    return { totalSets, totalVolume, totalReps };
-  };
 
   const formatDuration = (session: WorkoutSession) => {
     if (!session.completedAt) return 'In progress';
@@ -183,7 +170,7 @@ export function History() {
                 </h2>
                 <div className="space-y-3">
                   {(sessions as WorkoutSession[]).map((session) => {
-                    const stats = getSessionStats(session);
+                    const stats = calculateSessionStats(session);
                     return (
                       <Card
                         key={session.id}
@@ -204,7 +191,7 @@ export function History() {
                               {stats.totalSets} sets
                             </p>
                             <p className="text-sm text-gray-500 dark:text-gray-400">
-                              {stats.totalVolume.toLocaleString()} {state.preferences.weightUnit}
+                              {stats.totalVolume.toLocaleString()} {preferences.weightUnit}
                             </p>
                           </div>
                         </div>
@@ -237,7 +224,7 @@ export function History() {
             </div>
 
             {selectedSession.exercises.map((exercise, index) => {
-              const info = getExerciseById(exercise.exerciseId, state.customExercises);
+              const info = getExerciseById(exercise.exerciseId, customExercises);
               return (
                 <div key={index} className="border-t border-gray-200 dark:border-gray-700 pt-4">
                   <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-2">
@@ -271,21 +258,21 @@ export function History() {
               <div className="grid grid-cols-3 gap-4 text-center">
                 <div>
                   <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                    {getSessionStats(selectedSession).totalSets}
+                    {calculateSessionStats(selectedSession).totalSets}
                   </p>
                   <p className="text-xs text-gray-500">Sets</p>
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                    {getSessionStats(selectedSession).totalReps}
+                    {calculateSessionStats(selectedSession).totalReps}
                   </p>
                   <p className="text-xs text-gray-500">Reps</p>
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                    {getSessionStats(selectedSession).totalVolume.toLocaleString()}
+                    {calculateSessionStats(selectedSession).totalVolume.toLocaleString()}
                   </p>
-                  <p className="text-xs text-gray-500">{state.preferences.weightUnit}</p>
+                  <p className="text-xs text-gray-500">{preferences.weightUnit}</p>
                 </div>
               </div>
             </div>

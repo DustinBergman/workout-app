@@ -1,12 +1,13 @@
-import { useState } from 'react';
-import { useApp } from '../context/AppContext';
+import { useState, FC } from 'react';
+import { useAppStore } from '../store/useAppStore';
 import { Card, Button, Input } from '../components/ui';
 import { exportAllData, importAllData, clearAllData } from '../services/storage';
 
-export function Settings() {
-  const { state, updatePreferences } = useApp();
+export const Settings: FC = () => {
+  const preferences = useAppStore((state) => state.preferences);
+  const updatePreferences = useAppStore((state) => state.updatePreferences);
   const [showApiKey, setShowApiKey] = useState(false);
-  const [apiKeyInput, setApiKeyInput] = useState(state.preferences.openaiApiKey || '');
+  const [apiKeyInput, setApiKeyInput] = useState(preferences.openaiApiKey || '');
   const [importError, setImportError] = useState('');
   const [importSuccess, setImportSuccess] = useState(false);
   const [apiKeySaved, setApiKeySaved] = useState(false);
@@ -80,7 +81,7 @@ export function Settings() {
               <p className="text-sm text-gray-500 dark:text-gray-400">Choose your preferred unit</p>
             </div>
             <select
-              value={state.preferences.weightUnit}
+              value={preferences.weightUnit}
               onChange={(e) => updatePreferences({ weightUnit: e.target.value as 'lbs' | 'kg' })}
               className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
             >
@@ -96,7 +97,7 @@ export function Settings() {
               <p className="text-sm text-gray-500 dark:text-gray-400">Rest timer duration (seconds)</p>
             </div>
             <select
-              value={state.preferences.defaultRestSeconds}
+              value={preferences.defaultRestSeconds}
               onChange={(e) => updatePreferences({ defaultRestSeconds: parseInt(e.target.value) })}
               className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
             >
@@ -116,14 +117,14 @@ export function Settings() {
               <p className="text-sm text-gray-500 dark:text-gray-400">Toggle dark theme</p>
             </div>
             <button
-              onClick={() => updatePreferences({ darkMode: !state.preferences.darkMode })}
+              onClick={() => updatePreferences({ darkMode: !preferences.darkMode })}
               className={`relative w-14 h-8 rounded-full transition-colors ${
-                state.preferences.darkMode ? 'bg-blue-600' : 'bg-gray-300'
+                preferences.darkMode ? 'bg-blue-600' : 'bg-gray-300'
               }`}
             >
               <span
                 className={`absolute top-1 w-6 h-6 rounded-full bg-white shadow transition-transform ${
-                  state.preferences.darkMode ? 'translate-x-7' : 'translate-x-1'
+                  preferences.darkMode ? 'translate-x-7' : 'translate-x-1'
                 }`}
               />
             </button>
@@ -152,7 +153,7 @@ export function Settings() {
                 OpenAI
               </a>
             </p>
-            {state.preferences.openaiApiKey ? (
+            {preferences.openaiApiKey ? (
               <p className="text-sm text-green-600 dark:text-green-400 mb-3 flex items-center gap-1">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />

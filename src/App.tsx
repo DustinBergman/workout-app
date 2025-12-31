@@ -1,5 +1,5 @@
+import { FC } from 'react';
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
-import { AppProvider } from './context/AppContext';
 import { Navigation } from './components/ui';
 import {
   Home,
@@ -11,10 +11,9 @@ import {
   Settings,
 } from './pages';
 
-function App() {
+const App: FC = () => {
   return (
-    <AppProvider>
-      <BrowserRouter>
+    <BrowserRouter>
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
           {/* Header */}
           <header className="sticky top-0 z-30 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
@@ -60,8 +59,7 @@ function App() {
           {/* Bottom Navigation */}
           <Navigation />
         </div>
-      </BrowserRouter>
-    </AppProvider>
+    </BrowserRouter>
   );
 }
 

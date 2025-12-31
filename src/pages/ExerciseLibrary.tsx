@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, FC } from 'react';
 import { exercises, searchExercises } from '../data/exercises';
 import { Card, Input } from '../components/ui';
 import { MuscleGroup, Equipment } from '../types';
@@ -13,7 +13,7 @@ const equipmentTypes: Equipment[] = [
   'kettlebell', 'ez-bar', 'smith-machine', 'resistance-band', 'other'
 ];
 
-export function ExerciseLibrary() {
+export const ExerciseLibrary: FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMuscle, setSelectedMuscle] = useState<MuscleGroup | ''>('');
   const [selectedEquipment, setSelectedEquipment] = useState<Equipment | ''>('');

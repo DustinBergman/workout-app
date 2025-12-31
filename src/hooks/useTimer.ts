@@ -10,7 +10,7 @@ interface UseTimerReturn {
   isComplete: boolean;
 }
 
-export function useTimer(onComplete?: () => void): UseTimerReturn {
+export const useTimer = (onComplete?: () => void): UseTimerReturn => {
   const [seconds, setSeconds] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
   const [isComplete, setIsComplete] = useState(false);

@@ -1,87 +1,25 @@
-import { useState } from 'react';
+import { FC } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useApp } from '../context/AppContext';
+import { useAppStore } from '../store/useAppStore';
 import { Button, Card, Modal } from '../components/ui';
-import { WorkoutSession, WorkoutTemplate, SessionExercise, ExerciseSuggestion } from '../types';
-import { getPreWorkoutSuggestions } from '../services/openai';
+import { calculateSessionStats } from '../hooks/useSessionStats';
+import { useStartWorkout } from '../hooks/useStartWorkout';
 
-function generateId(): string {
-  return Math.random().toString(36).substring(2, 15);
-}
-
-export function Home() {
-  const { state, setActiveSession } = useApp();
+export const Home: FC = () => {
+  const templates = useAppStore((state) => state.templates);
+  const sessions = useAppStore((state) => state.sessions);
+  const activeSession = useAppStore((state) => state.activeSession);
+  const preferences = useAppStore((state) => state.preferences);
   const navigate = useNavigate();
-  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
-
-  const startWorkout = async (template: WorkoutTemplate) => {
-    const session: WorkoutSession = {
-      id: generateId(),
-      templateId: template.id,
-      name: template.name,
-      startedAt: new Date().toISOString(),
-      exercises: template.exercises.map((e) => ({
-        exerciseId: e.exerciseId,
-        targetSets: e.targetSets,
-        targetReps: e.targetReps,
-        restSeconds: e.restSeconds,
-        sets: [],
-      })),
-    };
-    setActiveSession(session);
-
-    // Get AI suggestions if API key exists and there's workout history
-    let suggestions: ExerciseSuggestion[] = [];
-    if (state.preferences.openaiApiKey && state.sessions.length > 0) {
-      setIsLoadingSuggestions(true);
-      try {
-        suggestions = await getPreWorkoutSuggestions(
-          state.preferences.openaiApiKey,
-          template,
-          state.sessions,
-          state.preferences.weightUnit
-        );
-      } catch (err) {
-        console.error('Failed to get suggestions:', err);
-        // Continue without suggestions on error
-      } finally {
-        setIsLoadingSuggestions(false);
-      }
-    }
-
-    navigate('/workout', { state: { suggestions } });
-  };
-
-  const startQuickWorkout = () => {
-    const session: WorkoutSession = {
-      id: generateId(),
-      name: 'Quick Workout',
-      startedAt: new Date().toISOString(),
-      exercises: [],
-    };
-    setActiveSession(session);
-    navigate('/workout');
-  };
+  const { isLoadingSuggestions, startWorkout, startQuickWorkout } = useStartWorkout();
 
   const resumeWorkout = () => {
     navigate('/workout');
   };
 
-  const recentSessions = [...state.sessions]
+  const recentSessions = [...sessions]
     .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())
     .slice(0, 3);
-
-  const getSessionStats = (session: WorkoutSession) => {
-    let totalSets = 0;
-    let totalVolume = 0;
-    session.exercises.forEach((ex: SessionExercise) => {
-      ex.sets.forEach((set) => {
-        totalSets++;
-        totalVolume += set.weight * set.reps;
-      });
-    });
-    return { totalSets, totalVolume };
-  };
 
   return (
     <div className="p-4 pb-20">
@@ -90,7 +28,7 @@ export function Home() {
       </h1>
 
       {/* Active Workout Banner */}
-      {state.activeSession && (
+      {activeSession && (
         <Card className="mb-6 bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800">
           <div className="flex items-center justify-between">
             <div>
@@ -98,7 +36,7 @@ export function Home() {
                 Workout in progress
               </p>
               <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                {state.activeSession.name}
+                {activeSession.name}
               </p>
             </div>
             <Button onClick={resumeWorkout}>Resume</Button>
@@ -137,7 +75,7 @@ export function Home() {
       </section>
 
       {/* Your Templates */}
-      {state.templates.length > 0 && (
+      {templates.length > 0 && (
         <section className="mb-8">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
@@ -148,7 +86,7 @@ export function Home() {
             </Link>
           </div>
           <div className="space-y-3">
-            {state.templates.slice(0, 3).map((template) => (
+            {templates.slice(0, 3).map((template) => (
               <Card key={template.id} className="flex items-center justify-between">
                 <div>
                   <p className="font-medium text-gray-900 dark:text-gray-100">
@@ -180,7 +118,7 @@ export function Home() {
           </div>
           <div className="space-y-3">
             {recentSessions.map((session) => {
-              const stats = getSessionStats(session);
+              const stats = calculateSessionStats(session);
               return (
                 <Card key={session.id}>
                   <div className="flex items-center justify-between">
@@ -197,7 +135,7 @@ export function Home() {
                         {stats.totalSets} sets
                       </p>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {stats.totalVolume.toLocaleString()} {state.preferences.weightUnit}
+                        {stats.totalVolume.toLocaleString()} {preferences.weightUnit}
                       </p>
                     </div>
                   </div>
@@ -209,7 +147,7 @@ export function Home() {
       )}
 
       {/* Empty State */}
-      {state.templates.length === 0 && state.sessions.length === 0 && (
+      {templates.length === 0 && sessions.length === 0 && (
         <Card className="text-center py-8">
           <svg className="w-12 h-12 mx-auto text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />

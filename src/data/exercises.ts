@@ -511,22 +511,22 @@ export const exercises: Exercise[] = [
 ];
 
 // Helper functions
-export function getExerciseById(id: string, customExercises: Exercise[] = []): Exercise | undefined {
+export const getExerciseById = (id: string, customExercises: Exercise[] = []): Exercise | undefined => {
   // Check custom exercises first
   const custom = customExercises.find((e) => e.id === id);
   if (custom) return custom;
   return exercises.find((e) => e.id === id);
-}
+};
 
-export function getExercisesByMuscleGroup(muscleGroup: string): Exercise[] {
+export const getExercisesByMuscleGroup = (muscleGroup: string): Exercise[] => {
   return exercises.filter((e) => e.muscleGroups.includes(muscleGroup as Exercise['muscleGroups'][number]));
-}
+};
 
-export function getExercisesByEquipment(equipment: string): Exercise[] {
+export const getExercisesByEquipment = (equipment: string): Exercise[] => {
   return exercises.filter((e) => e.equipment === equipment);
-}
+};
 
-export function searchExercises(query: string, customExercises: Exercise[] = []): Exercise[] {
+export const searchExercises = (query: string, customExercises: Exercise[] = []): Exercise[] => {
   const lowerQuery = query.toLowerCase();
   const allExercises = [...exercises, ...customExercises];
   return allExercises.filter(
@@ -535,8 +535,8 @@ export function searchExercises(query: string, customExercises: Exercise[] = [])
       e.muscleGroups.some((m) => m.toLowerCase().includes(lowerQuery)) ||
       e.equipment.toLowerCase().includes(lowerQuery)
   );
-}
+};
 
-export function getAllExercises(customExercises: Exercise[] = []): Exercise[] {
+export const getAllExercises = (customExercises: Exercise[] = []): Exercise[] => {
   return [...exercises, ...customExercises];
-}
+};

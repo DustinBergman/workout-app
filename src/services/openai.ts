@@ -7,11 +7,116 @@ interface ChatMessage {
   content: string;
 }
 
-export async function sendChatMessage(
+interface ExerciseStats {
+  exerciseId: string;
+  exerciseName: string;
+  recentSets: Array<{
+    date: string;
+    weight: number;
+    reps: number;
+    unit: string;
+  }>;
+  averageWeight: number;
+  averageReps: number;
+  trend: 'improving' | 'plateau' | 'declining' | 'insufficient_data';
+}
+
+const createHistoryContext = (sessions: WorkoutSession[]): string => {
+  if (sessions.length === 0) {
+    return 'No workout history available yet.';
+  }
+
+  // Take last 10 sessions for context
+  const recentSessions = sessions
+    .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())
+    .slice(0, 10);
+
+  const customExercises = getCustomExercises();
+  return recentSessions
+    .map((session) => {
+      const date = new Date(session.startedAt).toLocaleDateString();
+      const exercises = session.exercises
+        .map((ex) => {
+          const info = getExerciseById(ex.exerciseId, customExercises);
+          const sets = ex.sets
+            .map((s) => `${s.weight}${s.unit}x${s.reps}`)
+            .join(', ');
+          return `  - ${info?.name || ex.exerciseId}: ${sets || 'no sets'}`;
+        })
+        .join('\n');
+      return `${date} - ${session.name}:\n${exercises}`;
+    })
+    .join('\n\n');
+};
+
+const analyzeExercisePerformance = (sessions: WorkoutSession[]): ExerciseStats[] => {
+  const exerciseMap: Map<string, ExerciseStats['recentSets']> = new Map();
+  const customExercises = getCustomExercises();
+
+  // Collect all sets by exercise
+  sessions.forEach((session) => {
+    session.exercises.forEach((ex) => {
+      const existing = exerciseMap.get(ex.exerciseId) || [];
+      ex.sets.forEach((set) => {
+        existing.push({
+          date: session.startedAt,
+          weight: set.weight,
+          reps: set.reps,
+          unit: set.unit,
+        });
+      });
+      exerciseMap.set(ex.exerciseId, existing);
+    });
+  });
+
+  // Analyze each exercise
+  const stats: ExerciseStats[] = [];
+
+  exerciseMap.forEach((sets, exerciseId) => {
+    if (sets.length < 3) return; // Need at least 3 sets to analyze
+
+    const info = getExerciseById(exerciseId, customExercises);
+    const sortedSets = sets.sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+
+    const recentSets = sortedSets.slice(0, 10);
+    const avgWeight = recentSets.reduce((sum, s) => sum + s.weight, 0) / recentSets.length;
+    const avgReps = recentSets.reduce((sum, s) => sum + s.reps, 0) / recentSets.length;
+
+    // Simple trend analysis
+    let trend: ExerciseStats['trend'] = 'insufficient_data';
+    if (recentSets.length >= 6) {
+      const firstHalf = recentSets.slice(Math.floor(recentSets.length / 2));
+      const secondHalf = recentSets.slice(0, Math.floor(recentSets.length / 2));
+
+      const firstAvg = firstHalf.reduce((s, x) => s + x.weight * x.reps, 0) / firstHalf.length;
+      const secondAvg = secondHalf.reduce((s, x) => s + x.weight * x.reps, 0) / secondHalf.length;
+
+      const change = (secondAvg - firstAvg) / firstAvg;
+      if (change > 0.05) trend = 'improving';
+      else if (change < -0.05) trend = 'declining';
+      else trend = 'plateau';
+    }
+
+    stats.push({
+      exerciseId,
+      exerciseName: info?.name || exerciseId,
+      recentSets: recentSets.slice(0, 5),
+      averageWeight: Math.round(avgWeight * 10) / 10,
+      averageReps: Math.round(avgReps * 10) / 10,
+      trend,
+    });
+  });
+
+  return stats;
+};
+
+export const sendChatMessage = async (
   apiKey: string,
   messages: ChatMessage[],
   workoutHistory: WorkoutSession[]
-): Promise<string> {
+): Promise<string> => {
   // Create a summary of workout history for context
   const historyContext = createHistoryContext(workoutHistory);
 
@@ -53,13 +158,13 @@ Your guidelines:
 
   const data = await response.json();
   return data.choices[0]?.message?.content || 'No response generated';
-}
+};
 
-export async function getProgressiveOverloadRecommendations(
+export const getProgressiveOverloadRecommendations = async (
   apiKey: string,
   workoutHistory: WorkoutSession[],
   weightUnit: 'lbs' | 'kg'
-): Promise<WorkoutRecommendation[]> {
+): Promise<WorkoutRecommendation[]> => {
   if (workoutHistory.length < 2) {
     return [];
   }
@@ -128,120 +233,15 @@ Use ${weightUnit} for weights. Only include exercises where you have a clear rec
   }
 
   return [];
-}
-
-function createHistoryContext(sessions: WorkoutSession[]): string {
-  if (sessions.length === 0) {
-    return 'No workout history available yet.';
-  }
-
-  // Take last 10 sessions for context
-  const recentSessions = sessions
-    .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())
-    .slice(0, 10);
-
-  const customExercises = getCustomExercises();
-  return recentSessions
-    .map((session) => {
-      const date = new Date(session.startedAt).toLocaleDateString();
-      const exercises = session.exercises
-        .map((ex) => {
-          const info = getExerciseById(ex.exerciseId, customExercises);
-          const sets = ex.sets
-            .map((s) => `${s.weight}${s.unit}x${s.reps}`)
-            .join(', ');
-          return `  - ${info?.name || ex.exerciseId}: ${sets || 'no sets'}`;
-        })
-        .join('\n');
-      return `${date} - ${session.name}:\n${exercises}`;
-    })
-    .join('\n\n');
-}
-
-interface ExerciseStats {
-  exerciseId: string;
-  exerciseName: string;
-  recentSets: Array<{
-    date: string;
-    weight: number;
-    reps: number;
-    unit: string;
-  }>;
-  averageWeight: number;
-  averageReps: number;
-  trend: 'improving' | 'plateau' | 'declining' | 'insufficient_data';
-}
-
-function analyzeExercisePerformance(sessions: WorkoutSession[]): ExerciseStats[] {
-  const exerciseMap: Map<string, ExerciseStats['recentSets']> = new Map();
-  const customExercises = getCustomExercises();
-
-  // Collect all sets by exercise
-  sessions.forEach((session) => {
-    session.exercises.forEach((ex) => {
-      const existing = exerciseMap.get(ex.exerciseId) || [];
-      ex.sets.forEach((set) => {
-        existing.push({
-          date: session.startedAt,
-          weight: set.weight,
-          reps: set.reps,
-          unit: set.unit,
-        });
-      });
-      exerciseMap.set(ex.exerciseId, existing);
-    });
-  });
-
-  // Analyze each exercise
-  const stats: ExerciseStats[] = [];
-
-  exerciseMap.forEach((sets, exerciseId) => {
-    if (sets.length < 3) return; // Need at least 3 sets to analyze
-
-    const info = getExerciseById(exerciseId, customExercises);
-    const sortedSets = sets.sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-    );
-
-    const recentSets = sortedSets.slice(0, 10);
-    const avgWeight = recentSets.reduce((sum, s) => sum + s.weight, 0) / recentSets.length;
-    const avgReps = recentSets.reduce((sum, s) => sum + s.reps, 0) / recentSets.length;
-
-    // Simple trend analysis
-    let trend: ExerciseStats['trend'] = 'insufficient_data';
-    if (recentSets.length >= 6) {
-      const firstHalf = recentSets.slice(Math.floor(recentSets.length / 2));
-      const secondHalf = recentSets.slice(0, Math.floor(recentSets.length / 2));
-
-      const firstAvg = firstHalf.reduce((s, x) => s + x.weight * x.reps, 0) / firstHalf.length;
-      const secondAvg = secondHalf.reduce((s, x) => s + x.weight * x.reps, 0) / secondHalf.length;
-
-      const change = (secondAvg - firstAvg) / firstAvg;
-      if (change > 0.05) trend = 'improving';
-      else if (change < -0.05) trend = 'declining';
-      else trend = 'plateau';
-    }
-
-    stats.push({
-      exerciseId,
-      exerciseName: info?.name || exerciseId,
-      recentSets: recentSets.slice(0, 5),
-      averageWeight: Math.round(avgWeight * 10) / 10,
-      averageReps: Math.round(avgReps * 10) / 10,
-      trend,
-    });
-  });
-
-  return stats;
-}
+};
 
 // Pre-workout suggestions for weights and reps
-export async function getPreWorkoutSuggestions(
+export const getPreWorkoutSuggestions = async (
   apiKey: string,
   template: WorkoutTemplate,
   previousSessions: WorkoutSession[],
   weightUnit: 'lbs' | 'kg'
-): Promise<ExerciseSuggestion[]> {
+): Promise<ExerciseSuggestion[]> => {
   const customExercises = getCustomExercises();
   // Build context about each exercise in the template
   const exerciseContext = template.exercises.map((templateEx) => {
@@ -342,15 +342,15 @@ Use ${weightUnit} for weights. Confidence should be:
   }
 
   return [];
-}
+};
 
 // Post-workout scoring
-export async function getWorkoutScore(
+export const getWorkoutScore = async (
   apiKey: string,
   completedSession: WorkoutSession,
   previousSessions: WorkoutSession[],
   weightUnit: 'lbs' | 'kg'
-): Promise<WorkoutScoreResult> {
+): Promise<WorkoutScoreResult> => {
   const customExercises = getCustomExercises();
   // Build workout summary
   const workoutSummary = completedSession.exercises.map((ex) => {
@@ -464,4 +464,4 @@ Be encouraging but honest. Use ${weightUnit} when referencing weights.`;
     highlights: ['You showed up and did the work!'],
     improvements: ['Try to log more details for better analysis.'],
   };
-}
+};

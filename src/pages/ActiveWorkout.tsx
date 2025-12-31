@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, FC } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useApp } from '../context/AppContext';
+import { useAppStore } from '../store/useAppStore';
 import { Button, Card, Input, Modal } from '../components/ui';
 import { RestTimer } from '../components/timer/RestTimer';
 import { ExerciseAccordion } from '../components/workout/ExerciseAccordion';
@@ -11,8 +11,14 @@ import { getWorkoutScore } from '../services/openai';
 const MUSCLE_GROUPS: MuscleGroup[] = ['chest', 'back', 'shoulders', 'biceps', 'triceps', 'forearms', 'core', 'quadriceps', 'hamstrings', 'glutes', 'calves', 'traps', 'lats'];
 const EQUIPMENT_OPTIONS: Equipment[] = ['barbell', 'dumbbell', 'cable', 'machine', 'bodyweight', 'kettlebell', 'ez-bar', 'smith-machine', 'resistance-band', 'other'];
 
-export function ActiveWorkout() {
-  const { state, setActiveSession, addSession, addCustomExercise } = useApp();
+export const ActiveWorkout: FC = () => {
+  const activeSession = useAppStore((state) => state.activeSession);
+  const sessions = useAppStore((state) => state.sessions);
+  const preferences = useAppStore((state) => state.preferences);
+  const customExercises = useAppStore((state) => state.customExercises);
+  const setActiveSession = useAppStore((state) => state.setActiveSession);
+  const addSession = useAppStore((state) => state.addSession);
+  const addCustomExercise = useAppStore((state) => state.addCustomExercise);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -37,7 +43,7 @@ export function ActiveWorkout() {
   const [scoreResult, setScoreResult] = useState<WorkoutScoreResult | null>(null);
   const [scoreError, setScoreError] = useState<string | null>(null);
 
-  const session = state.activeSession;
+  const session = activeSession;
 
   // Redirect if no active session
   useEffect(() => {
@@ -68,7 +74,7 @@ export function ActiveWorkout() {
     const newSet: CompletedSet = {
       reps,
       weight,
-      unit: state.preferences.weightUnit,
+      unit: preferences.weightUnit,
       completedAt: new Date().toISOString(),
     };
 
@@ -122,7 +128,7 @@ export function ActiveWorkout() {
       exerciseId,
       targetSets: 3,
       targetReps: 10,
-      restSeconds: state.preferences.defaultRestSeconds,
+      restSeconds: preferences.defaultRestSeconds,
       sets: [],
     };
 
@@ -175,7 +181,7 @@ export function ActiveWorkout() {
     setActiveSession(null);
 
     // If API key exists and is not empty, get score
-    const apiKey = state.preferences.openaiApiKey?.trim();
+    const apiKey = preferences.openaiApiKey?.trim();
     if (apiKey) {
       setIsScoring(true);
       setScoreError(null);
@@ -185,8 +191,8 @@ export function ActiveWorkout() {
         const score = await getWorkoutScore(
           apiKey,
           completedSession,
-          state.sessions,
-          state.preferences.weightUnit
+          sessions,
+          preferences.weightUnit
         );
         setScoreResult(score);
       } catch (err) {
@@ -208,10 +214,10 @@ export function ActiveWorkout() {
     navigate('/');
   };
 
-  const allExercises = getAllExercises(state.customExercises);
+  const allExercises = getAllExercises(customExercises);
 
   const filteredExercises = exerciseSearch
-    ? searchExercises(exerciseSearch, state.customExercises)
+    ? searchExercises(exerciseSearch, customExercises)
     : allExercises;
 
   const resetNewExerciseForm = () => {
@@ -259,7 +265,7 @@ export function ActiveWorkout() {
             {session.name}
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            {totalSets} sets | {totalVolume.toLocaleString()} {state.preferences.weightUnit}
+            {totalSets} sets | {totalVolume.toLocaleString()} {preferences.weightUnit}
           </p>
         </div>
         <Button variant="danger" size="sm" onClick={() => setShowFinishConfirm(true)}>
@@ -274,14 +280,14 @@ export function ActiveWorkout() {
             <ExerciseAccordion
               key={index}
               exercise={exercise}
-              exerciseInfo={getExerciseById(exercise.exerciseId, state.customExercises)}
+              exerciseInfo={getExerciseById(exercise.exerciseId, customExercises)}
               isExpanded={expandedIndex === index}
               onToggle={() => setExpandedIndex(expandedIndex === index ? null : index)}
               onLogSet={(reps, weight) => logSetForExercise(index, reps, weight)}
               onRemoveLastSet={() => removeLastSetForExercise(index)}
               onRemoveExercise={() => removeExercise(index)}
               onStartTimer={handleStartTimer}
-              weightUnit={state.preferences.weightUnit}
+              weightUnit={preferences.weightUnit}
               suggestion={getSuggestionForExercise(exercise.exerciseId)}
             />
           ))}
@@ -459,7 +465,7 @@ export function ActiveWorkout() {
               <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">
                 {totalVolume.toLocaleString()}
               </p>
-              <p className="text-sm text-gray-500">Total {state.preferences.weightUnit}</p>
+              <p className="text-sm text-gray-500">Total {preferences.weightUnit}</p>
             </div>
           </div>
         </div>

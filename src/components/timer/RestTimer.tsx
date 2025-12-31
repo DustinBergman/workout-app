@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, FC } from 'react';
 import { useTimer } from '../../hooks/useTimer';
 import { Button } from '../ui';
 
@@ -9,7 +9,7 @@ interface RestTimerProps {
   autoStart?: boolean;
 }
 
-export function RestTimer({ duration, onComplete, onSkip, autoStart = false }: RestTimerProps) {
+export const RestTimer: FC<RestTimerProps> = ({ duration, onComplete, onSkip, autoStart = false }) => {
   const hasPlayedRef = useRef(false);
 
   const handleComplete = useCallback(() => {

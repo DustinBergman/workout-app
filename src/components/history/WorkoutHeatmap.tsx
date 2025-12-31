@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, FC } from 'react';
 import { WorkoutSession } from '../../types';
 
 interface WorkoutHeatmapProps {
@@ -6,7 +6,7 @@ interface WorkoutHeatmapProps {
   onDayClick?: (date: Date, sessions: WorkoutSession[]) => void;
 }
 
-export function WorkoutHeatmap({ sessions, onDayClick }: WorkoutHeatmapProps) {
+export const WorkoutHeatmap: FC<WorkoutHeatmapProps> = ({ sessions, onDayClick }) => {
   const { weeks, monthLabels } = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);

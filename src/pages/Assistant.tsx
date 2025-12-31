@@ -1,16 +1,17 @@
-import { useState, useRef, useEffect } from 'react';
-import { useApp } from '../context/AppContext';
+import { useState, useRef, useEffect, FC } from 'react';
+import { useAppStore } from '../store/useAppStore';
 import { Card, Button, Input } from '../components/ui';
 import { sendChatMessage, getProgressiveOverloadRecommendations } from '../services/openai';
 import { AssistantMessage, WorkoutRecommendation } from '../types';
 import { Link } from 'react-router-dom';
 
-function generateId(): string {
+const generateId = (): string => {
   return Math.random().toString(36).substring(2, 15);
-}
+};
 
-export function Assistant() {
-  const { state } = useApp();
+export const Assistant: FC = () => {
+  const preferences = useAppStore((state) => state.preferences);
+  const sessions = useAppStore((state) => state.sessions);
   const [messages, setMessages] = useState<AssistantMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -19,7 +20,7 @@ export function Assistant() {
   const [loadingRecommendations, setLoadingRecommendations] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const hasApiKey = !!state.preferences.openaiApiKey;
+  const hasApiKey = !!preferences.openaiApiKey;
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -28,20 +29,20 @@ export function Assistant() {
 
   // Load recommendations on mount if API key exists
   useEffect(() => {
-    if (hasApiKey && state.sessions.length >= 2) {
+    if (hasApiKey && sessions.length >= 2) {
       loadRecommendations();
     }
-  }, [hasApiKey, state.sessions.length]);
+  }, [hasApiKey, sessions.length]);
 
   const loadRecommendations = async () => {
-    if (!state.preferences.openaiApiKey) return;
+    if (!preferences.openaiApiKey) return;
 
     setLoadingRecommendations(true);
     try {
       const recs = await getProgressiveOverloadRecommendations(
-        state.preferences.openaiApiKey,
-        state.sessions,
-        state.preferences.weightUnit
+        preferences.openaiApiKey,
+        sessions,
+        preferences.weightUnit
       );
       setRecommendations(recs);
     } catch (err) {
@@ -52,7 +53,7 @@ export function Assistant() {
   };
 
   const sendMessage = async () => {
-    if (!input.trim() || !state.preferences.openaiApiKey) return;
+    if (!input.trim() || !preferences.openaiApiKey) return;
 
     const userMessage: AssistantMessage = {
       id: generateId(),
@@ -73,9 +74,9 @@ export function Assistant() {
       }));
 
       const response = await sendChatMessage(
-        state.preferences.openaiApiKey,
+        preferences.openaiApiKey,
         chatMessages,
-        state.sessions
+        sessions
       );
 
       const assistantMessage: AssistantMessage = {
@@ -177,7 +178,7 @@ export function Assistant() {
                   }`}
                 >
                   {rec.type === 'increase' && '+'}
-                  {rec.recommendedWeight} {state.preferences.weightUnit}
+                  {rec.recommendedWeight} {preferences.weightUnit}
                 </span>
               </div>
             ))}
