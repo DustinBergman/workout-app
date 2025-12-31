@@ -53,6 +53,8 @@ export type CardioType =
   | 'stair-climber'
   | 'swimming'
   | 'hiking'
+  | 'hiit'
+  | 'boxing'
   | 'other';
 
 // Progressive Overload Week (0-4)

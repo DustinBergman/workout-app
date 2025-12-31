@@ -18,9 +18,9 @@ const createWeightEntry = (weight: number, daysAgo: number): WeightEntry => {
   const date = new Date();
   date.setDate(date.getDate() - daysAgo);
   return {
-    id: `entry-${Math.random().toString(36).substring(2, 9)}`,
     weight,
     date: date.toISOString(),
+    unit: 'lbs',
   };
 };
 

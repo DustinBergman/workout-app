@@ -27,6 +27,7 @@ interface AppState {
   addTemplate: (template: WorkoutTemplate) => void;
   updateTemplate: (template: WorkoutTemplate) => void;
   deleteTemplate: (templateId: string) => void;
+  reorderTemplates: (templateIds: string[]) => void;
 
   // Session actions
   addSession: (session: WorkoutSession) => void;
@@ -94,6 +95,15 @@ export const useAppStore = create<AppState>()(
           set((state) => ({
             templates: state.templates.filter((t) => t.id !== templateId),
           })),
+
+        reorderTemplates: (templateIds) =>
+          set((state) => {
+            const templateMap = new Map(state.templates.map((t) => [t.id, t]));
+            const reorderedTemplates = templateIds
+              .map((id) => templateMap.get(id))
+              .filter((t): t is WorkoutTemplate => t !== undefined);
+            return { templates: reorderedTemplates };
+          }),
 
         // Session actions
         addSession: (session) =>

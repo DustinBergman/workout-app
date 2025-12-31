@@ -733,6 +733,20 @@ export const cardioExercises: CardioExercise[] = [
     cardioType: 'hiking',
     instructions: 'Hike on trails or terrain. Track distance covered.',
   },
+  {
+    id: 'hiit',
+    type: 'cardio',
+    name: 'HIIT',
+    cardioType: 'hiit',
+    instructions: 'High-intensity interval training. Alternate between intense bursts and rest periods.',
+  },
+  {
+    id: 'boxing',
+    type: 'cardio',
+    name: 'Boxing',
+    cardioType: 'boxing',
+    instructions: 'Boxing workout including bag work, shadow boxing, or sparring.',
+  },
 ];
 
 // Combined exercises array

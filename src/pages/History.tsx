@@ -12,7 +12,7 @@ export const History: FC = () => {
   const preferences = useAppStore((state) => state.preferences);
   const customExercises = useAppStore((state) => state.customExercises);
   const [selectedSession, setSelectedSession] = useState<WorkoutSession | null>(null);
-  const [viewMode, setViewMode] = useState<'list' | 'heatmap'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'heatmap'>('heatmap');
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
 

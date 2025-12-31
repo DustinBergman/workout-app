@@ -118,7 +118,7 @@ export const WeightChart: FC<WeightChartProps> = ({ entries, weightUnit }) => {
                 borderRadius: '8px',
                 fontSize: '12px',
               }}
-              formatter={(value: number) => [`${value.toFixed(1)} ${weightUnit}`, 'Weight']}
+              formatter={(value) => [`${(value as number).toFixed(1)} ${weightUnit}`, 'Weight']}
               labelFormatter={(label) => label}
             />
             <Line

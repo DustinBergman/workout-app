@@ -166,6 +166,8 @@ export const You: FC = () => {
                         outerRadius={80}
                         paddingAngle={2}
                         dataKey="value"
+                        stroke="var(--card)"
+                        strokeWidth={2}
                       >
                         {pieChartData.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />

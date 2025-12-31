@@ -97,6 +97,7 @@ export const Home: FC = () => {
         {activeSession && (
           <ActiveWorkoutBanner
             sessionName={activeSession.name}
+            startedAt={activeSession.startedAt}
             onResume={resumeWorkout}
           />
         )}

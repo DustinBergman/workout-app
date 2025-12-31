@@ -10,7 +10,7 @@ import {
   SelectContent,
   SelectItem,
 } from '../components/ui';
-import { MuscleGroup, Equipment, Exercise } from '../types';
+import { MuscleGroup, Equipment, Exercise, ExerciseType } from '../types';
 
 const muscleGroups: MuscleGroup[] = [
   'chest', 'back', 'shoulders', 'biceps', 'triceps', 'forearms',
@@ -22,14 +22,37 @@ const equipmentTypes: Equipment[] = [
   'kettlebell', 'ez-bar', 'smith-machine', 'resistance-band', 'other'
 ];
 
+// Unique colors for each muscle group
+const muscleGroupColors: Record<MuscleGroup, string> = {
+  chest: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300',
+  back: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
+  shoulders: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300',
+  biceps: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300',
+  triceps: 'bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300',
+  forearms: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300',
+  core: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300',
+  quadriceps: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300',
+  hamstrings: 'bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300',
+  glutes: 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300',
+  calves: 'bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-300',
+  traps: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300',
+  lats: 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300',
+};
+
 export const ExerciseLibrary: FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedType, setSelectedType] = useState<ExerciseType | ''>('');
   const [selectedMuscle, setSelectedMuscle] = useState<MuscleGroup | ''>('');
   const [selectedEquipment, setSelectedEquipment] = useState<Equipment | ''>('');
   const [expandedExercise, setExpandedExercise] = useState<string | null>(null);
 
   const filteredExercises = useMemo(() => {
     let result: Exercise[] = searchQuery ? searchExercises(searchQuery) : exercises;
+
+    // Filter by exercise type (strength/cardio)
+    if (selectedType) {
+      result = result.filter((e) => e.type === selectedType);
+    }
 
     if (selectedMuscle) {
       result = result.filter((e) => e.type === 'strength' && e.muscleGroups.includes(selectedMuscle));
@@ -40,7 +63,7 @@ export const ExerciseLibrary: FC = () => {
     }
 
     return result;
-  }, [searchQuery, selectedMuscle, selectedEquipment]);
+  }, [searchQuery, selectedType, selectedMuscle, selectedEquipment]);
 
   const formatMuscleGroup = (muscle: string) => {
     return muscle.charAt(0).toUpperCase() + muscle.slice(1).replace(/-/g, ' ');
@@ -63,6 +86,40 @@ export const ExerciseLibrary: FC = () => {
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
+      </div>
+
+      {/* Exercise Type Toggle */}
+      <div className="flex rounded-lg overflow-hidden border border-gray-300 dark:border-gray-600 mb-4">
+        <button
+          onClick={() => setSelectedType('')}
+          className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
+            selectedType === ''
+              ? 'bg-blue-500 text-white'
+              : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+          }`}
+        >
+          All
+        </button>
+        <button
+          onClick={() => setSelectedType('strength')}
+          className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
+            selectedType === 'strength'
+              ? 'bg-blue-500 text-white'
+              : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+          }`}
+        >
+          Strength
+        </button>
+        <button
+          onClick={() => setSelectedType('cardio')}
+          className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
+            selectedType === 'cardio'
+              ? 'bg-blue-500 text-white'
+              : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+          }`}
+        >
+          Cardio
+        </button>
       </div>
 
       {/* Filters */}
@@ -124,13 +181,17 @@ export const ExerciseLibrary: FC = () => {
                 </h3>
                 <div className="flex flex-wrap gap-1 mt-1">
                   {exercise.type === 'cardio' ? (
-                    <Badge variant="secondary" className="text-xs bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400">
+                    <Badge variant="secondary" className="text-xs bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 border-0">
                       {exercise.cardioType}
                     </Badge>
                   ) : (
                     <>
-                      {exercise.muscleGroups.map((muscle: string) => (
-                        <Badge key={muscle} variant="default" className="text-xs">
+                      {exercise.muscleGroups.map((muscle: MuscleGroup) => (
+                        <Badge
+                          key={muscle}
+                          variant="secondary"
+                          className={`text-xs border-0 ${muscleGroupColors[muscle]}`}
+                        >
                           {formatMuscleGroup(muscle)}
                         </Badge>
                       ))}

@@ -5,13 +5,17 @@ interface UseWorkoutTimerReturn {
   elapsedSeconds: number;
 }
 
-export const useWorkoutTimer = (session: WorkoutSession | null): UseWorkoutTimerReturn => {
+type TimerInput = WorkoutSession | { startedAt: string } | null;
+
+export const useWorkoutTimer = (input: TimerInput): UseWorkoutTimerReturn => {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
-  useEffect(() => {
-    if (!session) return;
+  const startedAt = input?.startedAt;
 
-    const start = new Date(session.startedAt).getTime();
+  useEffect(() => {
+    if (!startedAt) return;
+
+    const start = new Date(startedAt).getTime();
     setElapsedSeconds(Math.floor((Date.now() - start) / 1000));
 
     const interval = setInterval(() => {
@@ -19,8 +23,7 @@ export const useWorkoutTimer = (session: WorkoutSession | null): UseWorkoutTimer
     }, 1000);
 
     return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.startedAt]);
+  }, [startedAt]);
 
   return { elapsedSeconds };
 };

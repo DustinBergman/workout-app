@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useUserStats, TimePeriod } from './useUserStats';
-import { WorkoutSession, StrengthSessionExercise, StrengthCompletedSet, Exercise } from '../types';
+import { WorkoutSession, StrengthSessionExercise, StrengthCompletedSet } from '../types';
 
 const createStrengthSet = (weight: number, reps: number): StrengthCompletedSet => ({
   type: 'strength',
