@@ -6,6 +6,7 @@ import {
   UserPreferences,
   Exercise,
   ProgressiveOverloadWeek,
+  WorkoutGoal,
 } from '../types';
 
 interface AppState {
@@ -16,6 +17,7 @@ interface AppState {
   preferences: UserPreferences;
   customExercises: Exercise[];
   currentWeek: ProgressiveOverloadWeek;
+  workoutGoal: WorkoutGoal;
 
   // Template actions
   addTemplate: (template: WorkoutTemplate) => void;
@@ -36,6 +38,9 @@ interface AppState {
   // Progressive overload week actions
   setCurrentWeek: (week: ProgressiveOverloadWeek) => void;
   advanceWeek: () => void;
+
+  // Workout goal actions
+  setWorkoutGoal: (goal: WorkoutGoal) => void;
 }
 
 const defaultPreferences: UserPreferences = {
@@ -55,6 +60,7 @@ export const useAppStore = create<AppState>()(
         preferences: defaultPreferences,
         customExercises: [],
         currentWeek: 0 as ProgressiveOverloadWeek,
+        workoutGoal: 'build' as WorkoutGoal,
 
         // Template actions
         addTemplate: (template) =>
@@ -113,6 +119,12 @@ export const useAppStore = create<AppState>()(
         advanceWeek: () =>
           set((state) => ({
             currentWeek: ((state.currentWeek + 1) % 5) as ProgressiveOverloadWeek,
+          })),
+
+        // Workout goal actions
+        setWorkoutGoal: (goal) =>
+          set(() => ({
+            workoutGoal: goal,
           })),
       }),
       {

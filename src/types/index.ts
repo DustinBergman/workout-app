@@ -80,6 +80,45 @@ export const PROGRESSIVE_OVERLOAD_WEEKS: Record<ProgressiveOverloadWeek, WeekInf
   },
 };
 
+// Workout Goals
+export type WorkoutGoal = 'build' | 'lose' | 'maintain';
+
+export interface GoalInfo {
+  goal: WorkoutGoal;
+  name: string;
+  description: string;
+  useProgressiveOverload: boolean;
+  defaultRepRange: string;
+  aiGuidance: string;
+}
+
+export const WORKOUT_GOALS: Record<WorkoutGoal, GoalInfo> = {
+  build: {
+    goal: 'build',
+    name: 'Build Muscle',
+    description: 'Progressive overload to gain strength and size',
+    useProgressiveOverload: true,
+    defaultRepRange: '6-12 reps',
+    aiGuidance: 'Focus on progressive overload. Follow the current week\'s guidance for weight adjustments and rep ranges. Aim to increase weight or reps over time.',
+  },
+  lose: {
+    goal: 'lose',
+    name: 'Lose Weight',
+    description: 'Preserve muscle while in caloric deficit',
+    useProgressiveOverload: false,
+    defaultRepRange: '6-10 reps',
+    aiGuidance: 'Maintain current working weights to preserve muscle mass during caloric deficit. Do NOT suggest weight increases - the body cannot build muscle in a deficit. Keep weights heavy (6-10 reps) to signal muscle retention. Prioritize form and recovery.',
+  },
+  maintain: {
+    goal: 'maintain',
+    name: 'Maintain',
+    description: 'Keep current fitness level steady',
+    useProgressiveOverload: false,
+    defaultRepRange: '8-12 reps',
+    aiGuidance: 'Maintain consistent weights and volume. No progression needed - focus on sustainable, comfortable training. Keep rep ranges moderate (8-12 reps). Suggest same weights as previous sessions.',
+  },
+};
+
 // Exercise Definition
 export interface Exercise {
   id: string;

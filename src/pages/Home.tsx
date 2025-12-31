@@ -5,7 +5,7 @@ import { Button, Card, Modal, WeekBadge } from '../components/ui';
 import { WorkoutHeatmap } from '../components/history/WorkoutHeatmap';
 import { calculateSessionStats } from '../hooks/useSessionStats';
 import { useStartWorkout } from '../hooks/useStartWorkout';
-import { ProgressiveOverloadWeek, PROGRESSIVE_OVERLOAD_WEEKS } from '../types';
+import { ProgressiveOverloadWeek, PROGRESSIVE_OVERLOAD_WEEKS, WORKOUT_GOALS } from '../types';
 
 export const Home: FC = () => {
   const templates = useAppStore((state) => state.templates);
@@ -14,9 +14,13 @@ export const Home: FC = () => {
   const preferences = useAppStore((state) => state.preferences);
   const currentWeek = useAppStore((state) => state.currentWeek);
   const setCurrentWeek = useAppStore((state) => state.setCurrentWeek);
+  const workoutGoal = useAppStore((state) => state.workoutGoal);
   const navigate = useNavigate();
   const { isLoadingSuggestions, startWorkout, startQuickWorkout } = useStartWorkout();
   const [showWeekSelector, setShowWeekSelector] = useState(false);
+
+  const goalInfo = WORKOUT_GOALS[workoutGoal];
+  const showProgressiveOverload = goalInfo.useProgressiveOverload;
 
   const resumeWorkout = () => {
     navigate('/workout');
@@ -74,20 +78,24 @@ export const Home: FC = () => {
           <h1 className="text-2xl font-bold text-foreground">
             Workout Tracker
           </h1>
-          <WeekBadge
-            week={currentWeek}
-            onClick={() => setShowWeekSelector(true)}
-          />
+          {showProgressiveOverload && (
+            <WeekBadge
+              week={currentWeek}
+              onClick={() => setShowWeekSelector(true)}
+            />
+          )}
         </div>
 
         {/* Progressive Overload Week Card */}
-        <section className="mb-6">
-          <WeekBadge
-            week={currentWeek}
-            showDetails
-            onClick={() => setShowWeekSelector(true)}
-          />
-        </section>
+        {showProgressiveOverload && (
+          <section className="mb-6">
+            <WeekBadge
+              week={currentWeek}
+              showDetails
+              onClick={() => setShowWeekSelector(true)}
+            />
+          </section>
+        )}
 
       {/* Active Workout Banner */}
       {activeSession && (

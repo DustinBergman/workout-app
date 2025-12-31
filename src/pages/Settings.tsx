@@ -13,10 +13,13 @@ import {
   Label,
 } from '../components/ui';
 import { exportAllData, importAllData, clearAllData } from '../services/storage';
+import { WorkoutGoal, WORKOUT_GOALS } from '../types';
 
 export const Settings: FC = () => {
   const preferences = useAppStore((state) => state.preferences);
   const updatePreferences = useAppStore((state) => state.updatePreferences);
+  const workoutGoal = useAppStore((state) => state.workoutGoal);
+  const setWorkoutGoal = useAppStore((state) => state.setWorkoutGoal);
   const [showApiKey, setShowApiKey] = useState(false);
   const [apiKeyInput, setApiKeyInput] = useState(preferences.openaiApiKey || '');
   const [importError, setImportError] = useState('');
@@ -141,6 +144,53 @@ export const Settings: FC = () => {
             />
           </div>
         </Card>
+      </section>
+
+      {/* Training Goal */}
+      <section className="mb-8">
+        <h2 className="text-lg font-semibold text-foreground mb-4">
+          Training Goal
+        </h2>
+
+        <div className="space-y-3">
+          {(Object.keys(WORKOUT_GOALS) as WorkoutGoal[]).map((goal) => {
+            const goalInfo = WORKOUT_GOALS[goal];
+            const isSelected = goal === workoutGoal;
+            return (
+              <button
+                key={goal}
+                onClick={() => setWorkoutGoal(goal)}
+                className={`w-full p-4 rounded-xl border text-left transition-all ${
+                  isSelected
+                    ? 'border-primary bg-primary/10'
+                    : 'border-border bg-card hover:border-primary/50 hover:bg-muted/50'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="font-semibold text-foreground">
+                    {goalInfo.name}
+                  </span>
+                  {isSelected && (
+                    <svg className="w-5 h-5 text-primary" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {goalInfo.description}
+                </p>
+                <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
+                  <span>Rep range: {goalInfo.defaultRepRange}</span>
+                  {goalInfo.useProgressiveOverload ? (
+                    <span className="text-green-600 dark:text-green-400">Progressive overload enabled</span>
+                  ) : (
+                    <span className="text-orange-500 dark:text-orange-400">Maintain weights</span>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
       </section>
 
       {/* AI Assistant */}

@@ -17,6 +17,7 @@ const resetStore = () => {
     },
     customExercises: [],
     currentWeek: 0,
+    workoutGoal: 'build',
   });
 };
 
@@ -264,6 +265,43 @@ describe('useAppStore', () => {
       }
       // After 5 advances, should be back to 0
       expect(useAppStore.getState().currentWeek).toBe(0);
+    });
+  });
+
+  describe('Workout Goal Actions', () => {
+    it('should have workoutGoal default to build', () => {
+      const state = useAppStore.getState();
+      expect(state.workoutGoal).toBe('build');
+    });
+
+    it('should set workout goal to lose', () => {
+      useAppStore.getState().setWorkoutGoal('lose');
+
+      expect(useAppStore.getState().workoutGoal).toBe('lose');
+    });
+
+    it('should set workout goal to maintain', () => {
+      useAppStore.getState().setWorkoutGoal('maintain');
+
+      expect(useAppStore.getState().workoutGoal).toBe('maintain');
+    });
+
+    it('should set workout goal back to build', () => {
+      useAppStore.getState().setWorkoutGoal('lose');
+      useAppStore.getState().setWorkoutGoal('build');
+
+      expect(useAppStore.getState().workoutGoal).toBe('build');
+    });
+
+    it('should allow changing between all goal types', () => {
+      useAppStore.getState().setWorkoutGoal('build');
+      expect(useAppStore.getState().workoutGoal).toBe('build');
+
+      useAppStore.getState().setWorkoutGoal('lose');
+      expect(useAppStore.getState().workoutGoal).toBe('lose');
+
+      useAppStore.getState().setWorkoutGoal('maintain');
+      expect(useAppStore.getState().workoutGoal).toBe('maintain');
     });
   });
 
