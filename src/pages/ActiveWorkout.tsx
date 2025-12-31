@@ -1,6 +1,7 @@
-import { FC } from 'react';
+import { FC, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
+import { useCurrentWorkoutStore } from '../store/currentWorkoutStore';
 import { Button, Card } from '../components/ui';
 import { RestTimer } from '../components/timer/RestTimer';
 import { ExerciseAccordion } from '../components/workout/ExerciseAccordion';
@@ -17,80 +18,88 @@ import {
 } from '../components/active-workout';
 import { getExerciseById } from '../data/exercises';
 import { StrengthExercise, CardioExercise } from '../types';
-import { useActiveWorkout } from '../hooks/useActiveWorkout';
+import {
+  useActiveWorkout,
+  useRestTimer,
+  useExerciseManagement,
+  useCustomExercise,
+  useExerciseHistory,
+} from '../hooks/useActiveWorkout';
 
 export const ActiveWorkout: FC = () => {
   const navigate = useNavigate();
+
+  // App store (direct access)
+  const session = useAppStore((state) => state.activeSession);
   const sessions = useAppStore((state) => state.sessions);
   const customExercises = useAppStore((state) => state.customExercises);
+  const weightUnit = useAppStore((state) => state.preferences.weightUnit);
+  const distanceUnit = useAppStore((state) => state.preferences.distanceUnit);
 
+  // Current workout store (direct access)
+  const expandedIndex = useCurrentWorkoutStore((state) => state.expandedIndex);
+  const setExpandedIndex = useCurrentWorkoutStore((state) => state.setExpandedIndex);
+  const showTimer = useCurrentWorkoutStore((state) => state.showTimer);
+  const timerDuration = useCurrentWorkoutStore((state) => state.timerDuration);
+  const showExercisePicker = useCurrentWorkoutStore((state) => state.showExercisePicker);
+  const setShowExercisePicker = useCurrentWorkoutStore((state) => state.setShowExercisePicker);
+  const exerciseSearch = useCurrentWorkoutStore((state) => state.exerciseSearch);
+  const setExerciseSearch = useCurrentWorkoutStore((state) => state.setExerciseSearch);
+  const showFinishConfirm = useCurrentWorkoutStore((state) => state.showFinishConfirm);
+  const setShowFinishConfirm = useCurrentWorkoutStore((state) => state.setShowFinishConfirm);
+  const updatePlan = useCurrentWorkoutStore((state) => state.updatePlan);
+  const setUpdatePlan = useCurrentWorkoutStore((state) => state.setUpdatePlan);
+
+  // Sub-hooks
+  const { handleStartTimer, hideTimer } = useRestTimer();
   const {
-    // Session state
-    session,
-    elapsedSeconds,
-    hasDeviated,
-    totalSets,
-    totalVolume,
-    totalCardioDistance,
-
-    // Exercise management
-    expandedIndex,
-    setExpandedIndex,
     logSetForExercise,
     logCardioForExercise,
     removeLastSetForExercise,
     addExerciseToSession,
     removeExercise,
     updateTargetSets,
-    getSuggestionForExercise,
-
-    // Custom exercise creation
+  } = useExerciseManagement();
+  const {
     customExerciseState,
     setIsCreatingExercise,
     setNewExerciseName,
     setNewExerciseEquipment,
     toggleMuscleGroup,
     resetNewExerciseForm,
-    handleCreateExercise,
-
-    // Timer
-    timerDuration,
-    showTimer,
-    handleStartTimer,
-    hideTimer,
-
-    // Modals
-    showExercisePicker,
-    setShowExercisePicker,
-    exerciseSearch,
-    setExerciseSearch,
-    showFinishConfirm,
-    setShowFinishConfirm,
-    filteredExercises,
-
-    // Exercise history
+    createExercise,
+  } = useCustomExercise();
+  const {
     historyExerciseId,
     historyExerciseName,
     handleShowHistory,
     closeHistory,
+  } = useExerciseHistory();
 
-    // Template update
-    updatePlan,
-    setUpdatePlan,
-
-    // Scoring
+  // Main hook (computed values + orchestrated actions)
+  const {
+    elapsedSeconds,
+    hasDeviated,
+    totalSets,
+    totalVolume,
+    totalCardioDistance,
+    filteredExercises,
+    getSuggestionForExercise,
     isScoring,
     scoreResult,
     scoreError,
     clearScoreResult,
-
-    // Actions
     finishWorkout,
     cancelWorkout,
-
-    // Preferences
-    preferences,
   } = useActiveWorkout();
+
+  // Custom exercise creation handler
+  const handleCreateExercise = useCallback(() => {
+    const newExercise = createExercise();
+    if (newExercise) {
+      addExerciseToSession(newExercise.id);
+    }
+  }, [createExercise, addExerciseToSession]);
 
   if (!session) return null;
 
@@ -103,8 +112,8 @@ export const ActiveWorkout: FC = () => {
         totalSets={totalSets}
         totalVolume={totalVolume}
         totalCardioDistance={totalCardioDistance}
-        weightUnit={preferences.weightUnit}
-        distanceUnit={preferences.distanceUnit}
+        weightUnit={weightUnit}
+        distanceUnit={distanceUnit}
         onFinishClick={() => setShowFinishConfirm(true)}
       />
 
@@ -122,13 +131,13 @@ export const ActiveWorkout: FC = () => {
                   exerciseInfo={exerciseInfo as CardioExercise | undefined}
                   isExpanded={expandedIndex === index}
                   onToggle={() => setExpandedIndex(expandedIndex === index ? null : index)}
-                  onLogCardio={(distance, distanceUnit, durationSeconds) =>
-                    logCardioForExercise(index, distance, distanceUnit, durationSeconds)
+                  onLogCardio={(distance, unit, durationSeconds) =>
+                    logCardioForExercise(index, distance, unit, durationSeconds)
                   }
                   onRemoveLastSet={() => removeLastSetForExercise(index)}
                   onRemoveExercise={() => removeExercise(index)}
                   onShowHistory={() => handleShowHistory(exercise.exerciseId)}
-                  distanceUnit={preferences.distanceUnit}
+                  distanceUnit={distanceUnit}
                 />
               );
             }
@@ -146,7 +155,7 @@ export const ActiveWorkout: FC = () => {
                 onStartTimer={handleStartTimer}
                 onUpdateTargetSets={(delta) => updateTargetSets(exercise.exerciseId, delta)}
                 onShowHistory={() => handleShowHistory(exercise.exerciseId)}
-                weightUnit={preferences.weightUnit}
+                weightUnit={weightUnit}
                 suggestion={getSuggestionForExercise(exercise.exerciseId)}
               />
             );
@@ -217,8 +226,8 @@ export const ActiveWorkout: FC = () => {
         totalSets={totalSets}
         totalVolume={totalVolume}
         totalCardioDistance={totalCardioDistance}
-        weightUnit={preferences.weightUnit}
-        distanceUnit={preferences.distanceUnit}
+        weightUnit={weightUnit}
+        distanceUnit={distanceUnit}
         hasDeviated={hasDeviated}
         hasTemplateId={!!session.templateId}
         updatePlan={updatePlan}
@@ -251,7 +260,7 @@ export const ActiveWorkout: FC = () => {
         exerciseId={historyExerciseId || ''}
         exerciseName={historyExerciseName}
         sessions={sessions}
-        weightUnit={preferences.weightUnit}
+        weightUnit={weightUnit}
       />
     </div>
   );

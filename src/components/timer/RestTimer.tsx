@@ -13,29 +13,39 @@ export const RestTimer: FC<RestTimerProps> = ({ duration, onComplete, onSkip, au
   const hasPlayedRef = useRef(false);
 
   const handleComplete = useCallback(() => {
-    // Play notification sound
+    // Play notification ding sound
     if (!hasPlayedRef.current) {
       hasPlayedRef.current = true;
       try {
-        // Create a simple beep using Web Audio API
         const audioContext = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
 
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
+        // Play a pleasant double-ding notification
+        const playDing = (time: number) => {
+          const oscillator = audioContext.createOscillator();
+          const gainNode = audioContext.createGain();
 
-        oscillator.frequency.value = 880; // A5 note
-        oscillator.type = 'sine';
-        gainNode.gain.value = 0.3;
+          oscillator.connect(gainNode);
+          gainNode.connect(audioContext.destination);
 
-        oscillator.start();
-        setTimeout(() => {
-          oscillator.stop();
-          audioContext.close();
-        }, 300);
+          oscillator.frequency.value = 1047; // C6 note - bright ding
+          oscillator.type = 'sine';
+
+          // Bell-like envelope with quick attack and decay
+          gainNode.gain.setValueAtTime(0, time);
+          gainNode.gain.linearRampToValueAtTime(0.4, time + 0.01);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, time + 0.4);
+
+          oscillator.start(time);
+          oscillator.stop(time + 0.4);
+        };
+
+        const now = audioContext.currentTime;
+        playDing(now);
+        playDing(now + 0.2); // Second ding slightly after
+
+        // Close audio context after sounds finish
+        setTimeout(() => audioContext.close(), 1000);
       } catch (e) {
-        // Fallback if Web Audio API fails
         console.log('Audio notification failed:', e);
       }
     }

@@ -134,9 +134,5 @@ export const importAllData = (jsonData: string): boolean => {
 
 // Clear all data
 export const clearAllData = (): void => {
-  localStorage.removeItem(STORAGE_KEYS.TEMPLATES);
-  localStorage.removeItem(STORAGE_KEYS.SESSIONS);
-  localStorage.removeItem(STORAGE_KEYS.PREFERENCES);
-  localStorage.removeItem(STORAGE_KEYS.ACTIVE_SESSION);
-  localStorage.removeItem(STORAGE_KEYS.CUSTOM_EXERCISES);
+  localStorage.clear();
 };
