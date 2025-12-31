@@ -1,12 +1,13 @@
-import { InputHTMLAttributes, forwardRef } from 'react';
+import { forwardRef, InputHTMLAttributes } from 'react';
+import { cn } from '@/lib/utils';
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
 }
 
-export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ className = '', label, error, id, ...props }, ref) => {
+const Input = forwardRef<HTMLInputElement, InputProps>(
+  ({ className, label, error, id, type = 'text', ...props }, ref) => {
     const inputId = id || label?.toLowerCase().replace(/\s+/g, '-');
 
     return (
@@ -14,33 +15,34 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         {label && (
           <label
             htmlFor={inputId}
-            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+            className="block text-sm font-medium text-foreground mb-1.5"
           >
             {label}
           </label>
         )}
         <input
-          ref={ref}
+          type={type}
           id={inputId}
-          className={`
-            w-full px-3 py-2 rounded-lg border
-            bg-white dark:bg-gray-800
-            text-gray-900 dark:text-gray-100
-            border-gray-300 dark:border-gray-600
-            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
-            placeholder-gray-400 dark:placeholder-gray-500
-            disabled:opacity-50 disabled:cursor-not-allowed
-            ${error ? 'border-red-500 focus:ring-red-500' : ''}
-            ${className}
-          `}
+          className={cn(
+            'flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm transition-colors',
+            'file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground',
+            'placeholder:text-muted-foreground',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            'disabled:cursor-not-allowed disabled:opacity-50',
+            error && 'border-destructive focus-visible:ring-destructive',
+            className
+          )}
+          ref={ref}
           {...props}
         />
         {error && (
-          <p className="mt-1 text-sm text-red-500">{error}</p>
+          <p className="mt-1.5 text-sm text-destructive">{error}</p>
         )}
       </div>
     );
   }
 );
-
 Input.displayName = 'Input';
+
+export { Input };
+export type { InputProps };

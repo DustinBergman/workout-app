@@ -1,6 +1,15 @@
 import { useState, useMemo, FC } from 'react';
 import { exercises, searchExercises } from '../data/exercises';
-import { Card, Input } from '../components/ui';
+import {
+  Card,
+  Input,
+  Badge,
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '../components/ui';
 import { MuscleGroup, Equipment } from '../types';
 
 const muscleGroups: MuscleGroup[] = [
@@ -43,7 +52,7 @@ export const ExerciseLibrary: FC = () => {
 
   return (
     <div className="p-4 pb-20">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+      <h1 className="text-2xl font-bold text-foreground mb-4">
         Exercise Library
       </h1>
 
@@ -58,35 +67,43 @@ export const ExerciseLibrary: FC = () => {
 
       {/* Filters */}
       <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
-        <select
-          value={selectedMuscle}
-          onChange={(e) => setSelectedMuscle(e.target.value as MuscleGroup | '')}
-          className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm"
+        <Select
+          value={selectedMuscle || 'all'}
+          onValueChange={(value) => setSelectedMuscle(value === 'all' ? '' : value as MuscleGroup)}
         >
-          <option value="">All Muscles</option>
-          {muscleGroups.map((muscle) => (
-            <option key={muscle} value={muscle}>
-              {formatMuscleGroup(muscle)}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="All Muscles" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Muscles</SelectItem>
+            {muscleGroups.map((muscle) => (
+              <SelectItem key={muscle} value={muscle}>
+                {formatMuscleGroup(muscle)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-        <select
-          value={selectedEquipment}
-          onChange={(e) => setSelectedEquipment(e.target.value as Equipment | '')}
-          className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm"
+        <Select
+          value={selectedEquipment || 'all'}
+          onValueChange={(value) => setSelectedEquipment(value === 'all' ? '' : value as Equipment)}
         >
-          <option value="">All Equipment</option>
-          {equipmentTypes.map((equipment) => (
-            <option key={equipment} value={equipment}>
-              {formatEquipment(equipment)}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="All Equipment" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Equipment</SelectItem>
+            {equipmentTypes.map((equipment) => (
+              <SelectItem key={equipment} value={equipment}>
+                {formatEquipment(equipment)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Results count */}
-      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+      <p className="text-sm text-muted-foreground mb-4">
         {filteredExercises.length} exercise{filteredExercises.length !== 1 ? 's' : ''}
       </p>
 
@@ -102,25 +119,22 @@ export const ExerciseLibrary: FC = () => {
           >
             <div className="flex items-start justify-between">
               <div className="flex-1">
-                <h3 className="font-medium text-gray-900 dark:text-gray-100">
+                <h3 className="font-medium text-foreground">
                   {exercise.name}
                 </h3>
                 <div className="flex flex-wrap gap-1 mt-1">
                   {exercise.muscleGroups.map((muscle) => (
-                    <span
-                      key={muscle}
-                      className="px-2 py-0.5 text-xs rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
-                    >
+                    <Badge key={muscle} variant="default" className="text-xs">
                       {formatMuscleGroup(muscle)}
-                    </span>
+                    </Badge>
                   ))}
-                  <span className="px-2 py-0.5 text-xs rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
+                  <Badge variant="secondary" className="text-xs">
                     {formatEquipment(exercise.equipment)}
-                  </span>
+                  </Badge>
                 </div>
               </div>
               <svg
-                className={`w-5 h-5 text-gray-400 transition-transform ${
+                className={`w-5 h-5 text-muted-foreground transition-transform ${
                   expandedExercise === exercise.id ? 'rotate-180' : ''
                 }`}
                 fill="none"
@@ -133,8 +147,8 @@ export const ExerciseLibrary: FC = () => {
 
             {/* Expanded content */}
             {expandedExercise === exercise.id && exercise.instructions && (
-              <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+              <div className="mt-3 pt-3 border-t border-border">
+                <p className="text-sm text-muted-foreground">
                   {exercise.instructions}
                 </p>
               </div>
@@ -146,7 +160,7 @@ export const ExerciseLibrary: FC = () => {
       {/* Empty state */}
       {filteredExercises.length === 0 && (
         <Card className="text-center py-8">
-          <p className="text-gray-500 dark:text-gray-400">
+          <p className="text-muted-foreground">
             No exercises found matching your criteria.
           </p>
         </Card>

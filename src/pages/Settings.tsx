@@ -1,6 +1,17 @@
 import { useState, FC } from 'react';
 import { useAppStore } from '../store/useAppStore';
-import { Card, Button, Input } from '../components/ui';
+import {
+  Card,
+  Button,
+  Input,
+  Switch,
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+  Label,
+} from '../components/ui';
 import { exportAllData, importAllData, clearAllData } from '../services/storage';
 
 export const Settings: FC = () => {
@@ -63,13 +74,13 @@ export const Settings: FC = () => {
 
   return (
     <div className="p-4 pb-20">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">
+      <h1 className="text-2xl font-bold text-foreground mb-6">
         Settings
       </h1>
 
       {/* Preferences */}
       <section className="mb-8">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+        <h2 className="text-lg font-semibold text-foreground mb-4">
           Preferences
         </h2>
 
@@ -77,78 +88,78 @@ export const Settings: FC = () => {
           {/* Weight Unit */}
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-medium text-gray-900 dark:text-gray-100">Weight Unit</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Choose your preferred unit</p>
+              <Label className="font-medium text-foreground">Weight Unit</Label>
+              <p className="text-sm text-muted-foreground">Choose your preferred unit</p>
             </div>
-            <select
+            <Select
               value={preferences.weightUnit}
-              onChange={(e) => updatePreferences({ weightUnit: e.target.value as 'lbs' | 'kg' })}
-              className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+              onValueChange={(value) => updatePreferences({ weightUnit: value as 'lbs' | 'kg' })}
             >
-              <option value="lbs">Pounds (lbs)</option>
-              <option value="kg">Kilograms (kg)</option>
-            </select>
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="lbs">Pounds (lbs)</SelectItem>
+                <SelectItem value="kg">Kilograms (kg)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Default Rest Time */}
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-medium text-gray-900 dark:text-gray-100">Default Rest Time</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Rest timer duration (seconds)</p>
+              <Label className="font-medium text-foreground">Default Rest Time</Label>
+              <p className="text-sm text-muted-foreground">Rest timer duration (seconds)</p>
             </div>
-            <select
-              value={preferences.defaultRestSeconds}
-              onChange={(e) => updatePreferences({ defaultRestSeconds: parseInt(e.target.value) })}
-              className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+            <Select
+              value={String(preferences.defaultRestSeconds)}
+              onValueChange={(value) => updatePreferences({ defaultRestSeconds: parseInt(value) })}
             >
-              <option value="30">30 sec</option>
-              <option value="60">60 sec</option>
-              <option value="90">90 sec</option>
-              <option value="120">2 min</option>
-              <option value="180">3 min</option>
-              <option value="300">5 min</option>
-            </select>
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="30">30 sec</SelectItem>
+                <SelectItem value="60">60 sec</SelectItem>
+                <SelectItem value="90">90 sec</SelectItem>
+                <SelectItem value="120">2 min</SelectItem>
+                <SelectItem value="180">3 min</SelectItem>
+                <SelectItem value="300">5 min</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Dark Mode */}
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-medium text-gray-900 dark:text-gray-100">Dark Mode</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Toggle dark theme</p>
+              <Label className="font-medium text-foreground">Dark Mode</Label>
+              <p className="text-sm text-muted-foreground">Toggle dark theme</p>
             </div>
-            <button
-              onClick={() => updatePreferences({ darkMode: !preferences.darkMode })}
-              className={`relative w-14 h-8 rounded-full transition-colors ${
-                preferences.darkMode ? 'bg-blue-600' : 'bg-gray-300'
-              }`}
-            >
-              <span
-                className={`absolute top-1 w-6 h-6 rounded-full bg-white shadow transition-transform ${
-                  preferences.darkMode ? 'translate-x-7' : 'translate-x-1'
-                }`}
-              />
-            </button>
+            <Switch
+              checked={preferences.darkMode}
+              onCheckedChange={(checked) => updatePreferences({ darkMode: checked })}
+            />
           </div>
         </Card>
       </section>
 
       {/* AI Assistant */}
       <section className="mb-8">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+        <h2 className="text-lg font-semibold text-foreground mb-4">
           AI Assistant
         </h2>
 
         <Card>
           <div className="mb-4">
-            <p className="font-medium text-gray-900 dark:text-gray-100 mb-1">OpenAI API Key</p>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+            <Label className="font-medium text-foreground mb-1 block">OpenAI API Key</Label>
+            <p className="text-sm text-muted-foreground mb-2">
               Required for AI-powered progressive overload recommendations.
               Get your key from{' '}
               <a
                 href="https://platform.openai.com/api-keys"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-blue-600 dark:text-blue-400 underline"
+                className="text-primary underline"
               >
                 OpenAI
               </a>
@@ -176,7 +187,7 @@ export const Settings: FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowApiKey(!showApiKey)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                 >
                   {showApiKey ? (
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -200,7 +211,7 @@ export const Settings: FC = () => {
 
       {/* Data Management */}
       <section className="mb-8">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+        <h2 className="text-lg font-semibold text-foreground mb-4">
           Data Management
         </h2>
 
@@ -208,8 +219,8 @@ export const Settings: FC = () => {
           {/* Export */}
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-medium text-gray-900 dark:text-gray-100">Export Data</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Download all your workout data</p>
+              <Label className="font-medium text-foreground">Export Data</Label>
+              <p className="text-sm text-muted-foreground">Download all your workout data</p>
             </div>
             <Button variant="secondary" onClick={handleExport}>
               Export
@@ -219,12 +230,12 @@ export const Settings: FC = () => {
           {/* Import */}
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-medium text-gray-900 dark:text-gray-100">Import Data</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
+              <Label className="font-medium text-foreground">Import Data</Label>
+              <p className="text-sm text-muted-foreground">
                 {importSuccess ? (
                   <span className="text-green-500">Import successful! Reloading...</span>
                 ) : importError ? (
-                  <span className="text-red-500">{importError}</span>
+                  <span className="text-destructive">{importError}</span>
                 ) : (
                   'Restore from a backup file'
                 )}
@@ -237,17 +248,17 @@ export const Settings: FC = () => {
                 onChange={handleImport}
                 className="hidden"
               />
-              <span className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
-                Import
-              </span>
+              <Button variant="secondary" asChild>
+                <span>Import</span>
+              </Button>
             </label>
           </div>
 
           {/* Clear Data */}
-          <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between pt-4 border-t border-border">
             <div>
-              <p className="font-medium text-red-600 dark:text-red-400">Clear All Data</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
+              <Label className="font-medium text-destructive">Clear All Data</Label>
+              <p className="text-sm text-muted-foreground">
                 Permanently delete all workout data
               </p>
             </div>
@@ -260,14 +271,14 @@ export const Settings: FC = () => {
 
       {/* About */}
       <section>
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+        <h2 className="text-lg font-semibold text-foreground mb-4">
           About
         </h2>
         <Card>
-          <p className="text-gray-600 dark:text-gray-400 text-sm">
+          <p className="text-muted-foreground text-sm">
             Workout Tracker v1.0.0
           </p>
-          <p className="text-gray-500 dark:text-gray-500 text-sm mt-2">
+          <p className="text-muted-foreground text-sm mt-2">
             A simple, privacy-focused workout tracking app with AI-powered progressive overload recommendations.
             All data is stored locally on your device.
           </p>

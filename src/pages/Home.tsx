@@ -22,20 +22,37 @@ export const Home: FC = () => {
     .slice(0, 3);
 
   return (
-    <div className="p-4 pb-20">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">
-        Workout Tracker
-      </h1>
+    <div className="relative min-h-screen">
+      {/* Floating Orbs Gradient Background */}
+      <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
+        {/* Top right orb - blue to purple */}
+        <div className="absolute -top-40 -right-40 w-96 h-96 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full blur-3xl opacity-30 dark:opacity-20 animate-float-1" />
+        {/* Bottom left orb - purple to pink */}
+        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-gradient-to-tr from-purple-400 to-pink-500 rounded-full blur-3xl opacity-30 dark:opacity-20 animate-float-2" />
+        {/* Center accent orb - cyan */}
+        <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-gradient-to-r from-cyan-400 to-blue-500 rounded-full blur-3xl opacity-15 dark:opacity-10 animate-float-3" />
+        {/* Top left orb - teal to emerald */}
+        <div className="absolute -top-20 -left-20 w-72 h-72 bg-gradient-to-br from-teal-400 to-emerald-500 rounded-full blur-3xl opacity-25 dark:opacity-15 animate-float-4" />
+        {/* Bottom right orb - indigo to violet */}
+        <div className="absolute -bottom-20 -right-20 w-80 h-80 bg-gradient-to-tl from-indigo-400 to-violet-500 rounded-full blur-3xl opacity-25 dark:opacity-15 animate-float-5" />
+        {/* Middle right orb - rose to orange */}
+        <div className="absolute top-1/3 -right-10 w-56 h-56 bg-gradient-to-bl from-rose-400 to-orange-400 rounded-full blur-3xl opacity-20 dark:opacity-10 animate-float-6" />
+      </div>
+
+      <div className="relative z-10 p-4 pb-20">
+        <h1 className="text-2xl font-bold text-foreground mb-6">
+          Workout Tracker
+        </h1>
 
       {/* Active Workout Banner */}
       {activeSession && (
-        <Card className="mb-6 bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800">
+        <Card className="mb-6 bg-primary/10 border-primary/30">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">
+              <p className="text-sm text-primary font-medium">
                 Workout in progress
               </p>
-              <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              <p className="text-lg font-semibold text-foreground">
                 {activeSession.name}
               </p>
             </div>
@@ -46,7 +63,7 @@ export const Home: FC = () => {
 
       {/* Quick Start */}
       <section className="mb-8">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">
+        <h2 className="text-lg font-semibold text-foreground mb-3">
           Quick Start
         </h2>
         <div className="grid grid-cols-2 gap-3">
@@ -78,10 +95,10 @@ export const Home: FC = () => {
       {templates.length > 0 && (
         <section className="mb-8">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            <h2 className="text-lg font-semibold text-foreground">
               Your Templates
             </h2>
-            <Link to="/templates" className="text-sm text-blue-600 dark:text-blue-400">
+            <Link to="/templates" className="text-sm text-primary">
               View all
             </Link>
           </div>
@@ -89,10 +106,10 @@ export const Home: FC = () => {
             {templates.slice(0, 3).map((template) => (
               <Card key={template.id} className="flex items-center justify-between">
                 <div>
-                  <p className="font-medium text-gray-900 dark:text-gray-100">
+                  <p className="font-medium text-foreground">
                     {template.name}
                   </p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                  <p className="text-sm text-muted-foreground">
                     {template.exercises.length} exercises
                   </p>
                 </div>
@@ -109,10 +126,10 @@ export const Home: FC = () => {
       {recentSessions.length > 0 && (
         <section>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            <h2 className="text-lg font-semibold text-foreground">
               Recent Workouts
             </h2>
-            <Link to="/history" className="text-sm text-blue-600 dark:text-blue-400">
+            <Link to="/history" className="text-sm text-primary">
               View all
             </Link>
           </div>
@@ -123,18 +140,18 @@ export const Home: FC = () => {
                 <Card key={session.id}>
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-medium text-gray-900 dark:text-gray-100">
+                      <p className="font-medium text-foreground">
                         {session.name}
                       </p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                      <p className="text-sm text-muted-foreground">
                         {new Date(session.startedAt).toLocaleDateString()}
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                      <p className="text-sm font-medium text-foreground">
                         {stats.totalSets} sets
                       </p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                      <p className="text-sm text-muted-foreground">
                         {stats.totalVolume.toLocaleString()} {preferences.weightUnit}
                       </p>
                     </div>
@@ -149,10 +166,10 @@ export const Home: FC = () => {
       {/* Empty State */}
       {templates.length === 0 && sessions.length === 0 && (
         <Card className="text-center py-8">
-          <svg className="w-12 h-12 mx-auto text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="w-12 h-12 mx-auto text-muted-foreground mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
           </svg>
-          <p className="text-gray-600 dark:text-gray-400 mb-4">
+          <p className="text-muted-foreground mb-4">
             No workouts yet. Create a template or start an empty workout!
           </p>
           <Link to="/templates">
@@ -168,12 +185,13 @@ export const Home: FC = () => {
         title="Preparing Your Workout"
       >
         <div className="text-center py-8">
-          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-600 dark:text-gray-400">
+          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">
             Getting AI recommendations...
           </p>
         </div>
       </Modal>
+      </div>
     </div>
   );
 }
