@@ -6,6 +6,7 @@ import { useHome } from '../hooks/useHome';
 import {
   FloatingOrbsBackground,
   ApiKeyBanner,
+  WeightReminderBanner,
   RecommendationsCard,
   ActiveWorkoutBanner,
   QuickStartSection,
@@ -16,6 +17,7 @@ import {
   WeekSelectorModal,
   LoadingModal,
 } from '../components/home';
+import { WeightLogModal } from '../components/weight';
 
 export const Home: FC = () => {
   const navigate = useNavigate();
@@ -31,6 +33,9 @@ export const Home: FC = () => {
     showProgressiveOverload,
     recentSessions,
     nextWorkout,
+    shouldShowWeightReminder,
+    showWeightModal,
+    setShowWeightModal,
     recommendations,
     loadingRecommendations,
     showWeekSelector,
@@ -50,7 +55,7 @@ export const Home: FC = () => {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-foreground">
-            {preferences.firstName ? `Hello ${preferences.firstName}` : 'Workout Tracker'}
+            {preferences.firstName ? `Hello ${preferences.firstName}` : 'Lift'}
           </h1>
           {showProgressiveOverload && (
             <WeekBadge
@@ -62,6 +67,11 @@ export const Home: FC = () => {
 
         {/* API Key Banner */}
         {!preferences.openaiApiKey && <ApiKeyBanner />}
+
+        {/* Weight Reminder Banner */}
+        {shouldShowWeightReminder && (
+          <WeightReminderBanner onClick={() => setShowWeightModal(true)} />
+        )}
 
         {/* Progressive Overload Week Card */}
         {showProgressiveOverload && (
@@ -130,6 +140,11 @@ export const Home: FC = () => {
           onClose={() => setShowWeekSelector(false)}
           currentWeek={currentWeek}
           onSelectWeek={selectWeek}
+        />
+
+        <WeightLogModal
+          isOpen={showWeightModal}
+          onClose={() => setShowWeightModal(false)}
         />
       </div>
     </div>

@@ -9,6 +9,7 @@ import {
   WorkoutGoal,
   GoalInfo,
   WorkoutRecommendation,
+  WeightEntry,
   WORKOUT_GOALS,
 } from '../types';
 
@@ -27,6 +28,13 @@ export interface UseHomeReturn {
   goalInfo: GoalInfo;
   recentSessions: WorkoutSession[];
   nextWorkout: WorkoutTemplate | null;
+
+  // Weight tracking
+  weightEntries: WeightEntry[];
+  lastWeightEntry: WeightEntry | null;
+  shouldShowWeightReminder: boolean;
+  showWeightModal: boolean;
+  setShowWeightModal: (show: boolean) => void;
 
   // Recommendations
   recommendations: WorkoutRecommendation[];
@@ -49,9 +57,11 @@ export const useHome = (): UseHomeReturn => {
   const weekStartedAt = useAppStore((state) => state.weekStartedAt);
   const setCurrentWeek = useAppStore((state) => state.setCurrentWeek);
   const advanceWeek = useAppStore((state) => state.advanceWeek);
+  const weightEntries = useAppStore((state) => state.weightEntries);
 
   // Local state
   const [showWeekSelector, setShowWeekSelector] = useState(false);
+  const [showWeightModal, setShowWeightModal] = useState(false);
   const [recommendations, setRecommendations] = useState<WorkoutRecommendation[]>([]);
   const [loadingRecommendations, setLoadingRecommendations] = useState(false);
 
@@ -59,6 +69,24 @@ export const useHome = (): UseHomeReturn => {
   const hasApiKey = !!preferences.openaiApiKey;
   const goalInfo = WORKOUT_GOALS[workoutGoal];
   const showProgressiveOverload = goalInfo.useProgressiveOverload;
+
+  // Weight tracking computed values
+  const lastWeightEntry = useMemo(() => {
+    if (weightEntries.length === 0) return null;
+    return [...weightEntries].sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    )[0];
+  }, [weightEntries]);
+
+  const shouldShowWeightReminder = useMemo(() => {
+    if (!lastWeightEntry) return true; // Never logged weight
+    const lastDate = new Date(lastWeightEntry.date);
+    const now = new Date();
+    const daysSinceLastEntry = Math.floor(
+      (now.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24)
+    );
+    return daysSinceLastEntry >= 2;
+  }, [lastWeightEntry]);
 
   // Recent sessions (most recent 3)
   const recentSessions = useMemo(() => {
@@ -155,6 +183,13 @@ export const useHome = (): UseHomeReturn => {
     goalInfo,
     recentSessions,
     nextWorkout,
+
+    // Weight tracking
+    weightEntries,
+    lastWeightEntry,
+    shouldShowWeightReminder,
+    showWeightModal,
+    setShowWeightModal,
 
     // Recommendations
     recommendations,

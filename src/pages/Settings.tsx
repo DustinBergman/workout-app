@@ -346,11 +346,22 @@ export const Settings: FC = () => {
         </h2>
         <Card>
           <p className="text-muted-foreground text-sm">
-            Workout Tracker v1.0.0
+            Lift v1.0.0
           </p>
           <p className="text-muted-foreground text-sm mt-2">
             A simple, privacy-focused workout tracking app with AI-powered progressive overload recommendations.
             All data is stored locally on your device.
+          </p>
+          <p className="text-muted-foreground text-sm mt-4">
+            Created by{' '}
+            <a
+              href="https://github.com/DustinBergman"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary underline"
+            >
+              Dustin Bergman
+            </a>
           </p>
         </Card>
       </section>

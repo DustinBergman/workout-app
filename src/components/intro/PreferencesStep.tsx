@@ -1,6 +1,6 @@
 import { FC } from 'react';
 import { Card } from '../ui';
-import { WeightUnit } from '../../types';
+import { WeightUnit, DistanceUnit } from '../../types';
 import { StepNavigation } from './StepNavigation';
 
 export interface UnitOption {
@@ -8,10 +8,18 @@ export interface UnitOption {
   label: string;
 }
 
+export interface DistanceUnitOption {
+  value: DistanceUnit;
+  label: string;
+}
+
 export interface PreferencesStepProps {
   selectedUnit: WeightUnit;
   onSelectUnit: (unit: WeightUnit) => void;
   unitOptions: UnitOption[];
+  selectedDistanceUnit: DistanceUnit;
+  onSelectDistanceUnit: (unit: DistanceUnit) => void;
+  distanceUnitOptions: DistanceUnitOption[];
   darkMode: boolean;
   onSelectDarkMode: (dark: boolean) => void;
   onBack: () => void;
@@ -22,6 +30,9 @@ export const PreferencesStep: FC<PreferencesStepProps> = ({
   selectedUnit,
   onSelectUnit,
   unitOptions,
+  selectedDistanceUnit,
+  onSelectDistanceUnit,
+  distanceUnitOptions,
   darkMode,
   onSelectDarkMode,
   onBack,
@@ -52,6 +63,29 @@ export const PreferencesStep: FC<PreferencesStepProps> = ({
                 onClick={() => onSelectUnit(option.value)}
                 className={`flex-1 p-3 rounded-lg border transition-all ${
                   selectedUnit === option.value
+                    ? 'border-primary bg-primary/10 text-primary font-medium'
+                    : 'border-border/50 bg-background hover:border-primary/50'
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </Card>
+
+        {/* Distance Unit */}
+        <Card padding="lg">
+          <p className="font-medium text-foreground mb-3">
+            Distance Unit
+          </p>
+          <div className="flex gap-3">
+            {distanceUnitOptions.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => onSelectDistanceUnit(option.value)}
+                className={`flex-1 p-3 rounded-lg border transition-all ${
+                  selectedDistanceUnit === option.value
                     ? 'border-primary bg-primary/10 text-primary font-medium'
                     : 'border-border/50 bg-background hover:border-primary/50'
                 }`}

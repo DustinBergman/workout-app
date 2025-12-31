@@ -1,9 +1,11 @@
 import { FC, useState } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import { useAppStore } from '../store/useAppStore';
-import { Card } from '../components/ui';
+import { Card, Button } from '../components/ui';
 import { useUserStats, TimePeriod } from '../hooks/useUserStats';
 import { MuscleGroup } from '../types';
+import { WeightChart } from '../components/you';
+import { WeightLogModal } from '../components/weight';
 
 const MUSCLE_GROUP_COLORS: Record<MuscleGroup, string> = {
   chest: '#ef4444',
@@ -36,9 +38,11 @@ const formatMuscleGroup = (mg: MuscleGroup): string => {
 
 export const You: FC = () => {
   const [timePeriod, setTimePeriod] = useState<TimePeriod>('all');
+  const [showWeightModal, setShowWeightModal] = useState(false);
   const sessions = useAppStore((state) => state.sessions);
   const preferences = useAppStore((state) => state.preferences);
   const customExercises = useAppStore((state) => state.customExercises);
+  const weightEntries = useAppStore((state) => state.weightEntries);
 
   const stats = useUserStats(sessions, timePeriod, customExercises);
 
@@ -132,6 +136,17 @@ export const You: FC = () => {
                   </p>
                 </div>
               </div>
+            </Card>
+
+            {/* Weight Tracking */}
+            <Card padding="lg">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-foreground">Weight Trend</h2>
+                <Button size="sm" onClick={() => setShowWeightModal(true)}>
+                  Log Weight
+                </Button>
+              </div>
+              <WeightChart entries={weightEntries} weightUnit={preferences.weightUnit} />
             </Card>
 
             {/* Muscle Group Pie Chart */}
@@ -282,6 +297,12 @@ export const You: FC = () => {
             </p>
           </div>
         )}
+
+        {/* Weight Log Modal */}
+        <WeightLogModal
+          isOpen={showWeightModal}
+          onClose={() => setShowWeightModal(false)}
+        />
       </div>
     </div>
   );

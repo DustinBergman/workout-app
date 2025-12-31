@@ -11,29 +11,29 @@ interface WeekBadgeProps {
 
 const weekColors: Record<ProgressiveOverloadWeek, { bg: string; text: string; border: string }> = {
   0: {
-    bg: 'bg-slate-500/30 dark:bg-slate-500/20',
+    bg: 'bg-slate-100 dark:bg-slate-500/20',
     text: 'text-slate-700 dark:text-slate-300',
-    border: 'border-slate-500/30',
+    border: 'border-slate-300 dark:border-slate-500/30',
   },
   1: {
-    bg: 'bg-green-500/30 dark:bg-green-500/20',
+    bg: 'bg-green-100 dark:bg-green-500/20',
     text: 'text-green-700 dark:text-green-300',
-    border: 'border-green-500/30',
+    border: 'border-green-300 dark:border-green-500/30',
   },
   2: {
-    bg: 'bg-blue-500/30 dark:bg-blue-500/20',
+    bg: 'bg-blue-100 dark:bg-blue-500/20',
     text: 'text-blue-700 dark:text-blue-300',
-    border: 'border-blue-500/30',
+    border: 'border-blue-300 dark:border-blue-500/30',
   },
   3: {
-    bg: 'bg-orange-500/30 dark:bg-orange-500/20',
+    bg: 'bg-orange-100 dark:bg-orange-500/20',
     text: 'text-orange-700 dark:text-orange-300',
-    border: 'border-orange-500/30',
+    border: 'border-orange-300 dark:border-orange-500/30',
   },
   4: {
-    bg: 'bg-purple-500/30 dark:bg-purple-500/20',
+    bg: 'bg-purple-100 dark:bg-purple-500/20',
     text: 'text-purple-700 dark:text-purple-300',
-    border: 'border-purple-500/30',
+    border: 'border-purple-300 dark:border-purple-500/30',
   },
 };
 

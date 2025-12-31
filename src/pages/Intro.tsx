@@ -7,9 +7,11 @@ import {
   WelcomeStep,
   GoalSelectionStep,
   PreferencesStep,
+  WeightStep,
   ApiKeyStep,
   GoalOption,
   UnitOption,
+  DistanceUnitOption,
   IntroFormData,
 } from '../components/intro';
 
@@ -24,11 +26,17 @@ const UNIT_OPTIONS: UnitOption[] = [
   { value: 'kg', label: 'Kilograms (kg)' },
 ];
 
+const DISTANCE_UNIT_OPTIONS: DistanceUnitOption[] = [
+  { value: 'mi', label: 'Miles (mi)' },
+  { value: 'km', label: 'Kilometers (km)' },
+];
+
 export const Intro: FC = () => {
   const [step, setStep] = useState(1);
   const updatePreferences = useAppStore((state) => state.updatePreferences);
   const setWorkoutGoal = useAppStore((state) => state.setWorkoutGoal);
   const setHasCompletedIntro = useAppStore((state) => state.setHasCompletedIntro);
+  const addWeightEntry = useAppStore((state) => state.addWeightEntry);
 
   const {
     register,
@@ -42,13 +50,16 @@ export const Intro: FC = () => {
       lastName: '',
       goal: 'build',
       weightUnit: 'lbs',
+      distanceUnit: 'mi',
       darkMode: false,
+      initialWeight: '',
       openaiApiKey: '',
     },
   });
 
   const selectedGoal = watch('goal');
   const selectedUnit = watch('weightUnit');
+  const selectedDistanceUnit = watch('distanceUnit');
   const darkMode = watch('darkMode');
 
   // Live preview for dark mode during intro
@@ -66,10 +77,17 @@ export const Intro: FC = () => {
       firstName: data.firstName.trim(),
       lastName: data.lastName.trim(),
       weightUnit: data.weightUnit,
+      distanceUnit: data.distanceUnit,
       darkMode: data.darkMode,
       openaiApiKey: data.openaiApiKey.trim() || undefined,
     });
     setWorkoutGoal(data.goal);
+
+    // Save initial weight if provided
+    const initialWeight = parseFloat(data.initialWeight);
+    if (!isNaN(initialWeight) && initialWeight > 0) {
+      addWeightEntry(initialWeight);
+    }
 
     // Ensure theme is applied before transitioning
     if (data.darkMode) {
@@ -81,7 +99,7 @@ export const Intro: FC = () => {
     setHasCompletedIntro(true);
   };
 
-  const nextStep = () => setStep((s) => Math.min(s + 1, 4));
+  const nextStep = () => setStep((s) => Math.min(s + 1, 5));
   const prevStep = () => setStep((s) => Math.max(s - 1, 1));
 
   const firstNameValue = watch('firstName');
@@ -93,7 +111,7 @@ export const Intro: FC = () => {
       <AnimatedBackground />
 
       <div className="relative z-10 flex flex-col min-h-screen p-6">
-        <ProgressIndicator currentStep={step} totalSteps={4} />
+        <ProgressIndicator currentStep={step} totalSteps={5} />
 
         <form onSubmit={handleSubmit(completeIntro)} className="flex-1 flex flex-col">
           {step === 1 && (
@@ -120,6 +138,9 @@ export const Intro: FC = () => {
               selectedUnit={selectedUnit}
               onSelectUnit={(unit) => setValue('weightUnit', unit)}
               unitOptions={UNIT_OPTIONS}
+              selectedDistanceUnit={selectedDistanceUnit}
+              onSelectDistanceUnit={(unit) => setValue('distanceUnit', unit)}
+              distanceUnitOptions={DISTANCE_UNIT_OPTIONS}
               darkMode={darkMode}
               onSelectDarkMode={(dark) => setValue('darkMode', dark)}
               onBack={prevStep}
@@ -128,6 +149,15 @@ export const Intro: FC = () => {
           )}
 
           {step === 4 && (
+            <WeightStep
+              register={register}
+              weightUnit={selectedUnit}
+              onBack={prevStep}
+              onNext={nextStep}
+            />
+          )}
+
+          {step === 5 && (
             <ApiKeyStep
               register={register}
               onBack={prevStep}

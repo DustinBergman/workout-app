@@ -19,6 +19,7 @@ export const useStartWorkout = (): UseStartWorkoutReturn => {
   const preferences = useAppStore((state) => state.preferences);
   const currentWeek = useAppStore((state) => state.currentWeek);
   const workoutGoal = useAppStore((state) => state.workoutGoal);
+  const weightEntries = useAppStore((state) => state.weightEntries);
   const setActiveSession = useAppStore((state) => state.setActiveSession);
   const navigate = useNavigate();
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
@@ -61,7 +62,8 @@ export const useStartWorkout = (): UseStartWorkoutReturn => {
           sessions,
           preferences.weightUnit,
           currentWeek,
-          workoutGoal
+          workoutGoal,
+          weightEntries
         );
       } catch (err) {
         console.error('Failed to get suggestions:', err);
@@ -72,7 +74,7 @@ export const useStartWorkout = (): UseStartWorkoutReturn => {
     }
 
     navigate('/workout', { state: { suggestions } });
-  }, [sessions, preferences, currentWeek, workoutGoal, setActiveSession, navigate]);
+  }, [sessions, preferences, currentWeek, workoutGoal, weightEntries, setActiveSession, navigate]);
 
   const startQuickWorkout = useCallback(() => {
     const session: WorkoutSession = {

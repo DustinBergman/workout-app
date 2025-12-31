@@ -7,6 +7,7 @@ import {
   Exercise,
   ProgressiveOverloadWeek,
   WorkoutGoal,
+  WeightEntry,
 } from '../types';
 
 interface AppState {
@@ -20,6 +21,7 @@ interface AppState {
   weekStartedAt: string | null;
   workoutGoal: WorkoutGoal;
   hasCompletedIntro: boolean;
+  weightEntries: WeightEntry[];
 
   // Template actions
   addTemplate: (template: WorkoutTemplate) => void;
@@ -46,6 +48,10 @@ interface AppState {
 
   // Intro actions
   setHasCompletedIntro: (value: boolean) => void;
+
+  // Weight tracking actions
+  addWeightEntry: (weight: number) => void;
+  deleteWeightEntry: (date: string) => void;
 }
 
 const defaultPreferences: UserPreferences = {
@@ -69,6 +75,7 @@ export const useAppStore = create<AppState>()(
         weekStartedAt: null,
         workoutGoal: 'build' as WorkoutGoal,
         hasCompletedIntro: false,
+        weightEntries: [],
 
         // Template actions
         addTemplate: (template) =>
@@ -141,6 +148,24 @@ export const useAppStore = create<AppState>()(
         setHasCompletedIntro: (value) =>
           set(() => ({
             hasCompletedIntro: value,
+          })),
+
+        // Weight tracking actions
+        addWeightEntry: (weight) =>
+          set((state) => ({
+            weightEntries: [
+              ...state.weightEntries,
+              {
+                date: new Date().toISOString(),
+                weight,
+                unit: state.preferences.weightUnit,
+              },
+            ],
+          })),
+
+        deleteWeightEntry: (date) =>
+          set((state) => ({
+            weightEntries: state.weightEntries.filter((e) => e.date !== date),
           })),
       }),
       {

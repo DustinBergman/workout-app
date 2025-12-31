@@ -13,7 +13,10 @@ export { GoalSelectionStep } from './GoalSelectionStep';
 export type { GoalSelectionStepProps, GoalOption } from './GoalSelectionStep';
 
 export { PreferencesStep } from './PreferencesStep';
-export type { PreferencesStepProps, UnitOption } from './PreferencesStep';
+export type { PreferencesStepProps, UnitOption, DistanceUnitOption } from './PreferencesStep';
+
+export { WeightStep } from './WeightStep';
+export type { WeightStepProps } from './WeightStep';
 
 export { ApiKeyStep } from './ApiKeyStep';
 export type { ApiKeyStepProps } from './ApiKeyStep';

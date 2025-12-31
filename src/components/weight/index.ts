@@ -1,0 +1,1 @@
+export { WeightLogModal } from './WeightLogModal';

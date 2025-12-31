@@ -111,36 +111,36 @@ describe('WeekBadge', () => {
     it('applies slate colors for week 0', () => {
       render(<WeekBadge week={0} data-testid="badge" />);
       const button = screen.getByRole('button');
-      expect(button).toHaveClass('bg-slate-500/30');
-      expect(button).toHaveClass('border-slate-500/30');
+      expect(button).toHaveClass('bg-slate-100');
+      expect(button).toHaveClass('border-slate-300');
     });
 
     it('applies green colors for week 1', () => {
       render(<WeekBadge week={1} />);
       const button = screen.getByRole('button');
-      expect(button).toHaveClass('bg-green-500/30');
-      expect(button).toHaveClass('border-green-500/30');
+      expect(button).toHaveClass('bg-green-100');
+      expect(button).toHaveClass('border-green-300');
     });
 
     it('applies blue colors for week 2', () => {
       render(<WeekBadge week={2} />);
       const button = screen.getByRole('button');
-      expect(button).toHaveClass('bg-blue-500/30');
-      expect(button).toHaveClass('border-blue-500/30');
+      expect(button).toHaveClass('bg-blue-100');
+      expect(button).toHaveClass('border-blue-300');
     });
 
     it('applies orange colors for week 3', () => {
       render(<WeekBadge week={3} />);
       const button = screen.getByRole('button');
-      expect(button).toHaveClass('bg-orange-500/30');
-      expect(button).toHaveClass('border-orange-500/30');
+      expect(button).toHaveClass('bg-orange-100');
+      expect(button).toHaveClass('border-orange-300');
     });
 
     it('applies purple colors for week 4', () => {
       render(<WeekBadge week={4} />);
       const button = screen.getByRole('button');
-      expect(button).toHaveClass('bg-purple-500/30');
-      expect(button).toHaveClass('border-purple-500/30');
+      expect(button).toHaveClass('bg-purple-100');
+      expect(button).toHaveClass('border-purple-300');
     });
   });
 });

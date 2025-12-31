@@ -8,10 +8,57 @@ import {
   WORKOUT_GOALS,
   StrengthCompletedSet,
   StrengthTemplateExercise,
+  WeightEntry,
 } from '../../types';
 import { getExerciseById } from '../../data/exercises';
 import { getCustomExercises } from '../storage';
 import { callOpenAI, parseJSONResponse } from './client';
+
+const buildWeightContext = (
+  weightEntries: WeightEntry[],
+  weightUnit: 'lbs' | 'kg'
+): string => {
+  if (weightEntries.length === 0) {
+    return '';
+  }
+
+  // Get entries from last 60 days
+  const sixtyDaysAgo = new Date();
+  sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+
+  const recentEntries = weightEntries
+    .filter((e) => new Date(e.date) >= sixtyDaysAgo)
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  if (recentEntries.length === 0) {
+    return '';
+  }
+
+  const currentWeight = recentEntries[0].weight;
+  const oldestEntry = recentEntries[recentEntries.length - 1];
+  const weightChange = currentWeight - oldestEntry.weight;
+
+  let trend = 'maintained';
+  if (weightChange > 1) trend = 'gained';
+  else if (weightChange < -1) trend = 'lost';
+
+  const last5 = recentEntries.slice(0, 5).map((e) => ({
+    date: new Date(e.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+    weight: e.weight,
+  }));
+
+  return `
+USER BODY WEIGHT CONTEXT:
+Current weight: ${currentWeight.toFixed(1)} ${weightUnit}
+Weight trend (last 60 days): ${trend} ${Math.abs(weightChange).toFixed(1)} ${weightUnit}
+Recent entries: ${last5.map((e) => `${e.date}: ${e.weight}${weightUnit}`).join(', ')}
+
+Consider this when suggesting weights:
+- If losing weight rapidly (>2 ${weightUnit}/week), user may be in a deficit and need slightly lower weights to maintain form
+- If gaining weight steadily, user may be bulking and can potentially handle progressive overload
+- Adjust recommendations based on body weight changes and recovery capacity
+`;
+};
 
 const buildTrainingGuidance = (
   workoutGoal: WorkoutGoal,
@@ -88,7 +135,8 @@ export const getPreWorkoutSuggestions = async (
   previousSessions: WorkoutSession[],
   weightUnit: 'lbs' | 'kg',
   currentWeek?: ProgressiveOverloadWeek,
-  workoutGoal: WorkoutGoal = 'build'
+  workoutGoal: WorkoutGoal = 'build',
+  weightEntries: WeightEntry[] = []
 ): Promise<ExerciseSuggestion[]> => {
   const customExercises = getCustomExercises();
 
@@ -134,9 +182,11 @@ export const getPreWorkoutSuggestions = async (
   });
 
   const trainingGuidance = buildTrainingGuidance(workoutGoal, currentWeek);
+  const weightContext = buildWeightContext(weightEntries, weightUnit);
 
   const prompt = `You are a fitness AI providing pre-workout recommendations. Based on the user's previous performance, suggest appropriate weights and reps for today's workout.
 ${trainingGuidance}
+${weightContext}
 Exercises for today's workout:
 ${JSON.stringify(exerciseContext, null, 2)}
 

@@ -33,6 +33,13 @@ export type WeightUnit = 'lbs' | 'kg';
 // Distance Units
 export type DistanceUnit = 'mi' | 'km';
 
+// Body Weight Entry
+export interface WeightEntry {
+  date: string;
+  weight: number;
+  unit: WeightUnit;
+}
+
 // Exercise Types
 export type ExerciseType = 'strength' | 'cardio';
 

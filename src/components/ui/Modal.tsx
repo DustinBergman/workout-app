@@ -24,13 +24,13 @@ export const Modal: FC<ModalProps> = ({ isOpen, onClose, title, children, footer
         />
         <DialogPrimitive.Content
           className={cn(
-            'fixed left-4 right-4 top-[50%] z-50 translate-y-[-50%]',
-            'mx-auto max-w-lg',
-            'bg-background rounded-xl shadow-xl border border-border',
-            'max-h-[90vh] overflow-hidden flex flex-col',
+            'fixed bottom-0 left-0 right-0 z-50',
+            'w-full',
+            'bg-background rounded-t-2xl shadow-xl border-t border-x border-border',
+            'h-[70vh] overflow-hidden flex flex-col',
             'data-[state=open]:animate-in data-[state=closed]:animate-out',
             'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
-            'data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
+            'data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom',
             'duration-200'
           )}
         >
