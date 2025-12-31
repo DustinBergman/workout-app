@@ -126,6 +126,7 @@ export interface Exercise {
   muscleGroups: MuscleGroup[];
   equipment: Equipment;
   instructions?: string;
+  imageUrl?: string;
 }
 
 // Template Exercise (what's saved in a workout template)
@@ -178,6 +179,8 @@ export interface UserPreferences {
   defaultRestSeconds: number;
   openaiApiKey?: string;
   darkMode: boolean;
+  firstName?: string;
+  lastName?: string;
 }
 
 // AI Assistant Message

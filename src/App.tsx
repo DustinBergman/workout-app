@@ -4,14 +4,22 @@ import { Navigation } from './components/ui';
 import {
   Home,
   ExerciseLibrary,
-  WorkoutTemplates,
+  WorkoutPlans,
   ActiveWorkout,
   History,
   Assistant,
   Settings,
+  Intro,
 } from './pages';
+import { useAppStore } from './store/useAppStore';
 
 const App: FC = () => {
+  const hasCompletedIntro = useAppStore((state) => state.hasCompletedIntro);
+
+  if (!hasCompletedIntro) {
+    return <Intro />;
+  }
+
   return (
     <BrowserRouter>
         <div className="min-h-screen">
@@ -48,7 +56,7 @@ const App: FC = () => {
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/exercises" element={<ExerciseLibrary />} />
-              <Route path="/templates" element={<WorkoutTemplates />} />
+              <Route path="/plans" element={<WorkoutPlans />} />
               <Route path="/workout" element={<ActiveWorkout />} />
               <Route path="/history" element={<History />} />
               <Route path="/assistant" element={<Assistant />} />

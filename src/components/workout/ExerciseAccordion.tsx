@@ -125,6 +125,18 @@ export const ExerciseAccordion: FC<ExerciseAccordionProps> = ({
       {/* Expanded Content */}
       {isExpanded && (
         <div className="px-4 pb-4 border-t border-gray-200 dark:border-gray-700">
+          {/* Exercise Image */}
+          {exerciseInfo?.imageUrl && (
+            <div className="mt-3 mb-3">
+              <img
+                src={exerciseInfo.imageUrl}
+                alt={exerciseInfo.name}
+                className="w-full max-w-[200px] mx-auto rounded-lg"
+                loading="lazy"
+              />
+            </div>
+          )}
+
           {/* AI Suggestion badge */}
           {suggestion && exercise.sets.length === 0 && (
             <div className="mt-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">

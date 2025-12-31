@@ -146,11 +146,23 @@ export const ExerciseLibrary: FC = () => {
             </div>
 
             {/* Expanded content */}
-            {expandedExercise === exercise.id && exercise.instructions && (
+            {expandedExercise === exercise.id && (
               <div className="mt-3 pt-3 border-t border-border">
-                <p className="text-sm text-muted-foreground">
-                  {exercise.instructions}
-                </p>
+                {exercise.imageUrl && (
+                  <div className="mb-3">
+                    <img
+                      src={exercise.imageUrl}
+                      alt={exercise.name}
+                      className="w-full max-w-xs mx-auto rounded-lg"
+                      loading="lazy"
+                    />
+                  </div>
+                )}
+                {exercise.instructions && (
+                  <p className="text-sm text-muted-foreground">
+                    {exercise.instructions}
+                  </p>
+                )}
               </div>
             )}
           </Card>

@@ -18,6 +18,7 @@ interface AppState {
   customExercises: Exercise[];
   currentWeek: ProgressiveOverloadWeek;
   workoutGoal: WorkoutGoal;
+  hasCompletedIntro: boolean;
 
   // Template actions
   addTemplate: (template: WorkoutTemplate) => void;
@@ -41,6 +42,9 @@ interface AppState {
 
   // Workout goal actions
   setWorkoutGoal: (goal: WorkoutGoal) => void;
+
+  // Intro actions
+  setHasCompletedIntro: (value: boolean) => void;
 }
 
 const defaultPreferences: UserPreferences = {
@@ -61,6 +65,7 @@ export const useAppStore = create<AppState>()(
         customExercises: [],
         currentWeek: 0 as ProgressiveOverloadWeek,
         workoutGoal: 'build' as WorkoutGoal,
+        hasCompletedIntro: false,
 
         // Template actions
         addTemplate: (template) =>
@@ -125,6 +130,12 @@ export const useAppStore = create<AppState>()(
         setWorkoutGoal: (goal) =>
           set(() => ({
             workoutGoal: goal,
+          })),
+
+        // Intro actions
+        setHasCompletedIntro: (value) =>
+          set(() => ({
+            hasCompletedIntro: value,
           })),
       }),
       {

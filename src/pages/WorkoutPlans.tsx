@@ -12,7 +12,7 @@ const generateId = (): string => {
   return Math.random().toString(36).substring(2, 15);
 };
 
-export const WorkoutTemplates: FC = () => {
+export const WorkoutPlans: FC = () => {
   const templates = useAppStore((state) => state.templates);
   const preferences = useAppStore((state) => state.preferences);
   const customExercises = useAppStore((state) => state.customExercises);
@@ -400,7 +400,7 @@ export const WorkoutTemplates: FC = () => {
     <div className="p-4 pb-20">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-          Templates
+          Workout Plans
         </h1>
         <Button onClick={startCreating}>
           <svg className="w-5 h-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -416,9 +416,9 @@ export const WorkoutTemplates: FC = () => {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
           </svg>
           <p className="text-gray-600 dark:text-gray-400 mb-4">
-            No workout templates yet. Create your first one!
+            No workout plans yet. Create your first one!
           </p>
-          <Button onClick={startCreating}>Create Template</Button>
+          <Button onClick={startCreating}>Create Plan</Button>
         </Card>
       ) : (
         <div className="space-y-3">

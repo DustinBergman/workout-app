@@ -76,7 +76,7 @@ export const Home: FC = () => {
       <div className="relative z-10 p-4 pb-20">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-foreground">
-            Workout Tracker
+            {preferences.firstName ? `Hello ${preferences.firstName}` : 'Workout Tracker'}
           </h1>
           {showProgressiveOverload && (
             <WeekBadge
@@ -85,6 +85,52 @@ export const Home: FC = () => {
             />
           )}
         </div>
+
+        {/* Missing API Key Banner */}
+        {!preferences.openaiApiKey && (
+          <Link to="/settings">
+            <Card className="mb-6 bg-amber-500/10 border-amber-500/30 hover:bg-amber-500/20 transition-colors">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-amber-500/20">
+                  <svg
+                    className="w-5 h-5 text-amber-600 dark:text-amber-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M13 10V3L4 14h7v7l9-11h-7z"
+                    />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                    Enable AI Features
+                  </p>
+                  <p className="text-xs text-amber-600/80 dark:text-amber-400/80">
+                    Add your OpenAI API key in settings for smart suggestions
+                  </p>
+                </div>
+                <svg
+                  className="w-5 h-5 text-amber-600 dark:text-amber-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5l7 7-7 7"
+                  />
+                </svg>
+              </div>
+            </Card>
+          </Link>
+        )}
 
         {/* Progressive Overload Week Card */}
         {showProgressiveOverload && (
@@ -153,7 +199,7 @@ export const Home: FC = () => {
             </svg>
             Empty Workout
           </Button>
-          <Link to="/templates" className="block">
+          <Link to="/plans" className="block">
             <Button
               className="w-full h-20 flex flex-col items-center justify-center bg-card/60 backdrop-blur-lg border border-border/50 hover:bg-card/80"
               variant="ghost"
@@ -161,7 +207,7 @@ export const Home: FC = () => {
               <svg className="w-6 h-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
               </svg>
-              From Template
+              From Plan
             </Button>
           </Link>
         </div>
@@ -184,14 +230,14 @@ export const Home: FC = () => {
         </section>
       )}
 
-      {/* Your Templates */}
+      {/* Your Plans */}
       {templates.length > 0 && (
         <section className="mb-8">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-semibold text-foreground">
-              Your Templates
+              Your Plans
             </h2>
-            <Link to="/templates" className="text-sm text-primary">
+            <Link to="/plans" className="text-sm text-primary">
               View all
             </Link>
           </div>
@@ -263,10 +309,10 @@ export const Home: FC = () => {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
           </svg>
           <p className="text-muted-foreground mb-4">
-            No workouts yet. Create a template or start an empty workout!
+            No workouts yet. Create a plan or start an empty workout!
           </p>
-          <Link to="/templates">
-            <Button>Create Template</Button>
+          <Link to="/plans">
+            <Button>Create Plan</Button>
           </Link>
         </Card>
       )}
