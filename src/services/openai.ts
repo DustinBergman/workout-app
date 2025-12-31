@@ -1,4 +1,4 @@
-import { WorkoutSession, WorkoutRecommendation, WorkoutScoreResult, ExerciseSuggestion, WorkoutTemplate } from '../types';
+import { WorkoutSession, WorkoutRecommendation, WorkoutScoreResult, ExerciseSuggestion, WorkoutTemplate, ProgressiveOverloadWeek, PROGRESSIVE_OVERLOAD_WEEKS } from '../types';
 import { getExerciseById } from '../data/exercises';
 import { getCustomExercises } from './storage';
 
@@ -240,7 +240,8 @@ export const getPreWorkoutSuggestions = async (
   apiKey: string,
   template: WorkoutTemplate,
   previousSessions: WorkoutSession[],
-  weightUnit: 'lbs' | 'kg'
+  weightUnit: 'lbs' | 'kg',
+  currentWeek?: ProgressiveOverloadWeek
 ): Promise<ExerciseSuggestion[]> => {
   const customExercises = getCustomExercises();
   // Build context about each exercise in the template
@@ -276,14 +277,33 @@ export const getPreWorkoutSuggestions = async (
     };
   });
 
-  const prompt = `You are a fitness AI providing pre-workout recommendations. Based on the user's previous performance, suggest appropriate weights and reps for today's workout.
+  // Build week-specific guidance
+  let weekGuidance = '';
+  if (currentWeek !== undefined) {
+    const weekInfo = PROGRESSIVE_OVERLOAD_WEEKS[currentWeek];
+    weekGuidance = `
+IMPORTANT - Progressive Overload Week ${currentWeek}: ${weekInfo.name}
+- Goal: ${weekInfo.description}
+- Weight Adjustment: ${weekInfo.weightAdjustment}
+- Target Rep Range: ${weekInfo.repRange}
 
+Apply these week-specific guidelines when calculating suggestions:
+- Week 0 (Baseline): Use current working weights, aim for 8-12 reps
+- Week 1 (Light Overload): Increase weight by 2-5% from baseline, aim for 8-10 reps
+- Week 2 (Volume Focus): Keep weight same as Week 1, increase to 10-12 reps or add 1 extra set
+- Week 3 (Strength Push): Increase weight by 5-10% from baseline, lower reps to 6-8
+- Week 4 (Deload): Reduce weight by 20-30% from baseline, moderate 8-12 reps for recovery
+`;
+  }
+
+  const prompt = `You are a fitness AI providing pre-workout recommendations. Based on the user's previous performance, suggest appropriate weights and reps for today's workout.
+${weekGuidance}
 Exercises for today's workout:
 ${JSON.stringify(exerciseContext, null, 2)}
 
 For each exercise, provide a suggestion. Consider:
-- If they've been hitting their targets, suggest a small increase (2.5-5 ${weightUnit} or 1-2 reps)
-- If they've been struggling, suggest maintaining or a small decrease
+- The current progressive overload week guidelines above (if provided)
+- Previous performance data to establish their baseline working weights
 - If no previous data exists, suggest a conservative starting point
 
 Respond in JSON format:

@@ -17,6 +17,7 @@ interface UseStartWorkoutReturn {
 export const useStartWorkout = (): UseStartWorkoutReturn => {
   const sessions = useAppStore((state) => state.sessions);
   const preferences = useAppStore((state) => state.preferences);
+  const currentWeek = useAppStore((state) => state.currentWeek);
   const setActiveSession = useAppStore((state) => state.setActiveSession);
   const navigate = useNavigate();
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
@@ -46,7 +47,8 @@ export const useStartWorkout = (): UseStartWorkoutReturn => {
           preferences.openaiApiKey,
           template,
           sessions,
-          preferences.weightUnit
+          preferences.weightUnit,
+          currentWeek
         );
       } catch (err) {
         console.error('Failed to get suggestions:', err);
@@ -57,7 +59,7 @@ export const useStartWorkout = (): UseStartWorkoutReturn => {
     }
 
     navigate('/workout', { state: { suggestions } });
-  }, [sessions, preferences, setActiveSession, navigate]);
+  }, [sessions, preferences, currentWeek, setActiveSession, navigate]);
 
   const startQuickWorkout = useCallback(() => {
     const session: WorkoutSession = {

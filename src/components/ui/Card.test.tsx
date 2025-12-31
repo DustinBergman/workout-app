@@ -48,7 +48,8 @@ describe('Card', () => {
     const card = screen.getByTestId('card');
     expect(card).toHaveClass('rounded-xl');
     expect(card).toHaveClass('border');
-    expect(card).toHaveClass('bg-card');
+    expect(card).toHaveClass('bg-card/60');
+    expect(card).toHaveClass('backdrop-blur-lg');
     expect(card).toHaveClass('shadow-sm');
   });
 });

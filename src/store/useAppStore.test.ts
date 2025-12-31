@@ -16,6 +16,7 @@ const resetStore = () => {
       darkMode: false,
     },
     customExercises: [],
+    currentWeek: 0,
   });
 };
 
@@ -216,6 +217,53 @@ describe('useAppStore', () => {
       useAppStore.getState().updatePreferences({ darkMode: false });
 
       expect(document.documentElement.classList.contains('dark')).toBe(false);
+    });
+  });
+
+  describe('Progressive Overload Week Actions', () => {
+    it('should have currentWeek default to 0', () => {
+      const state = useAppStore.getState();
+      expect(state.currentWeek).toBe(0);
+    });
+
+    it('should set current week', () => {
+      useAppStore.getState().setCurrentWeek(3);
+
+      expect(useAppStore.getState().currentWeek).toBe(3);
+    });
+
+    it('should set current week to any valid value', () => {
+      useAppStore.getState().setCurrentWeek(0);
+      expect(useAppStore.getState().currentWeek).toBe(0);
+
+      useAppStore.getState().setCurrentWeek(4);
+      expect(useAppStore.getState().currentWeek).toBe(4);
+    });
+
+    it('should advance week from 0 to 1', () => {
+      useAppStore.getState().setCurrentWeek(0);
+      useAppStore.getState().advanceWeek();
+
+      expect(useAppStore.getState().currentWeek).toBe(1);
+    });
+
+    it('should advance week from 4 back to 0 (cycle)', () => {
+      useAppStore.getState().setCurrentWeek(4);
+      useAppStore.getState().advanceWeek();
+
+      expect(useAppStore.getState().currentWeek).toBe(0);
+    });
+
+    it('should cycle through all weeks correctly', () => {
+      useAppStore.getState().setCurrentWeek(0);
+
+      // Cycle through all 5 weeks and back to 0
+      for (let i = 0; i < 5; i++) {
+        expect(useAppStore.getState().currentWeek).toBe(i);
+        useAppStore.getState().advanceWeek();
+      }
+      // After 5 advances, should be back to 0
+      expect(useAppStore.getState().currentWeek).toBe(0);
     });
   });
 

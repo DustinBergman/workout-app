@@ -43,6 +43,7 @@ const resetStore = () => {
       darkMode: false,
     },
     customExercises: [],
+    currentWeek: 0,
   });
 };
 

@@ -1,17 +1,21 @@
-import { FC } from 'react';
+import { FC, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
-import { Button, Card, Modal } from '../components/ui';
+import { Button, Card, Modal, WeekBadge } from '../components/ui';
 import { calculateSessionStats } from '../hooks/useSessionStats';
 import { useStartWorkout } from '../hooks/useStartWorkout';
+import { ProgressiveOverloadWeek, PROGRESSIVE_OVERLOAD_WEEKS } from '../types';
 
 export const Home: FC = () => {
   const templates = useAppStore((state) => state.templates);
   const sessions = useAppStore((state) => state.sessions);
   const activeSession = useAppStore((state) => state.activeSession);
   const preferences = useAppStore((state) => state.preferences);
+  const currentWeek = useAppStore((state) => state.currentWeek);
+  const setCurrentWeek = useAppStore((state) => state.setCurrentWeek);
   const navigate = useNavigate();
   const { isLoadingSuggestions, startWorkout, startQuickWorkout } = useStartWorkout();
+  const [showWeekSelector, setShowWeekSelector] = useState(false);
 
   const resumeWorkout = () => {
     navigate('/workout');
@@ -40,9 +44,24 @@ export const Home: FC = () => {
       </div>
 
       <div className="relative z-10 p-4 pb-20">
-        <h1 className="text-2xl font-bold text-foreground mb-6">
-          Workout Tracker
-        </h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold text-foreground">
+            Workout Tracker
+          </h1>
+          <WeekBadge
+            week={currentWeek}
+            onClick={() => setShowWeekSelector(true)}
+          />
+        </div>
+
+        {/* Progressive Overload Week Card */}
+        <section className="mb-6">
+          <WeekBadge
+            week={currentWeek}
+            showDetails
+            onClick={() => setShowWeekSelector(true)}
+          />
+        </section>
 
       {/* Active Workout Banner */}
       {activeSession && (
@@ -189,6 +208,57 @@ export const Home: FC = () => {
           <p className="text-muted-foreground">
             Getting AI recommendations...
           </p>
+        </div>
+      </Modal>
+
+      {/* Week Selector Modal */}
+      <Modal
+        isOpen={showWeekSelector}
+        onClose={() => setShowWeekSelector(false)}
+        title="Select Training Week"
+      >
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground mb-4">
+            Choose your current progressive overload week. AI suggestions will be adjusted accordingly.
+          </p>
+          <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
+          {([0, 1, 2, 3, 4] as ProgressiveOverloadWeek[]).map((week) => {
+            const weekInfo = PROGRESSIVE_OVERLOAD_WEEKS[week];
+            const isSelected = week === currentWeek;
+            return (
+              <button
+                key={week}
+                onClick={() => {
+                  setCurrentWeek(week);
+                  setShowWeekSelector(false);
+                }}
+                className={`w-full p-4 rounded-xl border text-left transition-all ${
+                  isSelected
+                    ? 'border-primary bg-primary/10'
+                    : 'border-border hover:border-primary/50 hover:bg-muted/50'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="font-semibold">
+                    Week {week + 1}: {weekInfo.name}
+                  </span>
+                  {isSelected && (
+                    <svg className="w-5 h-5 text-primary" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {weekInfo.description}
+                </p>
+                <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
+                  <span>Weight: {weekInfo.weightAdjustment}</span>
+                  <span>Reps: {weekInfo.repRange}</span>
+                </div>
+              </button>
+            );
+          })}
+          </div>
         </div>
       </Modal>
       </div>

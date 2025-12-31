@@ -30,6 +30,56 @@ export type Equipment =
 // Weight Units
 export type WeightUnit = 'lbs' | 'kg';
 
+// Progressive Overload Week (0-4)
+export type ProgressiveOverloadWeek = 0 | 1 | 2 | 3 | 4;
+
+// Week Info for Progressive Overload
+export interface WeekInfo {
+  week: ProgressiveOverloadWeek;
+  name: string;
+  description: string;
+  weightAdjustment: string;
+  repRange: string;
+}
+
+export const PROGRESSIVE_OVERLOAD_WEEKS: Record<ProgressiveOverloadWeek, WeekInfo> = {
+  0: {
+    week: 0,
+    name: 'Baseline',
+    description: 'Establish your current working weights',
+    weightAdjustment: 'Current weights',
+    repRange: '8-12 reps',
+  },
+  1: {
+    week: 1,
+    name: 'Light Overload',
+    description: 'Small weight increase with slightly lower reps',
+    weightAdjustment: '+2-5%',
+    repRange: '8-10 reps',
+  },
+  2: {
+    week: 2,
+    name: 'Volume Focus',
+    description: 'Maintain weight, increase total volume',
+    weightAdjustment: 'Same as Week 2',
+    repRange: '10-12 reps or +1 set',
+  },
+  3: {
+    week: 3,
+    name: 'Strength Push',
+    description: 'Heavier weights with lower reps for strength',
+    weightAdjustment: '+5-10%',
+    repRange: '6-8 reps',
+  },
+  4: {
+    week: 4,
+    name: 'Deload',
+    description: 'Recovery week with reduced intensity',
+    weightAdjustment: '-20-30%',
+    repRange: '8-12 reps',
+  },
+};
+
 // Exercise Definition
 export interface Exercise {
   id: string;

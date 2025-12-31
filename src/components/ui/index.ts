@@ -28,3 +28,5 @@ export {
 } from './Select';
 
 export { Navigation } from './Navigation';
+
+export { WeekBadge } from './WeekBadge';
