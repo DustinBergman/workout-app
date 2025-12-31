@@ -9,10 +9,17 @@ import {
   StrengthCompletedSet,
   StrengthTemplateExercise,
   WeightEntry,
+  Exercise,
 } from '../../types';
 import { getExerciseById } from '../../data/exercises';
 import { getCustomExercises } from '../storage';
 import { callOpenAI, parseJSONResponse } from './client';
+import {
+  analyzeExercise10Weeks,
+  buildExerciseAnalysisContext,
+  ExerciseAnalysis,
+  hasEnoughHistoryForPlateauDetection,
+} from './exerciseAnalysis';
 
 const buildWeightContext = (
   weightEntries: WeightEntry[],
@@ -145,8 +152,23 @@ export const getPreWorkoutSuggestions = async (
     (ex): ex is StrengthTemplateExercise => ex.type === 'strength' || !('type' in ex)
   );
 
+  // Check if we have enough history for plateau detection (10 weeks of consistent training)
+  const enablePlateauDetection = hasEnoughHistoryForPlateauDetection(previousSessions);
+
+  // Analyze each exercise's 10-week history (uses caching internally)
+  const exerciseAnalyses: ExerciseAnalysis[] = strengthTemplateExercises.map((templateEx) =>
+    analyzeExercise10Weeks(
+      templateEx.exerciseId,
+      previousSessions,
+      customExercises as Exercise[],
+      templateEx.targetReps,
+      enablePlateauDetection
+    )
+  );
+
   const exerciseContext = strengthTemplateExercises.map((templateEx) => {
     const exerciseInfo = getExerciseById(templateEx.exerciseId, customExercises);
+    const analysis = exerciseAnalyses.find((a) => a.exerciseId === templateEx.exerciseId);
 
     // Find previous performance for this exercise (strength sets only)
     const previousSets: Array<{ date: string; weight: number; reps: number }> = [];
@@ -178,22 +200,38 @@ export const getPreWorkoutSuggestions = async (
       targetSets: templateEx.targetSets,
       targetReps: templateEx.targetReps,
       recentPerformance: recentSets,
+      progressStatus: analysis?.progressStatus || 'new',
+      plateauSignals: analysis?.plateauSignals,
+      estimated1RMTrend: analysis?.estimated1RMTrend,
     };
   });
 
   const trainingGuidance = buildTrainingGuidance(workoutGoal, currentWeek);
   const weightContext = buildWeightContext(weightEntries, weightUnit);
+  const analysisContext = buildExerciseAnalysisContext(exerciseAnalyses);
 
-  const prompt = `You are a fitness AI providing pre-workout recommendations. Based on the user's previous performance, suggest appropriate weights and reps for today's workout.
+  const prompt = `You are a fitness AI providing pre-workout recommendations. Based on the user's previous performance and 4-week progress analysis, suggest appropriate weights and reps for today's workout.
 ${trainingGuidance}
 ${weightContext}
+${analysisContext}
 Exercises for today's workout:
 ${JSON.stringify(exerciseContext, null, 2)}
 
 For each exercise, provide a suggestion. Consider:
 - The training goal and guidelines above (CRITICAL - follow these strictly)
+- The 10-week progress analysis and plateau signals
 - Previous performance data to establish their baseline working weights
 - If no previous data exists, suggest a conservative starting point
+
+IMPORTANT - For exercises marked as "PLATEAU":
+- Suggest a REP RANGE CHANGE to break through the plateau
+- If current range is around 8-12 reps: suggest either 5-8 reps (heavier weight) or 12-15 reps (lighter weight, more volume)
+- Include a "techniqueTip" explaining the change (e.g., "Break through your plateau by switching to heavier weight with lower reps")
+- Include a "repRangeChange" object with from/to/reason fields
+
+For exercises marked as "IMPROVING" or with insufficient data:
+- Continue with normal progression per week guidelines
+- No techniqueTip or repRangeChange needed
 
 Respond in JSON format:
 {
@@ -203,7 +241,14 @@ Respond in JSON format:
       "suggestedWeight": number,
       "suggestedReps": number,
       "reasoning": "Brief explanation (1 sentence)",
-      "confidence": "high" | "medium" | "low"
+      "confidence": "high" | "medium" | "low",
+      "progressStatus": "improving" | "plateau" | "declining" | "new",
+      "techniqueTip": "Optional - only for plateau exercises",
+      "repRangeChange": {
+        "from": "8-12",
+        "to": "5-8",
+        "reason": "Heavier loads to stimulate new strength gains"
+      }
     }
   ]
 }
@@ -218,11 +263,11 @@ Use ${weightUnit} for weights. Confidence should be:
     messages: [
       {
         role: 'system',
-        content: 'You are a fitness analysis AI. Respond only with valid JSON.',
+        content: 'You are a fitness analysis AI that detects training plateaus and provides smart recommendations. Respond only with valid JSON.',
       },
       { role: 'user', content: prompt },
     ],
-    maxTokens: 1000,
+    maxTokens: 1500,
     temperature: 0.3,
   });
 

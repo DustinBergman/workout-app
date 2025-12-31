@@ -281,6 +281,16 @@ export interface WorkoutRecommendation {
   type: 'increase' | 'decrease' | 'maintain';
 }
 
+// Progress status for exercise analysis
+export type ExerciseProgressStatus = 'improving' | 'plateau' | 'declining' | 'new';
+
+// Rep range change suggestion
+export interface RepRangeChange {
+  from: string;   // e.g., "8-12"
+  to: string;     // e.g., "5-8" or "12-15"
+  reason: string; // e.g., "Break through plateau with heavier weight"
+}
+
 // Pre-workout AI Suggestion
 export interface ExerciseSuggestion {
   exerciseId: string;
@@ -288,6 +298,10 @@ export interface ExerciseSuggestion {
   suggestedReps: number;
   reasoning: string;
   confidence: 'high' | 'medium' | 'low';
+  // Enhanced fields for plateau detection
+  progressStatus?: ExerciseProgressStatus;
+  techniqueTip?: string;  // Only when plateau detected
+  repRangeChange?: RepRangeChange;
 }
 
 // Post-workout AI Score

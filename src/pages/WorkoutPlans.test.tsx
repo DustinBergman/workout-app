@@ -263,23 +263,23 @@ describe('WorkoutPlans', () => {
 
     it('shows exercise list', async () => {
       // Exercises load asynchronously - wait for them
-      expect(await screen.findByText('Bench Press')).toBeInTheDocument();
+      expect(await screen.findByText('Barbell Bench Press')).toBeInTheDocument();
     });
 
     it('filters exercises when searching', async () => {
       // Wait for exercises to load
-      await screen.findByText('Bench Press');
+      await screen.findByText('Barbell Bench Press');
 
       const searchInput = screen.getByPlaceholderText('Search exercises...');
       fireEvent.change(searchInput, { target: { value: 'squat' } });
 
-      expect(await screen.findByText('Barbell Squat')).toBeInTheDocument();
-      expect(screen.queryByText('Bench Press')).not.toBeInTheDocument();
+      expect(await screen.findByText('Barbell Back Squat')).toBeInTheDocument();
+      expect(screen.queryByText('Barbell Bench Press')).not.toBeInTheDocument();
     });
 
     it('adds exercise when clicked', async () => {
       // Wait for exercises to load
-      const benchPress = await screen.findByText('Bench Press');
+      const benchPress = await screen.findByText('Barbell Bench Press');
       fireEvent.click(benchPress);
 
       // Modal should close and exercise should be added
@@ -288,7 +288,7 @@ describe('WorkoutPlans', () => {
       });
 
       // Exercise should now be in the list
-      expect(screen.getByText('Bench Press')).toBeInTheDocument();
+      expect(screen.getByText('Barbell Bench Press')).toBeInTheDocument();
       // The "No exercises added yet" message should be gone
       expect(screen.queryByText('No exercises added yet')).not.toBeInTheDocument();
     });
@@ -300,13 +300,15 @@ describe('WorkoutPlans', () => {
 
     it('shows cardio badge for cardio exercises', async () => {
       // Wait for exercises to load
-      await screen.findByText('Bench Press');
+      await screen.findByText('Barbell Bench Press');
 
       const searchInput = screen.getByPlaceholderText('Search exercises...');
       fireEvent.change(searchInput, { target: { value: 'running' } });
 
       const dialog = screen.getByRole('dialog');
-      expect(within(dialog).getByText('Cardio')).toBeInTheDocument();
+      // Multiple cardio exercises may appear, just check that at least one Cardio badge exists
+      const cardioBadges = within(dialog).getAllByText('Cardio');
+      expect(cardioBadges.length).toBeGreaterThan(0);
     });
   });
 
@@ -319,7 +321,7 @@ describe('WorkoutPlans', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Add Exercise' }));
 
       // Wait for exercises to load, then click
-      const benchPress = await screen.findByText('Bench Press');
+      const benchPress = await screen.findByText('Barbell Bench Press');
       fireEvent.click(benchPress);
 
       // Wait for modal to close
@@ -329,7 +331,7 @@ describe('WorkoutPlans', () => {
     });
 
     it('shows exercise in list after adding', () => {
-      expect(screen.getByText('Bench Press')).toBeInTheDocument();
+      expect(screen.getByText('Barbell Bench Press')).toBeInTheDocument();
     });
 
     it('shows default sets, reps, and rest values', () => {
@@ -384,7 +386,7 @@ describe('WorkoutPlans', () => {
 
       // Add first exercise
       fireEvent.click(screen.getByRole('button', { name: 'Add Exercise' }));
-      const benchPress = await screen.findByText('Bench Press');
+      const benchPress = await screen.findByText('Barbell Bench Press');
       fireEvent.click(benchPress);
       await waitFor(() => {
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
@@ -392,10 +394,12 @@ describe('WorkoutPlans', () => {
 
       // Add second exercise
       fireEvent.click(screen.getByRole('button', { name: 'Add Exercise' }));
-      await screen.findByText('Bench Press'); // Wait for list to load
-      const searchInput = screen.getByPlaceholderText('Search exercises...');
+      // Wait for dialog to open and exercises to load
+      const dialog = await screen.findByRole('dialog');
+      await within(dialog).findByText('Barbell Bench Press'); // Wait for list to load
+      const searchInput = within(dialog).getByPlaceholderText('Search exercises...');
       fireEvent.change(searchInput, { target: { value: 'squat' } });
-      const squat = await screen.findByText('Barbell Squat');
+      const squat = await within(dialog).findByText('Barbell Back Squat');
       fireEvent.click(squat);
       await waitFor(() => {
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
@@ -403,8 +407,8 @@ describe('WorkoutPlans', () => {
     });
 
     it('shows both exercises', () => {
-      expect(screen.getByText('Bench Press')).toBeInTheDocument();
-      expect(screen.getByText('Barbell Squat')).toBeInTheDocument();
+      expect(screen.getByText('Barbell Bench Press')).toBeInTheDocument();
+      expect(screen.getByText('Barbell Back Squat')).toBeInTheDocument();
     });
 
     it('can move second exercise up', () => {
@@ -517,7 +521,7 @@ describe('WorkoutPlans', () => {
 
       // Add exercise
       fireEvent.click(screen.getByRole('button', { name: 'Add Exercise' }));
-      const benchPress = await screen.findByText('Bench Press');
+      const benchPress = await screen.findByText('Barbell Bench Press');
       fireEvent.click(benchPress);
 
       await waitFor(() => {
@@ -589,7 +593,7 @@ describe('WorkoutPlans', () => {
       setupEditMode();
       expect(screen.getByDisplayValue('Push Day')).toBeInTheDocument();
       // Exercise name should be displayed in the form
-      expect(await screen.findByText('Bench Press')).toBeInTheDocument();
+      expect(await screen.findByText('Barbell Bench Press')).toBeInTheDocument();
     });
   });
 
