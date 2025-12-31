@@ -1,4 +1,4 @@
-import { useMemo, FC } from 'react';
+import { useMemo, useEffect, useRef, FC } from 'react';
 import { WorkoutSession } from '../../types';
 
 interface WorkoutHeatmapProps {
@@ -7,6 +7,14 @@ interface WorkoutHeatmapProps {
 }
 
 export const WorkoutHeatmap: FC<WorkoutHeatmapProps> = ({ sessions, onDayClick }) => {
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to the right (most recent) on mount
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollLeft = scrollContainerRef.current.scrollWidth;
+    }
+  }, []);
   const { weeks, monthLabels } = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -80,7 +88,7 @@ export const WorkoutHeatmap: FC<WorkoutHeatmapProps> = ({ sessions, onDayClick }
   const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   return (
-    <div className="overflow-x-auto pb-2">
+    <div ref={scrollContainerRef} className="overflow-x-auto pb-2">
       <div className="inline-block min-w-max">
         {/* Month labels */}
         <div className="flex ml-8 mb-1">
@@ -91,13 +99,16 @@ export const WorkoutHeatmap: FC<WorkoutHeatmapProps> = ({ sessions, onDayClick }
               ? (nextMonth.weekIndex - month.weekIndex) * 14
               : (weeks.length - month.weekIndex) * 14;
 
+            // Only show label if there's enough space (at least 30px)
+            const showLabel = width >= 30;
+
             return (
               <div
                 key={`${month.label}-${index}`}
-                className="text-xs text-gray-500 dark:text-gray-400"
+                className="text-xs text-gray-500 dark:text-gray-400 overflow-hidden"
                 style={{ width: `${width}px` }}
               >
-                {month.label}
+                {showLabel ? month.label : ''}
               </div>
             );
           })}

@@ -1,7 +1,8 @@
-import { FC, useState } from 'react';
+import { FC, useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { Button, Card, Modal, WeekBadge } from '../components/ui';
+import { WorkoutHeatmap } from '../components/history/WorkoutHeatmap';
 import { calculateSessionStats } from '../hooks/useSessionStats';
 import { useStartWorkout } from '../hooks/useStartWorkout';
 import { ProgressiveOverloadWeek, PROGRESSIVE_OVERLOAD_WEEKS } from '../types';
@@ -24,6 +25,31 @@ export const Home: FC = () => {
   const recentSessions = [...sessions]
     .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())
     .slice(0, 3);
+
+  // Find the next suggested workout based on the most recent session
+  const nextWorkout = useMemo(() => {
+    if (templates.length === 0) return null;
+    if (sessions.length === 0) return templates[0]; // No history, suggest first template
+
+    // Find the most recent completed session with a template
+    const sortedSessions = [...sessions].sort(
+      (a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
+    );
+    const lastSessionWithTemplate = sortedSessions.find(s => s.templateId);
+
+    if (!lastSessionWithTemplate) return templates[0];
+
+    // Find the index of the last used template
+    const lastTemplateIndex = templates.findIndex(
+      t => t.id === lastSessionWithTemplate.templateId
+    );
+
+    if (lastTemplateIndex === -1) return templates[0];
+
+    // Get the next template (cycle back to start if at end)
+    const nextIndex = (lastTemplateIndex + 1) % templates.length;
+    return templates[nextIndex];
+  }, [templates, sessions]);
 
   return (
     <div className="relative min-h-screen">
@@ -85,11 +111,34 @@ export const Home: FC = () => {
         <h2 className="text-lg font-semibold text-foreground mb-3">
           Quick Start
         </h2>
+
+        {/* Next Workout Suggestion */}
+        {nextWorkout && (
+          <Card className="mb-3 bg-primary/10 border-primary/30">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <p className="text-xs text-primary font-medium uppercase tracking-wide mb-1">
+                  Up Next
+                </p>
+                <p className="text-lg font-semibold text-foreground">
+                  {nextWorkout.name}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {nextWorkout.exercises.length} exercises
+                </p>
+              </div>
+              <Button onClick={() => startWorkout(nextWorkout)}>
+                Start
+              </Button>
+            </div>
+          </Card>
+        )}
+
         <div className="grid grid-cols-2 gap-3">
           <Button
             onClick={startQuickWorkout}
-            className="h-20 flex flex-col items-center justify-center"
-            variant="secondary"
+            className="h-20 flex flex-col items-center justify-center bg-card/60 backdrop-blur-lg border border-border/50 hover:bg-card/80"
+            variant="ghost"
           >
             <svg className="w-6 h-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -98,8 +147,8 @@ export const Home: FC = () => {
           </Button>
           <Link to="/templates" className="block">
             <Button
-              className="w-full h-20 flex flex-col items-center justify-center"
-              variant="secondary"
+              className="w-full h-20 flex flex-col items-center justify-center bg-card/60 backdrop-blur-lg border border-border/50 hover:bg-card/80"
+              variant="ghost"
             >
               <svg className="w-6 h-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
@@ -109,6 +158,23 @@ export const Home: FC = () => {
           </Link>
         </div>
       </section>
+
+      {/* Workout Heatmap */}
+      {sessions.length > 0 && (
+        <section className="mb-8">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold text-foreground">
+              Activity
+            </h2>
+            <Link to="/history" className="text-sm text-primary">
+              View history
+            </Link>
+          </div>
+          <Card padding="sm">
+            <WorkoutHeatmap sessions={sessions} />
+          </Card>
+        </section>
+      )}
 
       {/* Your Templates */}
       {templates.length > 0 && (
