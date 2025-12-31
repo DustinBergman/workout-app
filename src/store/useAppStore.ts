@@ -17,6 +17,7 @@ interface AppState {
   preferences: UserPreferences;
   customExercises: Exercise[];
   currentWeek: ProgressiveOverloadWeek;
+  weekStartedAt: string | null;
   workoutGoal: WorkoutGoal;
   hasCompletedIntro: boolean;
 
@@ -65,6 +66,7 @@ export const useAppStore = create<AppState>()(
         preferences: defaultPreferences,
         customExercises: [],
         currentWeek: 0 as ProgressiveOverloadWeek,
+        weekStartedAt: null,
         workoutGoal: 'build' as WorkoutGoal,
         hasCompletedIntro: false,
 
@@ -120,11 +122,13 @@ export const useAppStore = create<AppState>()(
         setCurrentWeek: (week) =>
           set(() => ({
             currentWeek: week,
+            weekStartedAt: new Date().toISOString(),
           })),
 
         advanceWeek: () =>
           set((state) => ({
             currentWeek: ((state.currentWeek + 1) % 5) as ProgressiveOverloadWeek,
+            weekStartedAt: new Date().toISOString(),
           })),
 
         // Workout goal actions

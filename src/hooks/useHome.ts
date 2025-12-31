@@ -1,0 +1,168 @@
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useAppStore } from '../store/useAppStore';
+import { getProgressiveOverloadRecommendations } from '../services/openai';
+import {
+  WorkoutTemplate,
+  WorkoutSession,
+  UserPreferences,
+  ProgressiveOverloadWeek,
+  WorkoutGoal,
+  GoalInfo,
+  WorkoutRecommendation,
+  WORKOUT_GOALS,
+} from '../types';
+
+export interface UseHomeReturn {
+  // Store values (direct access)
+  templates: WorkoutTemplate[];
+  sessions: WorkoutSession[];
+  activeSession: WorkoutSession | null;
+  preferences: UserPreferences;
+  currentWeek: ProgressiveOverloadWeek;
+  workoutGoal: WorkoutGoal;
+
+  // Computed values
+  hasApiKey: boolean;
+  showProgressiveOverload: boolean;
+  goalInfo: GoalInfo;
+  recentSessions: WorkoutSession[];
+  nextWorkout: WorkoutTemplate | null;
+
+  // Recommendations
+  recommendations: WorkoutRecommendation[];
+  loadingRecommendations: boolean;
+
+  // Week selector modal
+  showWeekSelector: boolean;
+  setShowWeekSelector: (show: boolean) => void;
+  selectWeek: (week: ProgressiveOverloadWeek) => void;
+}
+
+export const useHome = (): UseHomeReturn => {
+  // Store values
+  const templates = useAppStore((state) => state.templates);
+  const sessions = useAppStore((state) => state.sessions);
+  const activeSession = useAppStore((state) => state.activeSession);
+  const preferences = useAppStore((state) => state.preferences);
+  const currentWeek = useAppStore((state) => state.currentWeek);
+  const workoutGoal = useAppStore((state) => state.workoutGoal);
+  const weekStartedAt = useAppStore((state) => state.weekStartedAt);
+  const setCurrentWeek = useAppStore((state) => state.setCurrentWeek);
+  const advanceWeek = useAppStore((state) => state.advanceWeek);
+
+  // Local state
+  const [showWeekSelector, setShowWeekSelector] = useState(false);
+  const [recommendations, setRecommendations] = useState<WorkoutRecommendation[]>([]);
+  const [loadingRecommendations, setLoadingRecommendations] = useState(false);
+
+  // Computed values
+  const hasApiKey = !!preferences.openaiApiKey;
+  const goalInfo = WORKOUT_GOALS[workoutGoal];
+  const showProgressiveOverload = goalInfo.useProgressiveOverload;
+
+  // Recent sessions (most recent 3)
+  const recentSessions = useMemo(() => {
+    return [...sessions]
+      .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())
+      .slice(0, 3);
+  }, [sessions]);
+
+  // Next workout suggestion based on template rotation
+  const nextWorkout = useMemo(() => {
+    if (templates.length === 0) return null;
+    if (sessions.length === 0) return templates[0];
+
+    // Find the most recent completed session with a template
+    const sortedSessions = [...sessions].sort(
+      (a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
+    );
+    const lastSessionWithTemplate = sortedSessions.find((s) => s.templateId);
+
+    if (!lastSessionWithTemplate) return templates[0];
+
+    // Find the index of the last used template
+    const lastTemplateIndex = templates.findIndex(
+      (t) => t.id === lastSessionWithTemplate.templateId
+    );
+
+    if (lastTemplateIndex === -1) return templates[0];
+
+    // Get the next template (cycle back to start if at end)
+    const nextIndex = (lastTemplateIndex + 1) % templates.length;
+    return templates[nextIndex];
+  }, [templates, sessions]);
+
+  // Auto-advance week if 7 days have passed (runs once on mount)
+  useEffect(() => {
+    if (!weekStartedAt) return;
+
+    const weekStart = new Date(weekStartedAt);
+    const now = new Date();
+    const daysSinceStart = Math.floor(
+      (now.getTime() - weekStart.getTime()) / (1000 * 60 * 60 * 24)
+    );
+
+    if (daysSinceStart >= 7) {
+      advanceWeek();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Load progressive overload recommendations
+  useEffect(() => {
+    const loadRecommendations = async () => {
+      if (!preferences.openaiApiKey || sessions.length < 2) return;
+
+      setLoadingRecommendations(true);
+      try {
+        const recs = await getProgressiveOverloadRecommendations(
+          preferences.openaiApiKey,
+          sessions,
+          preferences.weightUnit
+        );
+        setRecommendations(recs);
+      } catch (err) {
+        console.error('Failed to load recommendations:', err);
+      } finally {
+        setLoadingRecommendations(false);
+      }
+    };
+
+    loadRecommendations();
+  }, [preferences.openaiApiKey, sessions, preferences.weightUnit]);
+
+  // Select week and close modal
+  const selectWeek = useCallback(
+    (week: ProgressiveOverloadWeek) => {
+      setCurrentWeek(week);
+      setShowWeekSelector(false);
+    },
+    [setCurrentWeek]
+  );
+
+  return {
+    // Store values
+    templates,
+    sessions,
+    activeSession,
+    preferences,
+    currentWeek,
+    workoutGoal,
+
+    // Computed values
+    hasApiKey,
+    showProgressiveOverload,
+    goalInfo,
+    recentSessions,
+    nextWorkout,
+
+    // Recommendations
+    recommendations,
+    loadingRecommendations,
+
+    // Week selector modal
+    showWeekSelector,
+    setShowWeekSelector,
+    selectWeek,
+  };
+};

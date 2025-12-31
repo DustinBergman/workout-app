@@ -1,0 +1,66 @@
+import { FC } from 'react';
+import { Modal } from '../ui';
+import { ProgressiveOverloadWeek, PROGRESSIVE_OVERLOAD_WEEKS } from '../../types';
+
+interface WeekSelectorModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  currentWeek: ProgressiveOverloadWeek;
+  onSelectWeek: (week: ProgressiveOverloadWeek) => void;
+}
+
+export const WeekSelectorModal: FC<WeekSelectorModalProps> = ({
+  isOpen,
+  onClose,
+  currentWeek,
+  onSelectWeek,
+}) => {
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Select Training Week"
+    >
+      <div className="space-y-3">
+        <p className="text-sm text-muted-foreground mb-4">
+          Choose your current progressive overload week. AI suggestions will be adjusted accordingly.
+        </p>
+        <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
+          {([0, 1, 2, 3, 4] as ProgressiveOverloadWeek[]).map((week) => {
+            const weekInfo = PROGRESSIVE_OVERLOAD_WEEKS[week];
+            const isSelected = week === currentWeek;
+            return (
+              <button
+                key={week}
+                onClick={() => onSelectWeek(week)}
+                className={`w-full p-4 rounded-xl border text-left transition-all ${
+                  isSelected
+                    ? 'border-primary bg-primary/10'
+                    : 'border-border hover:border-primary/50 hover:bg-muted/50'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="font-semibold">
+                    Week {week + 1}: {weekInfo.name}
+                  </span>
+                  {isSelected && (
+                    <svg className="w-5 h-5 text-primary" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {weekInfo.description}
+                </p>
+                <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
+                  <span>Weight: {weekInfo.weightAdjustment}</span>
+                  <span>Reps: {weekInfo.repRange}</span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </Modal>
+  );
+};
