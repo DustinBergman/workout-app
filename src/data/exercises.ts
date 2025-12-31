@@ -1,12 +1,14 @@
-import { Exercise } from '../types';
+import { Exercise, StrengthExercise, CardioExercise } from '../types';
 
 // Base URL for exercise images from free-exercise-db (public domain)
 const IMG_BASE = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises';
 
-export const exercises: Exercise[] = [
+// Strength exercises
+export const strengthExercises: StrengthExercise[] = [
   // CHEST
   {
     id: 'bench-press',
+    type: 'strength',
     name: 'Barbell Bench Press',
     muscleGroups: ['chest', 'triceps', 'shoulders'],
     equipment: 'barbell',
@@ -15,6 +17,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'incline-bench-press',
+    type: 'strength',
     name: 'Incline Barbell Bench Press',
     muscleGroups: ['chest', 'shoulders', 'triceps'],
     equipment: 'barbell',
@@ -23,6 +26,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'decline-bench-press',
+    type: 'strength',
     name: 'Decline Barbell Bench Press',
     muscleGroups: ['chest', 'triceps'],
     equipment: 'barbell',
@@ -31,6 +35,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'dumbbell-bench-press',
+    type: 'strength',
     name: 'Dumbbell Bench Press',
     muscleGroups: ['chest', 'triceps', 'shoulders'],
     equipment: 'dumbbell',
@@ -39,6 +44,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'incline-dumbbell-press',
+    type: 'strength',
     name: 'Incline Dumbbell Press',
     muscleGroups: ['chest', 'shoulders', 'triceps'],
     equipment: 'dumbbell',
@@ -47,6 +53,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'dumbbell-fly',
+    type: 'strength',
     name: 'Dumbbell Fly',
     muscleGroups: ['chest'],
     equipment: 'dumbbell',
@@ -55,6 +62,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'cable-crossover',
+    type: 'strength',
     name: 'Cable Crossover',
     muscleGroups: ['chest'],
     equipment: 'cable',
@@ -63,6 +71,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'chest-dip',
+    type: 'strength',
     name: 'Chest Dip',
     muscleGroups: ['chest', 'triceps', 'shoulders'],
     equipment: 'bodyweight',
@@ -71,6 +80,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'push-up',
+    type: 'strength',
     name: 'Push-Up',
     muscleGroups: ['chest', 'triceps', 'shoulders'],
     equipment: 'bodyweight',
@@ -79,6 +89,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'machine-chest-press',
+    type: 'strength',
     name: 'Machine Chest Press',
     muscleGroups: ['chest', 'triceps', 'shoulders'],
     equipment: 'machine',
@@ -89,6 +100,7 @@ export const exercises: Exercise[] = [
   // BACK
   {
     id: 'deadlift',
+    type: 'strength',
     name: 'Conventional Deadlift',
     muscleGroups: ['back', 'hamstrings', 'glutes', 'traps'],
     equipment: 'barbell',
@@ -97,6 +109,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'sumo-deadlift',
+    type: 'strength',
     name: 'Sumo Deadlift',
     muscleGroups: ['back', 'glutes', 'hamstrings', 'quadriceps'],
     equipment: 'barbell',
@@ -105,6 +118,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'romanian-deadlift',
+    type: 'strength',
     name: 'Romanian Deadlift',
     muscleGroups: ['hamstrings', 'glutes', 'back'],
     equipment: 'barbell',
@@ -113,6 +127,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'barbell-row',
+    type: 'strength',
     name: 'Barbell Bent Over Row',
     muscleGroups: ['back', 'lats', 'biceps'],
     equipment: 'barbell',
@@ -121,6 +136,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'pendlay-row',
+    type: 'strength',
     name: 'Pendlay Row',
     muscleGroups: ['back', 'lats', 'biceps'],
     equipment: 'barbell',
@@ -129,6 +145,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'dumbbell-row',
+    type: 'strength',
     name: 'Dumbbell Row',
     muscleGroups: ['back', 'lats', 'biceps'],
     equipment: 'dumbbell',
@@ -137,6 +154,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'lat-pulldown',
+    type: 'strength',
     name: 'Lat Pulldown',
     muscleGroups: ['lats', 'biceps', 'back'],
     equipment: 'cable',
@@ -145,6 +163,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'pull-up',
+    type: 'strength',
     name: 'Pull-Up',
     muscleGroups: ['lats', 'biceps', 'back'],
     equipment: 'bodyweight',
@@ -153,6 +172,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'chin-up',
+    type: 'strength',
     name: 'Chin-Up',
     muscleGroups: ['lats', 'biceps', 'back'],
     equipment: 'bodyweight',
@@ -161,6 +181,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'cable-row',
+    type: 'strength',
     name: 'Seated Cable Row',
     muscleGroups: ['back', 'lats', 'biceps'],
     equipment: 'cable',
@@ -169,6 +190,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 't-bar-row',
+    type: 'strength',
     name: 'T-Bar Row',
     muscleGroups: ['back', 'lats', 'biceps'],
     equipment: 'barbell',
@@ -177,6 +199,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'machine-row',
+    type: 'strength',
     name: 'Machine Row',
     muscleGroups: ['back', 'lats', 'biceps'],
     equipment: 'machine',
@@ -187,6 +210,7 @@ export const exercises: Exercise[] = [
   // SHOULDERS
   {
     id: 'overhead-press',
+    type: 'strength',
     name: 'Barbell Overhead Press',
     muscleGroups: ['shoulders', 'triceps'],
     equipment: 'barbell',
@@ -195,6 +219,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'seated-dumbbell-press',
+    type: 'strength',
     name: 'Seated Dumbbell Press',
     muscleGroups: ['shoulders', 'triceps'],
     equipment: 'dumbbell',
@@ -203,6 +228,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'arnold-press',
+    type: 'strength',
     name: 'Arnold Press',
     muscleGroups: ['shoulders', 'triceps'],
     equipment: 'dumbbell',
@@ -211,6 +237,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'lateral-raise',
+    type: 'strength',
     name: 'Lateral Raise',
     muscleGroups: ['shoulders'],
     equipment: 'dumbbell',
@@ -219,6 +246,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'front-raise',
+    type: 'strength',
     name: 'Front Raise',
     muscleGroups: ['shoulders'],
     equipment: 'dumbbell',
@@ -227,6 +255,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'rear-delt-fly',
+    type: 'strength',
     name: 'Rear Delt Fly',
     muscleGroups: ['shoulders', 'back'],
     equipment: 'dumbbell',
@@ -235,6 +264,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'face-pull',
+    type: 'strength',
     name: 'Face Pull',
     muscleGroups: ['shoulders', 'back', 'traps'],
     equipment: 'cable',
@@ -243,6 +273,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'upright-row',
+    type: 'strength',
     name: 'Upright Row',
     muscleGroups: ['shoulders', 'traps'],
     equipment: 'barbell',
@@ -251,6 +282,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'shrug',
+    type: 'strength',
     name: 'Barbell Shrug',
     muscleGroups: ['traps'],
     equipment: 'barbell',
@@ -259,6 +291,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'dumbbell-shrug',
+    type: 'strength',
     name: 'Dumbbell Shrug',
     muscleGroups: ['traps'],
     equipment: 'dumbbell',
@@ -269,6 +302,7 @@ export const exercises: Exercise[] = [
   // LEGS - QUADRICEPS
   {
     id: 'squat',
+    type: 'strength',
     name: 'Barbell Back Squat',
     muscleGroups: ['quadriceps', 'glutes', 'hamstrings'],
     equipment: 'barbell',
@@ -277,6 +311,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'front-squat',
+    type: 'strength',
     name: 'Front Squat',
     muscleGroups: ['quadriceps', 'glutes', 'core'],
     equipment: 'barbell',
@@ -285,6 +320,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'leg-press',
+    type: 'strength',
     name: 'Leg Press',
     muscleGroups: ['quadriceps', 'glutes', 'hamstrings'],
     equipment: 'machine',
@@ -293,6 +329,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'hack-squat',
+    type: 'strength',
     name: 'Hack Squat',
     muscleGroups: ['quadriceps', 'glutes'],
     equipment: 'machine',
@@ -301,6 +338,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'leg-extension',
+    type: 'strength',
     name: 'Leg Extension',
     muscleGroups: ['quadriceps'],
     equipment: 'machine',
@@ -309,6 +347,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'goblet-squat',
+    type: 'strength',
     name: 'Goblet Squat',
     muscleGroups: ['quadriceps', 'glutes'],
     equipment: 'dumbbell',
@@ -317,6 +356,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'bulgarian-split-squat',
+    type: 'strength',
     name: 'Bulgarian Split Squat',
     muscleGroups: ['quadriceps', 'glutes', 'hamstrings'],
     equipment: 'dumbbell',
@@ -325,6 +365,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'lunge',
+    type: 'strength',
     name: 'Walking Lunge',
     muscleGroups: ['quadriceps', 'glutes', 'hamstrings'],
     equipment: 'dumbbell',
@@ -335,6 +376,7 @@ export const exercises: Exercise[] = [
   // LEGS - HAMSTRINGS & GLUTES
   {
     id: 'leg-curl',
+    type: 'strength',
     name: 'Lying Leg Curl',
     muscleGroups: ['hamstrings'],
     equipment: 'machine',
@@ -343,6 +385,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'seated-leg-curl',
+    type: 'strength',
     name: 'Seated Leg Curl',
     muscleGroups: ['hamstrings'],
     equipment: 'machine',
@@ -351,6 +394,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'stiff-leg-deadlift',
+    type: 'strength',
     name: 'Stiff Leg Deadlift',
     muscleGroups: ['hamstrings', 'glutes', 'back'],
     equipment: 'barbell',
@@ -359,6 +403,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'hip-thrust',
+    type: 'strength',
     name: 'Barbell Hip Thrust',
     muscleGroups: ['glutes', 'hamstrings'],
     equipment: 'barbell',
@@ -367,6 +412,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'glute-bridge',
+    type: 'strength',
     name: 'Glute Bridge',
     muscleGroups: ['glutes', 'hamstrings'],
     equipment: 'bodyweight',
@@ -375,6 +421,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'cable-pull-through',
+    type: 'strength',
     name: 'Cable Pull Through',
     muscleGroups: ['glutes', 'hamstrings'],
     equipment: 'cable',
@@ -385,6 +432,7 @@ export const exercises: Exercise[] = [
   // LEGS - CALVES
   {
     id: 'standing-calf-raise',
+    type: 'strength',
     name: 'Standing Calf Raise',
     muscleGroups: ['calves'],
     equipment: 'machine',
@@ -393,6 +441,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'seated-calf-raise',
+    type: 'strength',
     name: 'Seated Calf Raise',
     muscleGroups: ['calves'],
     equipment: 'machine',
@@ -403,6 +452,7 @@ export const exercises: Exercise[] = [
   // BICEPS
   {
     id: 'barbell-curl',
+    type: 'strength',
     name: 'Barbell Curl',
     muscleGroups: ['biceps'],
     equipment: 'barbell',
@@ -411,6 +461,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'ez-bar-curl',
+    type: 'strength',
     name: 'EZ Bar Curl',
     muscleGroups: ['biceps'],
     equipment: 'ez-bar',
@@ -419,6 +470,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'dumbbell-curl',
+    type: 'strength',
     name: 'Dumbbell Curl',
     muscleGroups: ['biceps'],
     equipment: 'dumbbell',
@@ -427,6 +479,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'hammer-curl',
+    type: 'strength',
     name: 'Hammer Curl',
     muscleGroups: ['biceps', 'forearms'],
     equipment: 'dumbbell',
@@ -435,6 +488,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'preacher-curl',
+    type: 'strength',
     name: 'Preacher Curl',
     muscleGroups: ['biceps'],
     equipment: 'ez-bar',
@@ -443,6 +497,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'incline-dumbbell-curl',
+    type: 'strength',
     name: 'Incline Dumbbell Curl',
     muscleGroups: ['biceps'],
     equipment: 'dumbbell',
@@ -451,6 +506,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'cable-curl',
+    type: 'strength',
     name: 'Cable Curl',
     muscleGroups: ['biceps'],
     equipment: 'cable',
@@ -459,6 +515,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'concentration-curl',
+    type: 'strength',
     name: 'Concentration Curl',
     muscleGroups: ['biceps'],
     equipment: 'dumbbell',
@@ -469,6 +526,7 @@ export const exercises: Exercise[] = [
   // TRICEPS
   {
     id: 'close-grip-bench',
+    type: 'strength',
     name: 'Close Grip Bench Press',
     muscleGroups: ['triceps', 'chest'],
     equipment: 'barbell',
@@ -477,6 +535,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'skull-crusher',
+    type: 'strength',
     name: 'Skull Crusher',
     muscleGroups: ['triceps'],
     equipment: 'ez-bar',
@@ -485,6 +544,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'tricep-pushdown',
+    type: 'strength',
     name: 'Tricep Pushdown',
     muscleGroups: ['triceps'],
     equipment: 'cable',
@@ -493,6 +553,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'rope-pushdown',
+    type: 'strength',
     name: 'Rope Pushdown',
     muscleGroups: ['triceps'],
     equipment: 'cable',
@@ -501,6 +562,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'overhead-tricep-extension',
+    type: 'strength',
     name: 'Overhead Tricep Extension',
     muscleGroups: ['triceps'],
     equipment: 'dumbbell',
@@ -509,6 +571,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'tricep-dip',
+    type: 'strength',
     name: 'Tricep Dip',
     muscleGroups: ['triceps', 'chest', 'shoulders'],
     equipment: 'bodyweight',
@@ -517,6 +580,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'tricep-kickback',
+    type: 'strength',
     name: 'Tricep Kickback',
     muscleGroups: ['triceps'],
     equipment: 'dumbbell',
@@ -527,6 +591,7 @@ export const exercises: Exercise[] = [
   // CORE
   {
     id: 'plank',
+    type: 'strength',
     name: 'Plank',
     muscleGroups: ['core'],
     equipment: 'bodyweight',
@@ -535,6 +600,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'hanging-leg-raise',
+    type: 'strength',
     name: 'Hanging Leg Raise',
     muscleGroups: ['core'],
     equipment: 'bodyweight',
@@ -543,6 +609,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'cable-crunch',
+    type: 'strength',
     name: 'Cable Crunch',
     muscleGroups: ['core'],
     equipment: 'cable',
@@ -551,6 +618,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'ab-wheel-rollout',
+    type: 'strength',
     name: 'Ab Wheel Rollout',
     muscleGroups: ['core'],
     equipment: 'other',
@@ -559,6 +627,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'russian-twist',
+    type: 'strength',
     name: 'Russian Twist',
     muscleGroups: ['core'],
     equipment: 'bodyweight',
@@ -567,6 +636,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'dead-bug',
+    type: 'strength',
     name: 'Dead Bug',
     muscleGroups: ['core'],
     equipment: 'bodyweight',
@@ -575,6 +645,7 @@ export const exercises: Exercise[] = [
   },
   {
     id: 'mountain-climber',
+    type: 'strength',
     name: 'Mountain Climber',
     muscleGroups: ['core', 'shoulders'],
     equipment: 'bodyweight',
@@ -582,6 +653,90 @@ export const exercises: Exercise[] = [
     imageUrl: `${IMG_BASE}/Mountain_Climbers/0.jpg`,
   },
 ];
+
+// Cardio exercises
+export const cardioExercises: CardioExercise[] = [
+  {
+    id: 'outdoor-run',
+    type: 'cardio',
+    name: 'Outdoor Run',
+    cardioType: 'running',
+    instructions: 'Run outdoors at your desired pace. Track your distance and time.',
+  },
+  {
+    id: 'treadmill-run',
+    type: 'cardio',
+    name: 'Treadmill Run',
+    cardioType: 'running',
+    instructions: 'Run on a treadmill. Adjust speed and incline as desired.',
+  },
+  {
+    id: 'brisk-walk',
+    type: 'cardio',
+    name: 'Brisk Walk',
+    cardioType: 'walking',
+    instructions: 'Walk at a brisk pace, faster than a casual stroll.',
+  },
+  {
+    id: 'incline-walk',
+    type: 'cardio',
+    name: 'Incline Treadmill Walk',
+    cardioType: 'walking',
+    instructions: 'Walk on a treadmill with elevated incline for increased intensity.',
+  },
+  {
+    id: 'outdoor-cycling',
+    type: 'cardio',
+    name: 'Outdoor Cycling',
+    cardioType: 'cycling',
+    instructions: 'Cycle outdoors on roads or trails.',
+  },
+  {
+    id: 'stationary-bike',
+    type: 'cardio',
+    name: 'Stationary Bike',
+    cardioType: 'cycling',
+    instructions: 'Cycle on a stationary bike. Adjust resistance as needed.',
+  },
+  {
+    id: 'rowing-machine',
+    type: 'cardio',
+    name: 'Rowing Machine',
+    cardioType: 'rowing',
+    instructions: 'Use proper form: legs, back, arms on the pull; arms, back, legs on the return.',
+  },
+  {
+    id: 'elliptical',
+    type: 'cardio',
+    name: 'Elliptical Trainer',
+    cardioType: 'elliptical',
+    instructions: 'Use the elliptical machine with smooth, continuous motion.',
+  },
+  {
+    id: 'stair-climber',
+    type: 'cardio',
+    name: 'Stair Climber',
+    cardioType: 'stair-climber',
+    instructions: 'Climb stairs continuously. Avoid leaning on handrails.',
+  },
+  {
+    id: 'lap-swimming',
+    type: 'cardio',
+    name: 'Lap Swimming',
+    cardioType: 'swimming',
+    instructions: 'Swim laps using your preferred stroke.',
+  },
+  {
+    id: 'hiking',
+    type: 'cardio',
+    name: 'Hiking',
+    cardioType: 'hiking',
+    instructions: 'Hike on trails or terrain. Track distance covered.',
+  },
+];
+
+// Combined exercises array
+export const exercises: Exercise[] = [...strengthExercises, ...cardioExercises];
 
 // Helper functions
 export const getExerciseById = (id: string, customExercises: Exercise[] = []): Exercise | undefined => {
@@ -591,23 +746,38 @@ export const getExerciseById = (id: string, customExercises: Exercise[] = []): E
   return exercises.find((e) => e.id === id);
 };
 
-export const getExercisesByMuscleGroup = (muscleGroup: string): Exercise[] => {
-  return exercises.filter((e) => e.muscleGroups.includes(muscleGroup as Exercise['muscleGroups'][number]));
+export const getExercisesByMuscleGroup = (muscleGroup: string): StrengthExercise[] => {
+  return strengthExercises.filter((e) => e.muscleGroups.includes(muscleGroup as StrengthExercise['muscleGroups'][number]));
 };
 
-export const getExercisesByEquipment = (equipment: string): Exercise[] => {
-  return exercises.filter((e) => e.equipment === equipment);
+export const getExercisesByEquipment = (equipment: string): StrengthExercise[] => {
+  return strengthExercises.filter((e) => e.equipment === equipment);
+};
+
+export const getCardioExercisesByType = (cardioType: string): CardioExercise[] => {
+  return cardioExercises.filter((e) => e.cardioType === cardioType);
 };
 
 export const searchExercises = (query: string, customExercises: Exercise[] = []): Exercise[] => {
   const lowerQuery = query.toLowerCase();
   const allExercises = [...exercises, ...customExercises];
-  return allExercises.filter(
-    (e) =>
-      e.name.toLowerCase().includes(lowerQuery) ||
-      e.muscleGroups.some((m) => m.toLowerCase().includes(lowerQuery)) ||
-      e.equipment.toLowerCase().includes(lowerQuery)
-  );
+  return allExercises.filter((e) => {
+    // Search by name (all exercises)
+    if (e.name.toLowerCase().includes(lowerQuery)) return true;
+
+    // Search by muscle group and equipment (strength only)
+    if (e.type === 'strength') {
+      if (e.muscleGroups.some((m) => m.toLowerCase().includes(lowerQuery))) return true;
+      if (e.equipment.toLowerCase().includes(lowerQuery)) return true;
+    }
+
+    // Search by cardio type (cardio only)
+    if (e.type === 'cardio') {
+      if (e.cardioType.toLowerCase().includes(lowerQuery)) return true;
+    }
+
+    return false;
+  });
 };
 
 export const getAllExercises = (customExercises: Exercise[] = []): Exercise[] => {

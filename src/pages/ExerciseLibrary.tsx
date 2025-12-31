@@ -10,7 +10,7 @@ import {
   SelectContent,
   SelectItem,
 } from '../components/ui';
-import { MuscleGroup, Equipment } from '../types';
+import { MuscleGroup, Equipment, Exercise } from '../types';
 
 const muscleGroups: MuscleGroup[] = [
   'chest', 'back', 'shoulders', 'biceps', 'triceps', 'forearms',
@@ -29,14 +29,14 @@ export const ExerciseLibrary: FC = () => {
   const [expandedExercise, setExpandedExercise] = useState<string | null>(null);
 
   const filteredExercises = useMemo(() => {
-    let result = searchQuery ? searchExercises(searchQuery) : exercises;
+    let result: Exercise[] = searchQuery ? searchExercises(searchQuery) : exercises;
 
     if (selectedMuscle) {
-      result = result.filter((e) => e.muscleGroups.includes(selectedMuscle));
+      result = result.filter((e) => e.type === 'strength' && e.muscleGroups.includes(selectedMuscle));
     }
 
     if (selectedEquipment) {
-      result = result.filter((e) => e.equipment === selectedEquipment);
+      result = result.filter((e) => e.type === 'strength' && e.equipment === selectedEquipment);
     }
 
     return result;
@@ -123,14 +123,22 @@ export const ExerciseLibrary: FC = () => {
                   {exercise.name}
                 </h3>
                 <div className="flex flex-wrap gap-1 mt-1">
-                  {exercise.muscleGroups.map((muscle) => (
-                    <Badge key={muscle} variant="default" className="text-xs">
-                      {formatMuscleGroup(muscle)}
+                  {exercise.type === 'cardio' ? (
+                    <Badge variant="secondary" className="text-xs bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400">
+                      {exercise.cardioType}
                     </Badge>
-                  ))}
-                  <Badge variant="secondary" className="text-xs">
-                    {formatEquipment(exercise.equipment)}
-                  </Badge>
+                  ) : (
+                    <>
+                      {exercise.muscleGroups.map((muscle: string) => (
+                        <Badge key={muscle} variant="default" className="text-xs">
+                          {formatMuscleGroup(muscle)}
+                        </Badge>
+                      ))}
+                      <Badge variant="secondary" className="text-xs">
+                        {formatEquipment(exercise.equipment)}
+                      </Badge>
+                    </>
+                  )}
                 </div>
               </div>
               <svg

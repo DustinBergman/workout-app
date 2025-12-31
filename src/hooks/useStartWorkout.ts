@@ -29,13 +29,24 @@ export const useStartWorkout = (): UseStartWorkoutReturn => {
       templateId: template.id,
       name: template.name,
       startedAt: new Date().toISOString(),
-      exercises: template.exercises.map((e) => ({
-        exerciseId: e.exerciseId,
-        targetSets: e.targetSets,
-        targetReps: e.targetReps,
-        restSeconds: e.restSeconds,
-        sets: [],
-      })),
+      exercises: template.exercises.map((e) => {
+        if (e.type === 'cardio') {
+          return {
+            type: 'cardio' as const,
+            exerciseId: e.exerciseId,
+            restSeconds: e.restSeconds,
+            sets: [],
+          };
+        }
+        return {
+          type: 'strength' as const,
+          exerciseId: e.exerciseId,
+          targetSets: e.targetSets,
+          targetReps: e.targetReps,
+          restSeconds: e.restSeconds,
+          sets: [],
+        };
+      }),
     };
     setActiveSession(session);
 

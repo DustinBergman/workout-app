@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createHistoryContext, analyzeExercisePerformance } from './history';
-import { WorkoutSession } from '../../types';
+import { WorkoutSession, StrengthSessionExercise, StrengthCompletedSet } from '../../types';
 
 // Mock storage module
 vi.mock('../storage', () => ({
@@ -11,6 +11,28 @@ vi.mock('../storage', () => ({
 vi.mock('../../data/exercises', () => ({
   getExerciseById: vi.fn((id: string) => ({ id, name: `Exercise ${id}` })),
 }));
+
+const createStrengthSet = (weight: number, reps: number): StrengthCompletedSet => ({
+  type: 'strength',
+  weight,
+  reps,
+  unit: 'lbs',
+  completedAt: '',
+});
+
+const createStrengthExercise = (
+  exerciseId: string,
+  sets: StrengthCompletedSet[],
+  overrides: Partial<StrengthSessionExercise> = {}
+): StrengthSessionExercise => ({
+  type: 'strength',
+  exerciseId,
+  targetSets: 3,
+  targetReps: 10,
+  restSeconds: 90,
+  sets,
+  ...overrides,
+});
 
 const createMockSession = (overrides: Partial<WorkoutSession> = {}): WorkoutSession => ({
   id: 'session-1',
@@ -36,16 +58,10 @@ describe('History Utilities', () => {
         name: 'Push Day',
         startedAt: '2024-01-15T10:00:00.000Z',
         exercises: [
-          {
-            exerciseId: 'bench-press',
-            targetSets: 3,
-            targetReps: 10,
-            restSeconds: 90,
-            sets: [
-              { weight: 135, reps: 10, unit: 'lbs', completedAt: '' },
-              { weight: 135, reps: 8, unit: 'lbs', completedAt: '' },
-            ],
-          },
+          createStrengthExercise('bench-press', [
+            createStrengthSet(135, 10),
+            createStrengthSet(135, 8),
+          ]),
         ],
       });
 
@@ -60,13 +76,7 @@ describe('History Utilities', () => {
     it('should handle exercises with no sets', () => {
       const session = createMockSession({
         exercises: [
-          {
-            exerciseId: 'squats',
-            targetSets: 3,
-            targetReps: 10,
-            restSeconds: 90,
-            sets: [],
-          },
+          createStrengthExercise('squats', []),
         ],
       });
 
@@ -121,16 +131,10 @@ describe('History Utilities', () => {
     it('should skip exercises with less than 3 sets', () => {
       const session = createMockSession({
         exercises: [
-          {
-            exerciseId: 'bench',
-            targetSets: 3,
-            targetReps: 10,
-            restSeconds: 90,
-            sets: [
-              { weight: 135, reps: 10, unit: 'lbs', completedAt: '' },
-              { weight: 135, reps: 10, unit: 'lbs', completedAt: '' },
-            ],
-          },
+          createStrengthExercise('bench', [
+            createStrengthSet(135, 10),
+            createStrengthSet(135, 10),
+          ]),
         ],
       });
 
@@ -141,17 +145,11 @@ describe('History Utilities', () => {
     it('should analyze exercise with sufficient sets', () => {
       const session = createMockSession({
         exercises: [
-          {
-            exerciseId: 'bench',
-            targetSets: 3,
-            targetReps: 10,
-            restSeconds: 90,
-            sets: [
-              { weight: 135, reps: 10, unit: 'lbs', completedAt: '' },
-              { weight: 140, reps: 9, unit: 'lbs', completedAt: '' },
-              { weight: 145, reps: 8, unit: 'lbs', completedAt: '' },
-            ],
-          },
+          createStrengthExercise('bench', [
+            createStrengthSet(135, 10),
+            createStrengthSet(140, 9),
+            createStrengthSet(145, 8),
+          ]),
         ],
       });
 
@@ -170,16 +168,10 @@ describe('History Utilities', () => {
           id: `session-${i}`,
           startedAt: new Date(Date.now() - (2 - i) * 86400000).toISOString(), // Oldest first
           exercises: [
-            {
-              exerciseId: 'bench',
-              targetSets: 3,
-              targetReps: 10,
-              restSeconds: 90,
-              sets: [
-                { weight: 100 + i * 10, reps: 10, unit: 'lbs', completedAt: '' },
-                { weight: 100 + i * 10, reps: 10, unit: 'lbs', completedAt: '' },
-              ],
-            },
+            createStrengthExercise('bench', [
+              createStrengthSet(100 + i * 10, 10),
+              createStrengthSet(100 + i * 10, 10),
+            ]),
           ],
         })
       );
@@ -196,16 +188,10 @@ describe('History Utilities', () => {
           id: `session-${i}`,
           startedAt: new Date(Date.now() - i * 86400000).toISOString(),
           exercises: [
-            {
-              exerciseId: 'bench',
-              targetSets: 3,
-              targetReps: 10,
-              restSeconds: 90,
-              sets: [
-                { weight: 135, reps: 10, unit: 'lbs', completedAt: '' },
-                { weight: 135, reps: 10, unit: 'lbs', completedAt: '' },
-              ],
-            },
+            createStrengthExercise('bench', [
+              createStrengthSet(135, 10),
+              createStrengthSet(135, 10),
+            ]),
           ],
         })
       );
@@ -219,19 +205,13 @@ describe('History Utilities', () => {
     it('should return insufficient_data for less than 6 sets', () => {
       const session = createMockSession({
         exercises: [
-          {
-            exerciseId: 'bench',
-            targetSets: 3,
-            targetReps: 10,
-            restSeconds: 90,
-            sets: [
-              { weight: 135, reps: 10, unit: 'lbs', completedAt: '' },
-              { weight: 135, reps: 10, unit: 'lbs', completedAt: '' },
-              { weight: 135, reps: 10, unit: 'lbs', completedAt: '' },
-              { weight: 135, reps: 10, unit: 'lbs', completedAt: '' },
-              { weight: 135, reps: 10, unit: 'lbs', completedAt: '' },
-            ],
-          },
+          createStrengthExercise('bench', [
+            createStrengthSet(135, 10),
+            createStrengthSet(135, 10),
+            createStrengthSet(135, 10),
+            createStrengthSet(135, 10),
+            createStrengthSet(135, 10),
+          ]),
         ],
       });
 
@@ -245,29 +225,19 @@ describe('History Utilities', () => {
         id: 'session-1',
         startedAt: '2024-01-15T10:00:00.000Z',
         exercises: [
-          {
-            exerciseId: 'bench',
-            targetSets: 3,
-            targetReps: 10,
-            restSeconds: 90,
-            sets: [
-              { weight: 135, reps: 10, unit: 'lbs', completedAt: '' },
-              { weight: 135, reps: 10, unit: 'lbs', completedAt: '' },
-            ],
-          },
+          createStrengthExercise('bench', [
+            createStrengthSet(135, 10),
+            createStrengthSet(135, 10),
+          ]),
         ],
       });
       const session2 = createMockSession({
         id: 'session-2',
         startedAt: '2024-01-16T10:00:00.000Z',
         exercises: [
-          {
-            exerciseId: 'bench',
-            targetSets: 3,
-            targetReps: 10,
-            restSeconds: 90,
-            sets: [{ weight: 140, reps: 8, unit: 'lbs', completedAt: '' }],
-          },
+          createStrengthExercise('bench', [
+            createStrengthSet(140, 8),
+          ]),
         ],
       });
 
@@ -280,18 +250,10 @@ describe('History Utilities', () => {
     it('should limit recent sets to 5 in output', () => {
       const session = createMockSession({
         exercises: [
-          {
-            exerciseId: 'bench',
-            targetSets: 10,
-            targetReps: 10,
-            restSeconds: 90,
-            sets: Array.from({ length: 10 }, () => ({
-              weight: 135,
-              reps: 10,
-              unit: 'lbs' as const,
-              completedAt: '',
-            })),
-          },
+          createStrengthExercise('bench',
+            Array.from({ length: 10 }, () => createStrengthSet(135, 10)),
+            { targetSets: 10 }
+          ),
         ],
       });
 

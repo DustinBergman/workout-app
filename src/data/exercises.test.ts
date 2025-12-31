@@ -7,7 +7,7 @@ import {
   searchExercises,
   getAllExercises,
 } from './exercises';
-import { Exercise } from '../types';
+import { StrengthExercise } from '../types';
 
 describe('Exercise Data', () => {
   describe('exercises array', () => {
@@ -19,8 +19,13 @@ describe('Exercise Data', () => {
       exercises.forEach((exercise) => {
         expect(exercise.id).toBeDefined();
         expect(exercise.name).toBeDefined();
-        expect(exercise.muscleGroups.length).toBeGreaterThan(0);
-        expect(exercise.equipment).toBeDefined();
+        expect(exercise.type).toBeDefined();
+        if (exercise.type === 'strength') {
+          expect(exercise.muscleGroups.length).toBeGreaterThan(0);
+          expect(exercise.equipment).toBeDefined();
+        } else {
+          expect(exercise.cardioType).toBeDefined();
+        }
       });
     });
 
@@ -53,8 +58,9 @@ describe('Exercise Data', () => {
     });
 
     it('should prioritize custom exercises over built-in', () => {
-      const customExercises: Exercise[] = [
+      const customExercises: StrengthExercise[] = [
         {
+          type: 'strength',
           id: 'bench-press',
           name: 'Custom Bench Press',
           muscleGroups: ['chest'],
@@ -67,8 +73,9 @@ describe('Exercise Data', () => {
     });
 
     it('should find custom exercise when not in built-in list', () => {
-      const customExercises: Exercise[] = [
+      const customExercises: StrengthExercise[] = [
         {
+          type: 'strength',
           id: 'custom-1',
           name: 'My Custom Exercise',
           muscleGroups: ['chest'],
@@ -81,8 +88,9 @@ describe('Exercise Data', () => {
     });
 
     it('should fall back to built-in when custom not found', () => {
-      const customExercises: Exercise[] = [
+      const customExercises: StrengthExercise[] = [
         {
+          type: 'strength',
           id: 'custom-1',
           name: 'Custom',
           muscleGroups: ['chest'],
@@ -186,7 +194,7 @@ describe('Exercise Data', () => {
       expect(
         results.every(
           (e) =>
-            e.equipment === 'dumbbell' || e.name.toLowerCase().includes('dumbbell')
+            (e.type === 'strength' && e.equipment === 'dumbbell') || e.name.toLowerCase().includes('dumbbell')
         )
       ).toBe(true);
     });
@@ -201,8 +209,9 @@ describe('Exercise Data', () => {
     });
 
     it('should include custom exercises in search', () => {
-      const customExercises: Exercise[] = [
+      const customExercises: StrengthExercise[] = [
         {
+          type: 'strength',
           id: 'custom-1',
           name: 'Custom Chest Press',
           muscleGroups: ['chest'],
@@ -215,8 +224,9 @@ describe('Exercise Data', () => {
     });
 
     it('should search custom exercises by muscle group', () => {
-      const customExercises: Exercise[] = [
+      const customExercises: StrengthExercise[] = [
         {
+          type: 'strength',
           id: 'custom-1',
           name: 'My Special Move',
           muscleGroups: ['glutes'],
@@ -253,8 +263,9 @@ describe('Exercise Data', () => {
     });
 
     it('should combine built-in and custom exercises', () => {
-      const customExercises: Exercise[] = [
+      const customExercises: StrengthExercise[] = [
         {
+          type: 'strength',
           id: 'custom-1',
           name: 'Custom Exercise',
           muscleGroups: ['chest'],
@@ -267,8 +278,8 @@ describe('Exercise Data', () => {
     });
 
     it('should preserve order with built-in first, custom at end', () => {
-      const customExercises: Exercise[] = [
-        { id: 'custom-1', name: 'Custom', muscleGroups: ['chest'], equipment: 'other' },
+      const customExercises: StrengthExercise[] = [
+        { type: 'strength', id: 'custom-1', name: 'Custom', muscleGroups: ['chest'], equipment: 'other' },
       ];
 
       const all = getAllExercises(customExercises);
@@ -284,10 +295,10 @@ describe('Exercise Data', () => {
     });
 
     it('should handle multiple custom exercises', () => {
-      const customExercises: Exercise[] = [
-        { id: 'custom-1', name: 'Custom 1', muscleGroups: ['chest'], equipment: 'other' },
-        { id: 'custom-2', name: 'Custom 2', muscleGroups: ['back'], equipment: 'other' },
-        { id: 'custom-3', name: 'Custom 3', muscleGroups: ['quadriceps'], equipment: 'other' },
+      const customExercises: StrengthExercise[] = [
+        { type: 'strength', id: 'custom-1', name: 'Custom 1', muscleGroups: ['chest'], equipment: 'other' },
+        { type: 'strength', id: 'custom-2', name: 'Custom 2', muscleGroups: ['back'], equipment: 'other' },
+        { type: 'strength', id: 'custom-3', name: 'Custom 3', muscleGroups: ['quadriceps'], equipment: 'other' },
       ];
 
       const all = getAllExercises(customExercises);

@@ -5,7 +5,7 @@ import {
   extractExerciseHistory,
   formatDuration,
 } from './workoutUtils';
-import { WorkoutSession, WorkoutTemplate } from '../types';
+import { WorkoutSession, WorkoutTemplate, StrengthTemplateExercise } from '../types';
 
 // Helper to create mock sessions
 const createMockSession = (overrides: Partial<WorkoutSession> = {}): WorkoutSession => ({
@@ -90,9 +90,9 @@ describe('hasSessionDeviatedFromTemplate', () => {
   });
 
   it('should return false when session matches template exactly', () => {
-    const exercises = [
-      { exerciseId: 'bench-press', targetSets: 3, targetReps: 10, restSeconds: 90 },
-      { exerciseId: 'squat', targetSets: 4, targetReps: 8, restSeconds: 120 },
+    const exercises: StrengthTemplateExercise[] = [
+      { type: 'strength', exerciseId: 'bench-press', targetSets: 3, targetReps: 10, restSeconds: 90 },
+      { type: 'strength', exerciseId: 'squat', targetSets: 4, targetReps: 8, restSeconds: 120 },
     ];
 
     const session = createMockSession({
@@ -112,17 +112,17 @@ describe('hasSessionDeviatedFromTemplate', () => {
     const session = createMockSession({
       templateId: 'template-1',
       exercises: [
-        { exerciseId: 'bench-press', targetSets: 3, targetReps: 10, restSeconds: 90, sets: [] },
-        { exerciseId: 'squat', targetSets: 4, targetReps: 8, restSeconds: 120, sets: [] },
-        { exerciseId: 'deadlift', targetSets: 3, targetReps: 5, restSeconds: 180, sets: [] },
+        { type: 'strength', exerciseId: 'bench-press', targetSets: 3, targetReps: 10, restSeconds: 90, sets: [] },
+        { type: 'strength', exerciseId: 'squat', targetSets: 4, targetReps: 8, restSeconds: 120, sets: [] },
+        { type: 'strength', exerciseId: 'deadlift', targetSets: 3, targetReps: 5, restSeconds: 180, sets: [] },
       ],
     });
 
     const template = createMockTemplate({
       id: 'template-1',
       exercises: [
-        { exerciseId: 'bench-press', targetSets: 3, targetReps: 10, restSeconds: 90 },
-        { exerciseId: 'squat', targetSets: 4, targetReps: 8, restSeconds: 120 },
+        { type: 'strength', exerciseId: 'bench-press', targetSets: 3, targetReps: 10, restSeconds: 90 },
+        { type: 'strength', exerciseId: 'squat', targetSets: 4, targetReps: 8, restSeconds: 120 },
       ],
     });
 
@@ -133,14 +133,14 @@ describe('hasSessionDeviatedFromTemplate', () => {
     const session = createMockSession({
       templateId: 'template-1',
       exercises: [
-        { exerciseId: 'incline-bench', targetSets: 3, targetReps: 10, restSeconds: 90, sets: [] },
+        { type: 'strength', exerciseId: 'incline-bench', targetSets: 3, targetReps: 10, restSeconds: 90, sets: [] },
       ],
     });
 
     const template = createMockTemplate({
       id: 'template-1',
       exercises: [
-        { exerciseId: 'bench-press', targetSets: 3, targetReps: 10, restSeconds: 90 },
+        { type: 'strength', exerciseId: 'bench-press', targetSets: 3, targetReps: 10, restSeconds: 90 },
       ],
     });
 
@@ -151,14 +151,14 @@ describe('hasSessionDeviatedFromTemplate', () => {
     const session = createMockSession({
       templateId: 'template-1',
       exercises: [
-        { exerciseId: 'bench-press', targetSets: 5, targetReps: 10, restSeconds: 90, sets: [] },
+        { type: 'strength', exerciseId: 'bench-press', targetSets: 5, targetReps: 10, restSeconds: 90, sets: [] },
       ],
     });
 
     const template = createMockTemplate({
       id: 'template-1',
       exercises: [
-        { exerciseId: 'bench-press', targetSets: 3, targetReps: 10, restSeconds: 90 },
+        { type: 'strength', exerciseId: 'bench-press', targetSets: 3, targetReps: 10, restSeconds: 90 },
       ],
     });
 
@@ -169,14 +169,14 @@ describe('hasSessionDeviatedFromTemplate', () => {
     const session = createMockSession({
       templateId: 'template-1',
       exercises: [
-        { exerciseId: 'bench-press', targetSets: 3, targetReps: 12, restSeconds: 90, sets: [] },
+        { type: 'strength', exerciseId: 'bench-press', targetSets: 3, targetReps: 12, restSeconds: 90, sets: [] },
       ],
     });
 
     const template = createMockTemplate({
       id: 'template-1',
       exercises: [
-        { exerciseId: 'bench-press', targetSets: 3, targetReps: 10, restSeconds: 90 },
+        { type: 'strength', exerciseId: 'bench-press', targetSets: 3, targetReps: 10, restSeconds: 90 },
       ],
     });
 
@@ -187,14 +187,14 @@ describe('hasSessionDeviatedFromTemplate', () => {
     const session = createMockSession({
       templateId: 'template-1',
       exercises: [
-        { exerciseId: 'bench-press', targetSets: 3, targetReps: 10, restSeconds: 120, sets: [] },
+        { type: 'strength', exerciseId: 'bench-press', targetSets: 3, targetReps: 10, restSeconds: 120, sets: [] },
       ],
     });
 
     const template = createMockTemplate({
       id: 'template-1',
       exercises: [
-        { exerciseId: 'bench-press', targetSets: 3, targetReps: 10, restSeconds: 90 },
+        { type: 'strength', exerciseId: 'bench-press', targetSets: 3, targetReps: 10, restSeconds: 90 },
       ],
     });
 
@@ -213,7 +213,7 @@ describe('extractExerciseHistory', () => {
       createMockSession({
         completedAt: new Date().toISOString(),
         exercises: [
-          { exerciseId: 'squat', targetSets: 3, targetReps: 10, restSeconds: 90, sets: [] },
+          { type: 'strength', exerciseId: 'squat', targetSets: 3, targetReps: 10, restSeconds: 90, sets: [] },
         ],
       }),
     ];
@@ -227,11 +227,12 @@ describe('extractExerciseHistory', () => {
         completedAt: undefined,
         exercises: [
           {
+            type: 'strength',
             exerciseId: 'bench-press',
             targetSets: 3,
             targetReps: 10,
             restSeconds: 90,
-            sets: [{ weight: 100, reps: 10, unit: 'lbs', completedAt: new Date().toISOString() }],
+            sets: [{ type: 'strength', weight: 100, reps: 10, unit: 'lbs', completedAt: new Date().toISOString() }],
           },
         ],
       }),
@@ -245,7 +246,7 @@ describe('extractExerciseHistory', () => {
       createMockSession({
         completedAt: new Date().toISOString(),
         exercises: [
-          { exerciseId: 'bench-press', targetSets: 3, targetReps: 10, restSeconds: 90, sets: [] },
+          { type: 'strength', exerciseId: 'bench-press', targetSets: 3, targetReps: 10, restSeconds: 90, sets: [] },
         ],
       }),
     ];
@@ -261,13 +262,14 @@ describe('extractExerciseHistory', () => {
         completedAt: '2024-01-15T11:00:00.000Z',
         exercises: [
           {
+            type: 'strength',
             exerciseId: 'bench-press',
             targetSets: 3,
             targetReps: 10,
             restSeconds: 90,
             sets: [
-              { weight: 135, reps: 10, unit: 'lbs', completedAt: date },
-              { weight: 135, reps: 8, unit: 'lbs', completedAt: date },
+              { type: 'strength', weight: 135, reps: 10, unit: 'lbs', completedAt: date },
+              { type: 'strength', weight: 135, reps: 8, unit: 'lbs', completedAt: date },
             ],
           },
         ],
@@ -279,8 +281,8 @@ describe('extractExerciseHistory', () => {
     expect(result).toHaveLength(1);
     expect(result[0].date).toBe(date);
     expect(result[0].sets).toEqual([
-      { weight: 135, reps: 10, unit: 'lbs' },
-      { weight: 135, reps: 8, unit: 'lbs' },
+      { type: 'strength', weight: 135, reps: 10, unit: 'lbs' },
+      { type: 'strength', weight: 135, reps: 8, unit: 'lbs' },
     ]);
   });
 
@@ -292,11 +294,12 @@ describe('extractExerciseHistory', () => {
         completedAt: '2024-01-10T11:00:00.000Z',
         exercises: [
           {
+            type: 'strength',
             exerciseId: 'bench-press',
             targetSets: 3,
             targetReps: 10,
             restSeconds: 90,
-            sets: [{ weight: 125, reps: 10, unit: 'lbs', completedAt: '2024-01-10T10:30:00.000Z' }],
+            sets: [{ type: 'strength', weight: 125, reps: 10, unit: 'lbs', completedAt: '2024-01-10T10:30:00.000Z' }],
           },
         ],
       }),
@@ -306,11 +309,12 @@ describe('extractExerciseHistory', () => {
         completedAt: '2024-01-15T11:00:00.000Z',
         exercises: [
           {
+            type: 'strength',
             exerciseId: 'bench-press',
             targetSets: 3,
             targetReps: 10,
             restSeconds: 90,
-            sets: [{ weight: 135, reps: 10, unit: 'lbs', completedAt: '2024-01-15T10:30:00.000Z' }],
+            sets: [{ type: 'strength', weight: 135, reps: 10, unit: 'lbs', completedAt: '2024-01-15T10:30:00.000Z' }],
           },
         ],
       }),
@@ -331,11 +335,12 @@ describe('extractExerciseHistory', () => {
         completedAt: new Date(2024, 0, i + 1, 1).toISOString(),
         exercises: [
           {
+            type: 'strength',
             exerciseId: 'bench-press',
             targetSets: 3,
             targetReps: 10,
             restSeconds: 90,
-            sets: [{ weight: 100 + i * 5, reps: 10, unit: 'lbs', completedAt: new Date().toISOString() }],
+            sets: [{ type: 'strength', weight: 100 + i * 5, reps: 10, unit: 'lbs', completedAt: new Date().toISOString() }],
           },
         ],
       })
@@ -355,13 +360,14 @@ describe('extractExerciseHistory', () => {
         completedAt: '2024-01-15T11:00:00.000Z',
         exercises: [
           {
+            type: 'strength',
             exerciseId: 'bench-press',
             targetSets: 3,
             targetReps: 10,
             restSeconds: 90,
             sets: [
-              { weight: 60, reps: 10, unit: 'kg', completedAt: '2024-01-15T10:30:00.000Z' },
-              { weight: 135, reps: 8, unit: 'lbs', completedAt: '2024-01-15T10:35:00.000Z' },
+              { type: 'strength', weight: 60, reps: 10, unit: 'kg', completedAt: '2024-01-15T10:30:00.000Z' },
+              { type: 'strength', weight: 135, reps: 8, unit: 'lbs', completedAt: '2024-01-15T10:35:00.000Z' },
             ],
           },
         ],
@@ -371,8 +377,8 @@ describe('extractExerciseHistory', () => {
     const result = extractExerciseHistory(sessions, 'bench-press');
 
     expect(result[0].sets).toEqual([
-      { weight: 60, reps: 10, unit: 'kg' },
-      { weight: 135, reps: 8, unit: 'lbs' },
+      { type: 'strength', weight: 60, reps: 10, unit: 'kg' },
+      { type: 'strength', weight: 135, reps: 8, unit: 'lbs' },
     ]);
   });
 });

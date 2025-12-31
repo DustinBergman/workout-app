@@ -74,14 +74,15 @@ describe('getProgressiveOverloadRecommendations', () => {
         id: 'session-1',
         exercises: [
           {
+            type: 'strength',
             exerciseId: 'bench',
             targetSets: 3,
             targetReps: 10,
             restSeconds: 90,
             sets: [
-              { weight: 135, reps: 10, unit: 'lbs', completedAt: '' },
-              { weight: 135, reps: 10, unit: 'lbs', completedAt: '' },
-              { weight: 135, reps: 10, unit: 'lbs', completedAt: '' },
+              { type: 'strength', weight: 135, reps: 10, unit: 'lbs', completedAt: '' },
+              { type: 'strength', weight: 135, reps: 10, unit: 'lbs', completedAt: '' },
+              { type: 'strength', weight: 135, reps: 10, unit: 'lbs', completedAt: '' },
             ],
           },
         ],
@@ -90,14 +91,15 @@ describe('getProgressiveOverloadRecommendations', () => {
         id: 'session-2',
         exercises: [
           {
+            type: 'strength',
             exerciseId: 'bench',
             targetSets: 3,
             targetReps: 10,
             restSeconds: 90,
             sets: [
-              { weight: 135, reps: 10, unit: 'lbs', completedAt: '' },
-              { weight: 135, reps: 10, unit: 'lbs', completedAt: '' },
-              { weight: 135, reps: 10, unit: 'lbs', completedAt: '' },
+              { type: 'strength', weight: 135, reps: 10, unit: 'lbs', completedAt: '' },
+              { type: 'strength', weight: 135, reps: 10, unit: 'lbs', completedAt: '' },
+              { type: 'strength', weight: 135, reps: 10, unit: 'lbs', completedAt: '' },
             ],
           },
         ],

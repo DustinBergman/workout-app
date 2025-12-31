@@ -49,6 +49,7 @@ interface AppState {
 
 const defaultPreferences: UserPreferences = {
   weightUnit: 'lbs',
+  distanceUnit: 'mi',
   defaultRestSeconds: 90,
   darkMode: false,
 };

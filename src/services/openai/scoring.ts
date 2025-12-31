@@ -1,4 +1,4 @@
-import { WorkoutSession, WorkoutScoreResult } from '../../types';
+import { WorkoutSession, WorkoutScoreResult, StrengthSessionExercise, StrengthCompletedSet } from '../../types';
 import { getExerciseById } from '../../data/exercises';
 import { getCustomExercises } from '../storage';
 import { callOpenAI, parseJSONResponse } from './client';
@@ -19,20 +19,23 @@ export const getWorkoutScore = async (
 ): Promise<WorkoutScoreResult> => {
   const customExercises = getCustomExercises();
 
-  // Build workout summary
-  const workoutSummary = completedSession.exercises.map((ex) => {
-    const exerciseInfo = getExerciseById(ex.exerciseId, customExercises);
-    return {
-      exerciseName: exerciseInfo?.name || ex.exerciseId,
-      targetSets: ex.targetSets,
-      targetReps: ex.targetReps,
-      completedSets: ex.sets.map((s) => ({
-        weight: s.weight,
-        reps: s.reps,
-        unit: s.unit,
-      })),
-    };
-  });
+  // Build workout summary (only for strength exercises)
+  const workoutSummary = completedSession.exercises
+    .filter((ex): ex is StrengthSessionExercise => ex.type === 'strength' || !('type' in ex))
+    .map((ex) => {
+      const exerciseInfo = getExerciseById(ex.exerciseId, customExercises);
+      const strengthSets = ex.sets.filter((s): s is StrengthCompletedSet => s.type === 'strength' || !('type' in s));
+      return {
+        exerciseName: exerciseInfo?.name || ex.exerciseId,
+        targetSets: ex.targetSets,
+        targetReps: ex.targetReps,
+        completedSets: strengthSets.map((s) => ({
+          weight: s.weight,
+          reps: s.reps,
+          unit: s.unit,
+        })),
+      };
+    });
 
   // Find previous sessions with same template or similar exercises
   const relevantHistory = previousSessions
@@ -49,10 +52,15 @@ export const getWorkoutScore = async (
 
   const historyContext = relevantHistory.map((s) => ({
     date: s.startedAt,
-    exercises: s.exercises.map((ex) => ({
-      exerciseId: ex.exerciseId,
-      sets: ex.sets.map((set) => ({ weight: set.weight, reps: set.reps })),
-    })),
+    exercises: s.exercises
+      .filter((ex): ex is StrengthSessionExercise => ex.type === 'strength' || !('type' in ex))
+      .map((ex) => {
+        const strengthSets = ex.sets.filter((set): set is StrengthCompletedSet => set.type === 'strength' || !('type' in set));
+        return {
+          exerciseId: ex.exerciseId,
+          sets: strengthSets.map((set) => ({ weight: set.weight, reps: set.reps })),
+        };
+      }),
   }));
 
   const prompt = `You are a fitness coach scoring a completed workout. Analyze this workout and provide a score.

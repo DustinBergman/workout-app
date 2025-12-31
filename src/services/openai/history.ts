@@ -1,4 +1,4 @@
-import { WorkoutSession } from '../../types';
+import { WorkoutSession, StrengthCompletedSet } from '../../types';
 import { getExerciseById } from '../../data/exercises';
 import { getCustomExercises } from '../storage';
 import { ExerciseStats } from './types';
@@ -20,7 +20,8 @@ export const createHistoryContext = (sessions: WorkoutSession[]): string => {
       const exercises = session.exercises
         .map((ex) => {
           const info = getExerciseById(ex.exerciseId, customExercises);
-          const sets = ex.sets
+          const strengthSets = ex.sets.filter((s): s is StrengthCompletedSet => s.type === 'strength' || !('type' in s));
+          const sets = strengthSets
             .map((s) => `${s.weight}${s.unit}x${s.reps}`)
             .join(', ');
           return `  - ${info?.name || ex.exerciseId}: ${sets || 'no sets'}`;
@@ -35,17 +36,21 @@ export const analyzeExercisePerformance = (sessions: WorkoutSession[]): Exercise
   const exerciseMap: Map<string, ExerciseStats['recentSets']> = new Map();
   const customExercises = getCustomExercises();
 
-  // Collect all sets by exercise
+  // Collect all strength sets by exercise
   sessions.forEach((session) => {
     session.exercises.forEach((ex) => {
       const existing = exerciseMap.get(ex.exerciseId) || [];
       ex.sets.forEach((set) => {
-        existing.push({
-          date: session.startedAt,
-          weight: set.weight,
-          reps: set.reps,
-          unit: set.unit,
-        });
+        // Only analyze strength sets
+        if (set.type === 'strength' || !('type' in set)) {
+          const strengthSet = set as StrengthCompletedSet;
+          existing.push({
+            date: session.startedAt,
+            weight: strengthSet.weight,
+            reps: strengthSet.reps,
+            unit: strengthSet.unit,
+          });
+        }
       });
       exerciseMap.set(ex.exerciseId, existing);
     });

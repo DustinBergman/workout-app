@@ -1,7 +1,8 @@
-import { WorkoutSession, SessionExercise, CompletedSet } from '../../types';
+import { WorkoutSession, StrengthSessionExercise, StrengthCompletedSet } from '../../types';
 
-export function createMockCompletedSet(overrides: Partial<CompletedSet> = {}): CompletedSet {
+export function createMockCompletedSet(overrides: Partial<StrengthCompletedSet> = {}): StrengthCompletedSet {
   return {
+    type: 'strength',
     reps: 10,
     weight: 135,
     unit: 'lbs',
@@ -10,8 +11,9 @@ export function createMockCompletedSet(overrides: Partial<CompletedSet> = {}): C
   };
 }
 
-export function createMockSessionExercise(overrides: Partial<SessionExercise> = {}): SessionExercise {
+export function createMockSessionExercise(overrides: Partial<StrengthSessionExercise> = {}): StrengthSessionExercise {
   return {
+    type: 'strength',
     exerciseId: 'bench-press',
     targetSets: 3,
     targetReps: 10,

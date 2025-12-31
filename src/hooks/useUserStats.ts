@@ -47,9 +47,13 @@ const calculateStrengthProgress = (
     session.exercises.forEach(ex => {
       if (ex.sets.length === 0) return;
 
+      // Only calculate for strength exercises
+      const strengthSets = ex.sets.filter(s => s.type === 'strength' || !('type' in s));
+      if (strengthSets.length === 0) return;
+
       // Calculate average weight for this exercise in this session
-      const totalWeight = ex.sets.reduce((sum, s) => sum + s.weight, 0);
-      const avgWeight = totalWeight / ex.sets.length;
+      const totalWeight = strengthSets.reduce((sum, s) => sum + ('weight' in s ? s.weight : 0), 0);
+      const avgWeight = totalWeight / strengthSets.length;
 
       if (avgWeight === 0) return;
 
@@ -102,10 +106,10 @@ const calculateMuscleGroupBreakdown = (
   sessions.forEach(session => {
     session.exercises.forEach(ex => {
       const exercise = allExercises.find(e => e.id === ex.exerciseId);
-      if (!exercise) return;
+      if (!exercise || exercise.type !== 'strength') return;
 
       const setCount = ex.sets.length;
-      exercise.muscleGroups.forEach(mg => {
+      exercise.muscleGroups.forEach((mg: MuscleGroup) => {
         muscleGroupCounts[mg] += setCount;
         totalAttributions += setCount;
       });

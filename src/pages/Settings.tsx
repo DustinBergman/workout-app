@@ -108,6 +108,26 @@ export const Settings: FC = () => {
             </Select>
           </div>
 
+          {/* Distance Unit */}
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="font-medium text-foreground">Distance Unit</Label>
+              <p className="text-sm text-muted-foreground">For cardio tracking</p>
+            </div>
+            <Select
+              value={preferences.distanceUnit}
+              onValueChange={(value) => updatePreferences({ distanceUnit: value as 'mi' | 'km' })}
+            >
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="mi">Miles (mi)</SelectItem>
+                <SelectItem value="km">Kilometers (km)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* Default Rest Time */}
           <div className="flex items-center justify-between">
             <div>

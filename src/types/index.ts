@@ -30,6 +30,24 @@ export type Equipment =
 // Weight Units
 export type WeightUnit = 'lbs' | 'kg';
 
+// Distance Units
+export type DistanceUnit = 'mi' | 'km';
+
+// Exercise Types
+export type ExerciseType = 'strength' | 'cardio';
+
+// Cardio Activity Types
+export type CardioType =
+  | 'running'
+  | 'walking'
+  | 'cycling'
+  | 'rowing'
+  | 'elliptical'
+  | 'stair-climber'
+  | 'swimming'
+  | 'hiking'
+  | 'other';
+
 // Progressive Overload Week (0-4)
 export type ProgressiveOverloadWeek = 0 | 1 | 2 | 3 | 4;
 
@@ -119,23 +137,48 @@ export const WORKOUT_GOALS: Record<WorkoutGoal, GoalInfo> = {
   },
 };
 
-// Exercise Definition
-export interface Exercise {
+// Base Exercise fields shared by all types
+interface BaseExercise {
   id: string;
   name: string;
-  muscleGroups: MuscleGroup[];
-  equipment: Equipment;
   instructions?: string;
   imageUrl?: string;
 }
 
-// Template Exercise (what's saved in a workout template)
-export interface TemplateExercise {
+// Strength Exercise Definition
+export interface StrengthExercise extends BaseExercise {
+  type: 'strength';
+  muscleGroups: MuscleGroup[];
+  equipment: Equipment;
+}
+
+// Cardio Exercise Definition
+export interface CardioExercise extends BaseExercise {
+  type: 'cardio';
+  cardioType: CardioType;
+}
+
+// Exercise Union Type
+export type Exercise = StrengthExercise | CardioExercise;
+
+// Strength Template Exercise (what's saved in a workout template)
+export interface StrengthTemplateExercise {
+  type: 'strength';
   exerciseId: string;
   targetSets: number;
   targetReps: number;
   restSeconds: number;
 }
+
+// Cardio Template Exercise
+export interface CardioTemplateExercise {
+  type: 'cardio';
+  exerciseId: string;
+  restSeconds: number;
+}
+
+// Template Exercise Union Type
+export type TemplateExercise = StrengthTemplateExercise | CardioTemplateExercise;
 
 // Workout Template
 export interface WorkoutTemplate {
@@ -146,22 +189,47 @@ export interface WorkoutTemplate {
   updatedAt: string;
 }
 
-// Completed Set (during an active workout)
-export interface CompletedSet {
+// Strength Completed Set (during an active workout)
+export interface StrengthCompletedSet {
+  type: 'strength';
   reps: number;
   weight: number;
   unit: WeightUnit;
   completedAt: string;
 }
 
-// Session Exercise (exercise with logged sets during a workout)
-export interface SessionExercise {
+// Cardio Completed Set (during an active workout)
+export interface CardioCompletedSet {
+  type: 'cardio';
+  distance: number;
+  distanceUnit: DistanceUnit;
+  durationSeconds: number;
+  completedAt: string;
+}
+
+// Completed Set Union Type
+export type CompletedSet = StrengthCompletedSet | CardioCompletedSet;
+
+// Strength Session Exercise (exercise with logged sets during a workout)
+export interface StrengthSessionExercise {
+  type: 'strength';
   exerciseId: string;
   targetSets: number;
   targetReps: number;
   restSeconds: number;
   sets: CompletedSet[];
 }
+
+// Cardio Session Exercise
+export interface CardioSessionExercise {
+  type: 'cardio';
+  exerciseId: string;
+  restSeconds: number;
+  sets: CompletedSet[];
+}
+
+// Session Exercise Union Type
+export type SessionExercise = StrengthSessionExercise | CardioSessionExercise;
 
 // Workout Session (an active or completed workout)
 export interface WorkoutSession {
@@ -176,6 +244,7 @@ export interface WorkoutSession {
 // User Preferences
 export interface UserPreferences {
   weightUnit: WeightUnit;
+  distanceUnit: DistanceUnit;
   defaultRestSeconds: number;
   openaiApiKey?: string;
   darkMode: boolean;

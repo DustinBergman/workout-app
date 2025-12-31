@@ -53,14 +53,15 @@ describe('getWorkoutScore', () => {
     const session = createMockSession({
       exercises: [
         {
+          type: 'strength',
           exerciseId: 'bench',
           targetSets: 3,
           targetReps: 10,
           restSeconds: 90,
           sets: [
-            { weight: 135, reps: 10, unit: 'lbs', completedAt: '' },
-            { weight: 135, reps: 10, unit: 'lbs', completedAt: '' },
-            { weight: 135, reps: 10, unit: 'lbs', completedAt: '' },
+            { type: 'strength', weight: 135, reps: 10, unit: 'lbs', completedAt: '' },
+            { type: 'strength', weight: 135, reps: 10, unit: 'lbs', completedAt: '' },
+            { type: 'strength', weight: 135, reps: 10, unit: 'lbs', completedAt: '' },
           ],
         },
       ],
@@ -99,11 +100,12 @@ describe('getWorkoutScore', () => {
     const session = createMockSession({
       exercises: [
         {
+          type: 'strength',
           exerciseId: 'squat',
           targetSets: 3,
           targetReps: 8,
           restSeconds: 120,
-          sets: [{ weight: 225, reps: 8, unit: 'lbs', completedAt: '' }],
+          sets: [{ type: 'strength', weight: 225, reps: 8, unit: 'lbs', completedAt: '' }],
         },
       ],
     });
@@ -143,11 +145,12 @@ describe('getWorkoutScore', () => {
       templateId: 'template-1',
       exercises: [
         {
+          type: 'strength',
           exerciseId: 'bench',
           targetSets: 3,
           targetReps: 10,
           restSeconds: 90,
-          sets: [{ weight: 140, reps: 10, unit: 'lbs', completedAt: '' }],
+          sets: [{ type: 'strength', weight: 140, reps: 10, unit: 'lbs', completedAt: '' }],
         },
       ],
     });
@@ -157,11 +160,12 @@ describe('getWorkoutScore', () => {
       templateId: 'template-1',
       exercises: [
         {
+          type: 'strength',
           exerciseId: 'bench',
           targetSets: 3,
           targetReps: 10,
           restSeconds: 90,
-          sets: [{ weight: 135, reps: 10, unit: 'lbs', completedAt: '' }],
+          sets: [{ type: 'strength', weight: 135, reps: 10, unit: 'lbs', completedAt: '' }],
         },
       ],
     });

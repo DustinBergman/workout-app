@@ -1,9 +1,10 @@
-import { WorkoutTemplate, TemplateExercise } from '../../types';
+import { WorkoutTemplate, StrengthTemplateExercise } from '../../types';
 
 export function createMockTemplateExercise(
-  overrides: Partial<TemplateExercise> = {}
-): TemplateExercise {
+  overrides: Partial<StrengthTemplateExercise> = {}
+): StrengthTemplateExercise {
   return {
+    type: 'strength',
     exerciseId: 'bench-press',
     targetSets: 3,
     targetReps: 10,

@@ -1,4 +1,4 @@
-import { Exercise, MuscleGroup, Equipment, WorkoutTemplate } from '../../types';
+import { StrengthExercise, MuscleGroup, Equipment, WorkoutTemplate, StrengthTemplateExercise, Exercise } from '../../types';
 import { getAllExercises } from '../../data/exercises';
 import { callOpenAI, parseJSONResponse } from './client';
 
@@ -50,7 +50,7 @@ Guidelines for sets/reps/rest:
 
 const buildUserPrompt = (
   input: GeneratePlanInput,
-  availableExercises: Exercise[]
+  availableExercises: StrengthExercise[]
 ): string => {
   const targetMuscles = input.workoutType === 'custom'
     ? input.customMuscleGroups || []
@@ -97,8 +97,13 @@ export const generateWorkoutPlan = async (
 ): Promise<GeneratedPlan> => {
   const allExercises = getAllExercises(customExercises);
 
+  // Filter to strength exercises only (plan generator doesn't support cardio)
+  const strengthExercises = allExercises.filter(
+    (ex): ex is StrengthExercise => ex.type === 'strength'
+  );
+
   // Filter exercises by available equipment
-  const exercisesWithEquipment = allExercises.filter(
+  const exercisesWithEquipment = strengthExercises.filter(
     ex => input.availableEquipment.includes(ex.equipment)
   );
 
@@ -109,7 +114,7 @@ export const generateWorkoutPlan = async (
 
   // Filter to exercises that target relevant muscles
   const relevantExercises = exercisesWithEquipment.filter(
-    ex => ex.muscleGroups.some(mg => targetMuscles.includes(mg))
+    ex => ex.muscleGroups.some((mg: MuscleGroup) => targetMuscles.includes(mg))
   );
 
   if (relevantExercises.length === 0) {
@@ -156,15 +161,17 @@ export const createTemplateFromPlan = (
   customName?: string
 ): WorkoutTemplate => {
   const now = new Date().toISOString();
+  const exercises: StrengthTemplateExercise[] = plan.exercises.map(ex => ({
+    type: 'strength' as const,
+    exerciseId: ex.exerciseId,
+    targetSets: ex.targetSets,
+    targetReps: ex.targetReps,
+    restSeconds: ex.restSeconds,
+  }));
   return {
     id: Math.random().toString(36).substring(2, 15),
     name: customName || plan.name,
-    exercises: plan.exercises.map(ex => ({
-      exerciseId: ex.exerciseId,
-      targetSets: ex.targetSets,
-      targetReps: ex.targetReps,
-      restSeconds: ex.restSeconds,
-    })),
+    exercises,
     createdAt: now,
     updatedAt: now,
   };

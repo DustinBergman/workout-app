@@ -1,11 +1,10 @@
 import { useState, useEffect, FC } from 'react';
-import { SessionExercise, ExerciseSuggestion, WeightUnit } from '../../types';
-import { Exercise } from '../../types';
+import { StrengthSessionExercise, ExerciseSuggestion, WeightUnit, StrengthExercise } from '../../types';
 import { Card, Button } from '../ui';
 
 interface ExerciseAccordionProps {
-  exercise: SessionExercise;
-  exerciseInfo: Exercise | undefined;
+  exercise: StrengthSessionExercise;
+  exerciseInfo: StrengthExercise | undefined;
   isExpanded: boolean;
   onToggle: () => void;
   onLogSet: (reps: number, weight: number) => void;
@@ -38,9 +37,10 @@ export const ExerciseAccordion: FC<ExerciseAccordionProps> = ({
   const isComplete = exercise.sets.length >= (exercise.targetSets || 3);
   const progress = `${exercise.sets.length}/${exercise.targetSets || 3}`;
 
-  // Calculate average weight for collapsed view
-  const avgWeight = exercise.sets.length > 0
-    ? Math.round(exercise.sets.reduce((sum, s) => sum + s.weight, 0) / exercise.sets.length)
+  // Calculate average weight for collapsed view (only for strength sets)
+  const strengthSets = exercise.sets.filter((s) => s.type === 'strength' || !('type' in s));
+  const avgWeight = strengthSets.length > 0
+    ? Math.round(strengthSets.reduce((sum, s) => sum + ('weight' in s ? s.weight : 0), 0) / strengthSets.length)
     : 0;
 
   // Pre-fill inputs when expanded or when suggestion changes
@@ -48,7 +48,9 @@ export const ExerciseAccordion: FC<ExerciseAccordionProps> = ({
     if (isExpanded) {
       if (exercise.sets.length > 0) {
         const lastSet = exercise.sets[exercise.sets.length - 1];
-        setWeightInput(lastSet.weight.toString());
+        if (lastSet.type === 'strength' || !('type' in lastSet)) {
+          setWeightInput(('weight' in lastSet ? lastSet.weight : 0).toString());
+        }
         setRepsInput(exercise.targetReps?.toString() || '');
       } else if (suggestion) {
         setWeightInput(suggestion.suggestedWeight.toString());
@@ -218,19 +220,23 @@ export const ExerciseAccordion: FC<ExerciseAccordionProps> = ({
                 </button>
               </div>
               <div className="space-y-1">
-                {exercise.sets.map((set, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between p-2 bg-green-100 dark:bg-green-900/20 rounded-lg"
-                  >
-                    <span className="text-sm font-medium text-green-700 dark:text-green-300">
-                      Set {index + 1}
-                    </span>
-                    <span className="text-sm text-green-600 dark:text-green-400">
-                      {set.weight} {set.unit} x {set.reps} reps
-                    </span>
-                  </div>
-                ))}
+                {exercise.sets.map((set, index) => {
+                  if (set.type !== 'strength' && 'type' in set) return null;
+                  const strengthSet = set as { weight: number; unit: string; reps: number };
+                  return (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between p-2 bg-green-100 dark:bg-green-900/20 rounded-lg"
+                    >
+                      <span className="text-sm font-medium text-green-700 dark:text-green-300">
+                        Set {index + 1}
+                      </span>
+                      <span className="text-sm text-green-600 dark:text-green-400">
+                        {strengthSet.weight} {strengthSet.unit} x {strengthSet.reps} reps
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

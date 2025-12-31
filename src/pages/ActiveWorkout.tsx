@@ -4,11 +4,24 @@ import { useAppStore } from '../store/useAppStore';
 import { Button, Card, Input, Modal } from '../components/ui';
 import { RestTimer } from '../components/timer/RestTimer';
 import { ExerciseAccordion } from '../components/workout/ExerciseAccordion';
+import { CardioAccordion } from '../components/workout/CardioAccordion';
 import { ExerciseHistorySheet } from '../components/workout/ExerciseHistorySheet';
 import { getAllExercises, searchExercises, getExerciseById } from '../data/exercises';
-import { CompletedSet, SessionExercise, ExerciseSuggestion, WorkoutScoreResult, Exercise, MuscleGroup, Equipment } from '../types';
+import {
+  SessionExercise,
+  StrengthSessionExercise,
+  StrengthCompletedSet,
+  CardioCompletedSet,
+  ExerciseSuggestion,
+  WorkoutScoreResult,
+  StrengthExercise,
+  CardioExercise,
+  MuscleGroup,
+  Equipment,
+  DistanceUnit,
+} from '../types';
 import { getWorkoutScore } from '../services/openai';
-import { formatDuration, hasSessionDeviatedFromTemplate } from '../utils/workoutUtils';
+import { formatDuration, hasSessionDeviatedFromTemplate, isCardioExercise } from '../utils/workoutUtils';
 
 const MUSCLE_GROUPS: MuscleGroup[] = ['chest', 'back', 'shoulders', 'biceps', 'triceps', 'forearms', 'core', 'quadriceps', 'hamstrings', 'glutes', 'calves', 'traps', 'lats'];
 const EQUIPMENT_OPTIONS: Equipment[] = ['barbell', 'dumbbell', 'cable', 'machine', 'bodyweight', 'kettlebell', 'ez-bar', 'smith-machine', 'resistance-band', 'other'];
@@ -70,7 +83,9 @@ export const ActiveWorkout: FC = () => {
   useEffect(() => {
     if (session && expandedIndex === null) {
       const firstIncomplete = session.exercises.findIndex(
-        (ex) => ex.sets.length < (ex.targetSets || 3)
+        (ex) => ex.type === 'cardio'
+          ? ex.sets.length === 0
+          : ex.sets.length < (ex.targetSets || 3)
       );
       setExpandedIndex(firstIncomplete >= 0 ? firstIncomplete : 0);
     }
@@ -104,8 +119,10 @@ export const ActiveWorkout: FC = () => {
 
   const logSetForExercise = (exerciseIndex: number, reps: number, weight: number) => {
     const exercise = session.exercises[exerciseIndex];
+    if (exercise.type !== 'strength') return;
 
-    const newSet: CompletedSet = {
+    const newSet: StrengthCompletedSet = {
+      type: 'strength',
       reps,
       weight,
       unit: preferences.weightUnit,
@@ -126,11 +143,11 @@ export const ActiveWorkout: FC = () => {
     setActiveSession(updatedSession);
 
     // Check if exercise is now complete - auto-collapse and expand next
-    const updatedExercise = updatedExercises[exerciseIndex];
+    const updatedExercise = updatedExercises[exerciseIndex] as StrengthSessionExercise;
     if (updatedExercise.sets.length >= (updatedExercise.targetSets || 3)) {
       // Find next incomplete exercise
       const nextIncomplete = updatedExercises.findIndex(
-        (ex, idx) => idx > exerciseIndex && ex.sets.length < (ex.targetSets || 3)
+        (ex, idx) => idx > exerciseIndex && ex.type === 'strength' && ex.sets.length < (ex.targetSets || 3)
       );
       if (nextIncomplete >= 0) {
         setExpandedIndex(nextIncomplete);
@@ -139,6 +156,32 @@ export const ActiveWorkout: FC = () => {
         setExpandedIndex(null);
       }
     }
+  };
+
+  const logCardioForExercise = (exerciseIndex: number, distance: number, distanceUnit: DistanceUnit, durationSeconds: number) => {
+    const exercise = session.exercises[exerciseIndex];
+    if (exercise.type !== 'cardio') return;
+
+    const newSet: CardioCompletedSet = {
+      type: 'cardio',
+      distance,
+      distanceUnit,
+      durationSeconds,
+      completedAt: new Date().toISOString(),
+    };
+
+    const updatedExercises = [...session.exercises];
+    updatedExercises[exerciseIndex] = {
+      ...exercise,
+      sets: [...exercise.sets, newSet],
+    };
+
+    const updatedSession = {
+      ...session,
+      exercises: updatedExercises,
+    };
+
+    setActiveSession(updatedSession);
   };
 
   const removeLastSetForExercise = (exerciseIndex: number) => {
@@ -158,13 +201,27 @@ export const ActiveWorkout: FC = () => {
   };
 
   const addExerciseToSession = (exerciseId: string) => {
-    const newExercise: SessionExercise = {
-      exerciseId,
-      targetSets: 3,
-      targetReps: 10,
-      restSeconds: preferences.defaultRestSeconds,
-      sets: [],
-    };
+    const exerciseInfo = getExerciseById(exerciseId, customExercises);
+    const isCardio = exerciseInfo && isCardioExercise(exerciseInfo);
+
+    let newExercise: SessionExercise;
+    if (isCardio) {
+      newExercise = {
+        type: 'cardio',
+        exerciseId,
+        restSeconds: preferences.defaultRestSeconds,
+        sets: [],
+      };
+    } else {
+      newExercise = {
+        type: 'strength',
+        exerciseId,
+        targetSets: 3,
+        targetReps: 10,
+        restSeconds: preferences.defaultRestSeconds,
+        sets: [],
+      };
+    }
 
     const newIndex = session.exercises.length;
 
@@ -188,9 +245,9 @@ export const ActiveWorkout: FC = () => {
     // Adjust expanded index if needed
     if (expandedIndex !== null) {
       if (expandedIndex === index) {
-        // Find next incomplete or stay null
+        // Find next incomplete strength exercise or stay null
         const nextIncomplete = updatedExercises.findIndex(
-          (ex) => ex.sets.length < (ex.targetSets || 3)
+          (ex) => ex.type === 'strength' && ex.sets.length < (ex.targetSets || 3)
         );
         setExpandedIndex(nextIncomplete >= 0 ? nextIncomplete : null);
       } else if (expandedIndex > index) {
@@ -205,11 +262,12 @@ export const ActiveWorkout: FC = () => {
   };
 
   const updateTargetSets = (exerciseId: string, delta: number) => {
-    const newExercises = session.exercises.map(ex =>
-      ex.exerciseId === exerciseId
-        ? { ...ex, targetSets: Math.max(1, ex.targetSets + delta) }
-        : ex
-    );
+    const newExercises = session.exercises.map(ex => {
+      if (ex.exerciseId === exerciseId && ex.type === 'strength') {
+        return { ...ex, targetSets: Math.max(1, ex.targetSets + delta) };
+      }
+      return ex;
+    });
     setActiveSession({ ...session, exercises: newExercises });
   };
 
@@ -231,12 +289,22 @@ export const ActiveWorkout: FC = () => {
       if (existingTemplate) {
         const updatedTemplate = {
           ...existingTemplate,
-          exercises: session.exercises.map(ex => ({
-            exerciseId: ex.exerciseId,
-            targetSets: ex.targetSets,
-            targetReps: ex.targetReps,
-            restSeconds: ex.restSeconds,
-          })),
+          exercises: session.exercises.map(ex => {
+            if (ex.type === 'cardio') {
+              return {
+                type: 'cardio' as const,
+                exerciseId: ex.exerciseId,
+                restSeconds: ex.restSeconds,
+              };
+            }
+            return {
+              type: 'strength' as const,
+              exerciseId: ex.exerciseId,
+              targetSets: ex.targetSets,
+              targetReps: ex.targetReps,
+              restSeconds: ex.restSeconds,
+            };
+          }),
         };
         updateTemplate(updatedTemplate);
       }
@@ -296,8 +364,9 @@ export const ActiveWorkout: FC = () => {
   const handleCreateExercise = () => {
     if (!newExerciseName.trim()) return;
 
-    const newExercise: Exercise = {
+    const newExercise: StrengthExercise = {
       id: `custom-${Date.now()}`,
+      type: 'strength',
       name: newExerciseName.trim(),
       muscleGroups: newExerciseMuscles.length > 0 ? newExerciseMuscles : ['core'],
       equipment: newExerciseEquipment,
@@ -319,7 +388,21 @@ export const ActiveWorkout: FC = () => {
   // Calculate total stats
   const totalSets = session.exercises.reduce((acc, ex) => acc + ex.sets.length, 0);
   const totalVolume = session.exercises.reduce((acc, ex) => {
-    return acc + ex.sets.reduce((setAcc, set) => setAcc + set.weight * set.reps, 0);
+    return acc + ex.sets.reduce((setAcc, set) => {
+      if (set.type === 'strength' || !('type' in set)) {
+        const strengthSet = set as { weight: number; reps: number };
+        return setAcc + strengthSet.weight * strengthSet.reps;
+      }
+      return setAcc;
+    }, 0);
+  }, 0);
+  const totalCardioDistance = session.exercises.reduce((acc, ex) => {
+    return acc + ex.sets.reduce((setAcc, set) => {
+      if (set.type === 'cardio') {
+        return setAcc + set.distance;
+      }
+      return setAcc;
+    }, 0);
   }, 0);
 
   return (
@@ -336,7 +419,9 @@ export const ActiveWorkout: FC = () => {
             </span>
           </div>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            {totalSets} sets | {totalVolume.toLocaleString()} {preferences.weightUnit}
+            {totalSets} sets
+            {totalVolume > 0 && ` | ${totalVolume.toLocaleString()} ${preferences.weightUnit}`}
+            {totalCardioDistance > 0 && ` | ${totalCardioDistance.toFixed(2)} ${preferences.distanceUnit}`}
           </p>
         </div>
         <Button variant="danger" size="sm" onClick={() => setShowFinishConfirm(true)}>
@@ -347,23 +432,46 @@ export const ActiveWorkout: FC = () => {
       {/* Scrollable Exercise Accordions */}
       {session.exercises.length > 0 ? (
         <div className="space-y-3">
-          {session.exercises.map((exercise, index) => (
-            <ExerciseAccordion
-              key={index}
-              exercise={exercise}
-              exerciseInfo={getExerciseById(exercise.exerciseId, customExercises)}
-              isExpanded={expandedIndex === index}
-              onToggle={() => setExpandedIndex(expandedIndex === index ? null : index)}
-              onLogSet={(reps, weight) => logSetForExercise(index, reps, weight)}
-              onRemoveLastSet={() => removeLastSetForExercise(index)}
-              onRemoveExercise={() => removeExercise(index)}
-              onStartTimer={handleStartTimer}
-              onUpdateTargetSets={(delta) => updateTargetSets(exercise.exerciseId, delta)}
-              onShowHistory={() => handleShowHistory(exercise.exerciseId)}
-              weightUnit={preferences.weightUnit}
-              suggestion={getSuggestionForExercise(exercise.exerciseId)}
-            />
-          ))}
+          {session.exercises.map((exercise, index) => {
+            const exerciseInfo = getExerciseById(exercise.exerciseId, customExercises);
+
+            if (exercise.type === 'cardio') {
+              return (
+                <CardioAccordion
+                  key={index}
+                  exercise={exercise}
+                  exerciseInfo={exerciseInfo as CardioExercise | undefined}
+                  isExpanded={expandedIndex === index}
+                  onToggle={() => setExpandedIndex(expandedIndex === index ? null : index)}
+                  onLogCardio={(distance, distanceUnit, durationSeconds) =>
+                    logCardioForExercise(index, distance, distanceUnit, durationSeconds)
+                  }
+                  onRemoveLastSet={() => removeLastSetForExercise(index)}
+                  onRemoveExercise={() => removeExercise(index)}
+                  onShowHistory={() => handleShowHistory(exercise.exerciseId)}
+                  distanceUnit={preferences.distanceUnit}
+                />
+              );
+            }
+
+            return (
+              <ExerciseAccordion
+                key={index}
+                exercise={exercise}
+                exerciseInfo={exerciseInfo as StrengthExercise | undefined}
+                isExpanded={expandedIndex === index}
+                onToggle={() => setExpandedIndex(expandedIndex === index ? null : index)}
+                onLogSet={(reps, weight) => logSetForExercise(index, reps, weight)}
+                onRemoveLastSet={() => removeLastSetForExercise(index)}
+                onRemoveExercise={() => removeExercise(index)}
+                onStartTimer={handleStartTimer}
+                onUpdateTargetSets={(delta) => updateTargetSets(exercise.exerciseId, delta)}
+                onShowHistory={() => handleShowHistory(exercise.exerciseId)}
+                weightUnit={preferences.weightUnit}
+                suggestion={getSuggestionForExercise(exercise.exerciseId)}
+              />
+            );
+          })}
 
           {/* Add Exercise Button */}
           <button
@@ -490,6 +598,11 @@ export const ActiveWorkout: FC = () => {
                     <p className="font-medium text-gray-900 dark:text-gray-100">
                       {exercise.name}
                     </p>
+                    {exercise.type === 'cardio' && (
+                      <span className="text-xs px-2 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400">
+                        Cardio
+                      </span>
+                    )}
                     {exercise.id.startsWith('custom-') && (
                       <span className="text-xs px-2 py-0.5 rounded bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400">
                         Custom
@@ -497,7 +610,9 @@ export const ActiveWorkout: FC = () => {
                     )}
                   </div>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {exercise.muscleGroups.join(', ')}
+                    {exercise.type === 'cardio'
+                      ? exercise.cardioType
+                      : exercise.muscleGroups.join(', ')}
                   </p>
                 </button>
               ))}
@@ -529,17 +644,27 @@ export const ActiveWorkout: FC = () => {
           <p className="text-gray-600 dark:text-gray-400 mb-4">
             Great workout! Here's your summary:
           </p>
-          <div className="flex justify-center gap-8">
+          <div className="flex justify-center gap-8 flex-wrap">
             <div>
               <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">{totalSets}</p>
               <p className="text-sm text-gray-500">Total Sets</p>
             </div>
-            <div>
-              <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-                {totalVolume.toLocaleString()}
-              </p>
-              <p className="text-sm text-gray-500">Total {preferences.weightUnit}</p>
-            </div>
+            {totalVolume > 0 && (
+              <div>
+                <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+                  {totalVolume.toLocaleString()}
+                </p>
+                <p className="text-sm text-gray-500">Total {preferences.weightUnit}</p>
+              </div>
+            )}
+            {totalCardioDistance > 0 && (
+              <div>
+                <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+                  {totalCardioDistance.toFixed(2)}
+                </p>
+                <p className="text-sm text-gray-500">Total {preferences.distanceUnit}</p>
+              </div>
+            )}
           </div>
           {hasDeviated && session.templateId && (
             <label className="flex items-center justify-center gap-2 mt-6 cursor-pointer">

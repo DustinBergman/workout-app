@@ -64,7 +64,7 @@ describe('getPreWorkoutSuggestions', () => {
     });
 
     const template = createMockTemplate({
-      exercises: [{ exerciseId: 'bench', targetSets: 3, targetReps: 10, restSeconds: 90 }],
+      exercises: [{ type: 'strength', exerciseId: 'bench', targetSets: 3, targetReps: 10, restSeconds: 90 }],
     });
 
     const result = await getPreWorkoutSuggestions('test-key', template, [], 'lbs');
@@ -85,17 +85,18 @@ describe('getPreWorkoutSuggestions', () => {
     });
 
     const template = createMockTemplate({
-      exercises: [{ exerciseId: 'bench', targetSets: 3, targetReps: 10, restSeconds: 90 }],
+      exercises: [{ type: 'strength', exerciseId: 'bench', targetSets: 3, targetReps: 10, restSeconds: 90 }],
     });
 
     const session = createMockSession({
       exercises: [
         {
+          type: 'strength',
           exerciseId: 'bench',
           targetSets: 3,
           targetReps: 10,
           restSeconds: 90,
-          sets: [{ weight: 135, reps: 10, unit: 'lbs', completedAt: '' }],
+          sets: [{ type: 'strength', weight: 135, reps: 10, unit: 'lbs', completedAt: '' }],
         },
       ],
     });
@@ -119,7 +120,7 @@ describe('getPreWorkoutSuggestions', () => {
     });
 
     const template = createMockTemplate({
-      exercises: [{ exerciseId: 'bench', targetSets: 3, targetReps: 10, restSeconds: 90 }],
+      exercises: [{ type: 'strength', exerciseId: 'bench', targetSets: 3, targetReps: 10, restSeconds: 90 }],
     });
 
     await getPreWorkoutSuggestions('test-key', template, [], 'lbs', 1, 'build');
@@ -141,7 +142,7 @@ describe('getPreWorkoutSuggestions', () => {
     });
 
     const template = createMockTemplate({
-      exercises: [{ exerciseId: 'bench', targetSets: 3, targetReps: 10, restSeconds: 90 }],
+      exercises: [{ type: 'strength', exerciseId: 'bench', targetSets: 3, targetReps: 10, restSeconds: 90 }],
     });
 
     await getPreWorkoutSuggestions('test-key', template, [], 'lbs', undefined, 'lose');
@@ -164,7 +165,7 @@ describe('getPreWorkoutSuggestions', () => {
     });
 
     const template = createMockTemplate({
-      exercises: [{ exerciseId: 'bench', targetSets: 3, targetReps: 10, restSeconds: 90 }],
+      exercises: [{ type: 'strength', exerciseId: 'bench', targetSets: 3, targetReps: 10, restSeconds: 90 }],
     });
 
     await getPreWorkoutSuggestions('test-key', template, [], 'lbs', undefined, 'maintain');
@@ -187,7 +188,7 @@ describe('getPreWorkoutSuggestions', () => {
     });
 
     const template = createMockTemplate({
-      exercises: [{ exerciseId: 'bench', targetSets: 3, targetReps: 10, restSeconds: 90 }],
+      exercises: [{ type: 'strength', exerciseId: 'bench', targetSets: 3, targetReps: 10, restSeconds: 90 }],
     });
 
     await getPreWorkoutSuggestions('test-key', template, [], 'lbs');
@@ -208,7 +209,7 @@ describe('getPreWorkoutSuggestions', () => {
     });
 
     const template = createMockTemplate({
-      exercises: [{ exerciseId: 'bench', targetSets: 3, targetReps: 10, restSeconds: 90 }],
+      exercises: [{ type: 'strength', exerciseId: 'bench', targetSets: 3, targetReps: 10, restSeconds: 90 }],
     });
 
     await getPreWorkoutSuggestions('test-key', template, [], 'kg');
@@ -229,7 +230,7 @@ describe('getPreWorkoutSuggestions', () => {
     });
 
     const template = createMockTemplate({
-      exercises: [{ exerciseId: 'bench', targetSets: 3, targetReps: 10, restSeconds: 90 }],
+      exercises: [{ type: 'strength', exerciseId: 'bench', targetSets: 3, targetReps: 10, restSeconds: 90 }],
     });
 
     const result = await getPreWorkoutSuggestions('test-key', template, [], 'lbs');
@@ -245,7 +246,7 @@ describe('getPreWorkoutSuggestions', () => {
     });
 
     const template = createMockTemplate({
-      exercises: [{ exerciseId: 'bench', targetSets: 3, targetReps: 10, restSeconds: 90 }],
+      exercises: [{ type: 'strength', exerciseId: 'bench', targetSets: 3, targetReps: 10, restSeconds: 90 }],
     });
 
     await expect(getPreWorkoutSuggestions('test-key', template, [], 'lbs')).rejects.toThrow(

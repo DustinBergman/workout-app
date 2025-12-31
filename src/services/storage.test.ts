@@ -175,7 +175,7 @@ describe('Storage Service', () => {
     });
 
     it('should save and retrieve preferences', () => {
-      const prefs = { weightUnit: 'kg' as const, defaultRestSeconds: 120, darkMode: true };
+      const prefs = { weightUnit: 'kg' as const, distanceUnit: 'mi' as const, defaultRestSeconds: 120, darkMode: true };
       savePreferences(prefs);
       expect(getPreferences().weightUnit).toBe('kg');
       expect(getPreferences().defaultRestSeconds).toBe(120);
@@ -193,6 +193,7 @@ describe('Storage Service', () => {
     it('should preserve API key', () => {
       const prefs = {
         weightUnit: 'lbs' as const,
+        distanceUnit: 'mi' as const,
         defaultRestSeconds: 90,
         darkMode: false,
         openaiApiKey: 'test-key-123',
@@ -257,7 +258,7 @@ describe('Storage Service', () => {
       const data = {
         templates: [createMockTemplate({ name: 'Imported Template' })],
         sessions: [createMockSession({ name: 'Imported Session' })],
-        preferences: { weightUnit: 'kg', defaultRestSeconds: 60, darkMode: true },
+        preferences: { weightUnit: 'kg', distanceUnit: 'mi' as const, defaultRestSeconds: 60, darkMode: true },
         customExercises: [createMockExercise({ name: 'Imported Exercise' })],
       };
 
@@ -293,7 +294,7 @@ describe('Storage Service', () => {
       addTemplate(createMockTemplate());
       addSession(createMockSession());
       saveActiveSession(createMockSession());
-      savePreferences({ weightUnit: 'kg', defaultRestSeconds: 120, darkMode: true });
+      savePreferences({ weightUnit: 'kg', distanceUnit: 'mi' as const, defaultRestSeconds: 120, darkMode: true });
       addCustomExercise(createMockExercise());
 
       clearAllData();

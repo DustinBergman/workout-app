@@ -1,7 +1,7 @@
 import { FC, useMemo } from 'react';
 import { WorkoutSession, WeightUnit } from '../../types';
 import { Modal } from '../ui';
-import { convertWeight, extractExerciseHistory } from '../../utils/workoutUtils';
+import { convertWeight, extractExerciseHistory, formatCardioDuration, calculatePace } from '../../utils/workoutUtils';
 
 interface ExerciseHistorySheetProps {
   isOpen: boolean;
@@ -78,7 +78,18 @@ export const ExerciseHistorySheet: FC<ExerciseHistorySheetProps> = ({
                     >
                       <span className="text-gray-400">•</span>
                       <span>
-                        {convertWeight(set.weight, set.unit, weightUnit)} {weightUnit} × {set.reps}
+                        {set.type === 'cardio' ? (
+                          <>
+                            {set.distance.toFixed(2)} {set.distanceUnit} in {formatCardioDuration(set.durationSeconds)}
+                            <span className="text-gray-400 ml-1">
+                              ({calculatePace(set.distance, set.durationSeconds, set.distanceUnit)})
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            {convertWeight(set.weight, set.unit, weightUnit)} {weightUnit} × {set.reps}
+                          </>
+                        )}
                       </span>
                     </div>
                   ))}

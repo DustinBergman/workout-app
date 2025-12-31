@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useStartWorkout } from './useStartWorkout';
 import { useAppStore } from '../store/useAppStore';
-import { WorkoutTemplate } from '../types';
+import { WorkoutTemplate, StrengthTemplateExercise, StrengthSessionExercise } from '../types';
 
 // Mock react-router-dom
 const mockNavigate = vi.fn();
@@ -15,16 +15,23 @@ vi.mock('../services/openai', () => ({
   getPreWorkoutSuggestions: vi.fn().mockResolvedValue([]),
 }));
 
+const createStrengthTemplateExercise = (
+  exerciseId: string,
+  overrides: Partial<StrengthTemplateExercise> = {}
+): StrengthTemplateExercise => ({
+  type: 'strength',
+  exerciseId,
+  targetSets: 3,
+  targetReps: 10,
+  restSeconds: 90,
+  ...overrides,
+});
+
 const createMockTemplate = (overrides: Partial<WorkoutTemplate> = {}): WorkoutTemplate => ({
   id: 'template-1',
   name: 'Test Template',
   exercises: [
-    {
-      exerciseId: 'bench-press',
-      targetSets: 3,
-      targetReps: 10,
-      restSeconds: 90,
-    },
+    createStrengthTemplateExercise('bench-press'),
   ],
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
@@ -39,6 +46,7 @@ const resetStore = () => {
     activeSession: null,
     preferences: {
       weightUnit: 'lbs',
+      distanceUnit: 'mi',
       defaultRestSeconds: 90,
       darkMode: false,
     },
@@ -99,8 +107,8 @@ describe('useStartWorkout', () => {
       id: 'push-day',
       name: 'Push Day',
       exercises: [
-        { exerciseId: 'bench-press', targetSets: 4, targetReps: 8, restSeconds: 120 },
-        { exerciseId: 'overhead-press', targetSets: 3, targetReps: 10, restSeconds: 90 },
+        createStrengthTemplateExercise('bench-press', { targetSets: 4, targetReps: 8, restSeconds: 120 }),
+        createStrengthTemplateExercise('overhead-press', { targetSets: 3, targetReps: 10, restSeconds: 90 }),
       ],
     });
 
@@ -114,10 +122,13 @@ describe('useStartWorkout', () => {
     expect(activeSession?.templateId).toBe('push-day');
     expect(activeSession?.name).toBe('Push Day');
     expect(activeSession?.exercises).toHaveLength(2);
-    expect(activeSession?.exercises[0].exerciseId).toBe('bench-press');
-    expect(activeSession?.exercises[0].targetSets).toBe(4);
-    expect(activeSession?.exercises[0].targetReps).toBe(8);
-    expect(activeSession?.exercises[0].sets).toEqual([]);
+
+    const firstExercise = activeSession?.exercises[0] as StrengthSessionExercise;
+    expect(firstExercise.exerciseId).toBe('bench-press');
+    expect(firstExercise.targetSets).toBe(4);
+    expect(firstExercise.targetReps).toBe(8);
+    expect(firstExercise.sets).toEqual([]);
+
     expect(activeSession?.exercises[1].exerciseId).toBe('overhead-press');
   });
 

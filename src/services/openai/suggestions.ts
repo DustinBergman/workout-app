@@ -6,6 +6,8 @@ import {
   PROGRESSIVE_OVERLOAD_WEEKS,
   WorkoutGoal,
   WORKOUT_GOALS,
+  StrengthCompletedSet,
+  StrengthTemplateExercise,
 } from '../../types';
 import { getExerciseById } from '../../data/exercises';
 import { getCustomExercises } from '../storage';
@@ -90,21 +92,29 @@ export const getPreWorkoutSuggestions = async (
 ): Promise<ExerciseSuggestion[]> => {
   const customExercises = getCustomExercises();
 
-  // Build context about each exercise in the template
-  const exerciseContext = template.exercises.map((templateEx) => {
+  // Build context about each exercise in the template (only strength exercises)
+  const strengthTemplateExercises = template.exercises.filter(
+    (ex): ex is StrengthTemplateExercise => ex.type === 'strength' || !('type' in ex)
+  );
+
+  const exerciseContext = strengthTemplateExercises.map((templateEx) => {
     const exerciseInfo = getExerciseById(templateEx.exerciseId, customExercises);
 
-    // Find previous performance for this exercise
+    // Find previous performance for this exercise (strength sets only)
     const previousSets: Array<{ date: string; weight: number; reps: number }> = [];
     previousSessions.forEach((session) => {
       session.exercises.forEach((ex) => {
         if (ex.exerciseId === templateEx.exerciseId) {
           ex.sets.forEach((set) => {
-            previousSets.push({
-              date: session.startedAt,
-              weight: set.weight,
-              reps: set.reps,
-            });
+            // Only include strength sets
+            if (set.type === 'strength' || !('type' in set)) {
+              const strengthSet = set as StrengthCompletedSet;
+              previousSets.push({
+                date: session.startedAt,
+                weight: strengthSet.weight,
+                reps: strengthSet.reps,
+              });
+            }
           });
         }
       });

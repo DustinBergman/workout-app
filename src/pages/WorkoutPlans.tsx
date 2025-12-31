@@ -56,23 +56,35 @@ export const WorkoutPlans: FC = () => {
     setIsCreating(true);
   };
 
-  const addExercise = (exerciseId: string) => {
-    setTemplateExercises([
-      ...templateExercises,
-      {
-        exerciseId,
-        targetSets: 3,
-        targetReps: 10,
-        restSeconds: preferences.defaultRestSeconds,
-      },
-    ]);
+  const addExercise = (exercise: Exercise) => {
+    if (exercise.type === 'cardio') {
+      setTemplateExercises([
+        ...templateExercises,
+        {
+          type: 'cardio',
+          exerciseId: exercise.id,
+          restSeconds: preferences.defaultRestSeconds,
+        },
+      ]);
+    } else {
+      setTemplateExercises([
+        ...templateExercises,
+        {
+          type: 'strength',
+          exerciseId: exercise.id,
+          targetSets: 3,
+          targetReps: 10,
+          restSeconds: preferences.defaultRestSeconds,
+        },
+      ]);
+    }
     setShowExercisePicker(false);
     setExerciseSearch('');
   };
 
   const updateExercise = (index: number, updates: Partial<TemplateExercise>) => {
     const updated = [...templateExercises];
-    updated[index] = { ...updated[index], ...updates };
+    updated[index] = { ...updated[index], ...updates } as TemplateExercise;
     setTemplateExercises(updated);
   };
 
@@ -135,6 +147,7 @@ export const WorkoutPlans: FC = () => {
     if (!newExerciseName.trim()) return;
 
     const newExercise: Exercise = {
+      type: 'strength',
       id: `custom-${Date.now()}`,
       name: newExerciseName.trim(),
       muscleGroups: newExerciseMuscles.length > 0 ? newExerciseMuscles : ['core'],
@@ -142,7 +155,7 @@ export const WorkoutPlans: FC = () => {
     };
 
     addCustomExercise(newExercise);
-    addExercise(newExercise.id);
+    addExercise(newExercise);
     resetNewExerciseForm();
   };
 
@@ -232,42 +245,65 @@ export const WorkoutPlans: FC = () => {
                       </div>
 
                       <div className="flex-1">
-                        <p className="font-medium text-gray-900 dark:text-gray-100 mb-2">
-                          {getExerciseName(exercise.exerciseId)}
-                        </p>
-                        <div className="grid grid-cols-3 gap-2">
-                          <div>
-                            <label className="text-xs text-gray-500">Sets</label>
-                            <input
-                              type="number"
-                              min="1"
-                              value={exercise.targetSets}
-                              onChange={(e) => updateExercise(index, { targetSets: parseInt(e.target.value) || 1 })}
-                              className="w-full px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-center"
-                            />
-                          </div>
-                          <div>
-                            <label className="text-xs text-gray-500">Reps</label>
-                            <input
-                              type="number"
-                              min="1"
-                              value={exercise.targetReps}
-                              onChange={(e) => updateExercise(index, { targetReps: parseInt(e.target.value) || 1 })}
-                              className="w-full px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-center"
-                            />
-                          </div>
-                          <div>
-                            <label className="text-xs text-gray-500">Rest (s)</label>
-                            <input
-                              type="number"
-                              min="0"
-                              step="15"
-                              value={exercise.restSeconds}
-                              onChange={(e) => updateExercise(index, { restSeconds: parseInt(e.target.value) || 0 })}
-                              className="w-full px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-center"
-                            />
-                          </div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <p className="font-medium text-gray-900 dark:text-gray-100">
+                            {getExerciseName(exercise.exerciseId)}
+                          </p>
+                          {exercise.type === 'cardio' && (
+                            <span className="text-xs px-2 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400">
+                              Cardio
+                            </span>
+                          )}
                         </div>
+                        {exercise.type === 'cardio' ? (
+                          <div className="grid grid-cols-1 gap-2">
+                            <div>
+                              <label className="text-xs text-gray-500">Rest (s)</label>
+                              <input
+                                type="number"
+                                min="0"
+                                step="15"
+                                value={exercise.restSeconds}
+                                onChange={(e) => updateExercise(index, { restSeconds: parseInt(e.target.value) || 0 })}
+                                className="w-full px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-center"
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-3 gap-2">
+                            <div>
+                              <label className="text-xs text-gray-500">Sets</label>
+                              <input
+                                type="number"
+                                min="1"
+                                value={exercise.targetSets}
+                                onChange={(e) => updateExercise(index, { targetSets: parseInt(e.target.value) || 1 })}
+                                className="w-full px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-center"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-xs text-gray-500">Reps</label>
+                              <input
+                                type="number"
+                                min="1"
+                                value={exercise.targetReps}
+                                onChange={(e) => updateExercise(index, { targetReps: parseInt(e.target.value) || 1 })}
+                                className="w-full px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-center"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-xs text-gray-500">Rest (s)</label>
+                              <input
+                                type="number"
+                                min="0"
+                                step="15"
+                                value={exercise.restSeconds}
+                                onChange={(e) => updateExercise(index, { restSeconds: parseInt(e.target.value) || 0 })}
+                                className="w-full px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-center"
+                              />
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       <button
@@ -385,7 +421,7 @@ export const WorkoutPlans: FC = () => {
                 {filteredExercises.map((exercise) => (
                   <button
                     key={exercise.id}
-                    onClick={() => addExercise(exercise.id)}
+                    onClick={() => addExercise(exercise)}
                     className="w-full text-left p-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                   >
                     <div className="flex items-center gap-2">
@@ -397,9 +433,14 @@ export const WorkoutPlans: FC = () => {
                           Custom
                         </span>
                       )}
+                      {exercise.type === 'cardio' && (
+                        <span className="text-xs px-2 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400">
+                          Cardio
+                        </span>
+                      )}
                     </div>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {exercise.muscleGroups.join(', ')}
+                      {exercise.type === 'cardio' ? exercise.cardioType : exercise.muscleGroups.join(', ')}
                     </p>
                   </button>
                 ))}
@@ -473,7 +514,7 @@ export const WorkoutPlans: FC = () => {
               <div className="space-y-1 mb-4">
                 {template.exercises.slice(0, 4).map((exercise, index) => (
                   <p key={index} className="text-sm text-gray-600 dark:text-gray-400">
-                    {getExerciseName(exercise.exerciseId)} - {exercise.targetSets}x{exercise.targetReps}
+                    {getExerciseName(exercise.exerciseId)} - {exercise.type === 'cardio' ? 'Cardio' : `${exercise.targetSets}x${exercise.targetReps}`}
                   </p>
                 ))}
                 {template.exercises.length > 4 && (

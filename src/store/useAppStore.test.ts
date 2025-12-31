@@ -12,6 +12,7 @@ const resetStore = () => {
     activeSession: null,
     preferences: {
       weightUnit: 'lbs',
+      distanceUnit: 'mi',
       defaultRestSeconds: 90,
       darkMode: false,
     },
