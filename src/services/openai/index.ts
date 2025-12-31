@@ -8,7 +8,8 @@ export { callOpenAI, parseJSONResponse } from './client';
 export { createHistoryContext, analyzeExercisePerformance } from './history';
 
 // Main functions
-export { sendChatMessage } from './chat';
 export { getProgressiveOverloadRecommendations } from './recommendations';
 export { getPreWorkoutSuggestions } from './suggestions';
 export { getWorkoutScore } from './scoring';
+export { generateWorkoutPlan, createTemplateFromPlan, WORKOUT_TYPE_MUSCLES } from './planGenerator';
+export type { WorkoutType, GeneratePlanInput, GeneratedPlan } from './planGenerator';

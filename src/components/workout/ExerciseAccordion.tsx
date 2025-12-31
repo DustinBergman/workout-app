@@ -12,6 +12,8 @@ interface ExerciseAccordionProps {
   onRemoveLastSet: () => void;
   onRemoveExercise: () => void;
   onStartTimer: (duration: number) => void;
+  onUpdateTargetSets: (delta: number) => void;
+  onShowHistory: () => void;
   weightUnit: WeightUnit;
   suggestion?: ExerciseSuggestion;
 }
@@ -25,6 +27,8 @@ export const ExerciseAccordion: FC<ExerciseAccordionProps> = ({
   onRemoveLastSet,
   onRemoveExercise,
   onStartTimer,
+  onUpdateTargetSets,
+  onShowHistory,
   weightUnit,
   suggestion,
 }) => {
@@ -75,11 +79,11 @@ export const ExerciseAccordion: FC<ExerciseAccordionProps> = ({
       }`}
     >
       {/* Header - Always visible */}
-      <button
-        onClick={onToggle}
-        className="w-full p-4 flex items-center justify-between text-left"
-      >
-        <div className="flex items-center gap-3">
+      <div className="p-4 flex items-center justify-between">
+        <button
+          onClick={onToggle}
+          className="flex items-center gap-3 text-left flex-1"
+        >
           {/* Status indicator */}
           <div
             className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
@@ -109,34 +113,67 @@ export const ExerciseAccordion: FC<ExerciseAccordionProps> = ({
                 : `Target: ${exercise.targetSets || 3} x ${exercise.targetReps || 10}`}
             </p>
           </div>
-        </div>
+        </button>
 
-        {/* Expand/collapse icon */}
-        <svg
-          className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
+        {/* Right side controls */}
+        <div className="flex items-center gap-2">
+          {/* History button */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onShowHistory();
+            }}
+            className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            title="View history"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </button>
+
+          {/* Set count controls */}
+          <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg px-1">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onUpdateTargetSets(-1);
+              }}
+              disabled={exercise.targetSets <= 1}
+              className="w-7 h-7 flex items-center justify-center text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 disabled:opacity-30"
+            >
+              -
+            </button>
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300 min-w-[2rem] text-center">
+              {exercise.targetSets}
+            </span>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onUpdateTargetSets(1);
+              }}
+              className="w-7 h-7 flex items-center justify-center text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+            >
+              +
+            </button>
+          </div>
+
+          {/* Expand/collapse icon */}
+          <button onClick={onToggle} className="p-2">
+            <svg
+              className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+        </div>
+      </div>
 
       {/* Expanded Content */}
       {isExpanded && (
         <div className="px-4 pb-4 border-t border-gray-200 dark:border-gray-700">
-          {/* Exercise Image */}
-          {exerciseInfo?.imageUrl && (
-            <div className="mt-3 mb-3">
-              <img
-                src={exerciseInfo.imageUrl}
-                alt={exerciseInfo.name}
-                className="w-full max-w-[200px] mx-auto rounded-lg"
-                loading="lazy"
-              />
-            </div>
-          )}
-
           {/* AI Suggestion badge */}
           {suggestion && exercise.sets.length === 0 && (
             <div className="mt-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">

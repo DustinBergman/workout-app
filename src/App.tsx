@@ -5,9 +5,10 @@ import {
   Home,
   ExerciseLibrary,
   WorkoutPlans,
+  AIWorkoutCreator,
   ActiveWorkout,
   History,
-  Assistant,
+  You,
   Settings,
   Intro,
 } from './pages';
@@ -57,9 +58,10 @@ const App: FC = () => {
               <Route path="/" element={<Home />} />
               <Route path="/exercises" element={<ExerciseLibrary />} />
               <Route path="/plans" element={<WorkoutPlans />} />
+              <Route path="/plans/create-with-ai" element={<AIWorkoutCreator />} />
               <Route path="/workout" element={<ActiveWorkout />} />
               <Route path="/history" element={<History />} />
-              <Route path="/assistant" element={<Assistant />} />
+              <Route path="/you" element={<You />} />
               <Route path="/settings" element={<Settings />} />
             </Routes>
           </main>

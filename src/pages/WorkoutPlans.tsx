@@ -1,4 +1,5 @@
 import { useState, FC } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { Button, Card, Input, Modal } from '../components/ui';
 import { getAllExercises, searchExercises } from '../data/exercises';
@@ -21,6 +22,7 @@ export const WorkoutPlans: FC = () => {
   const deleteTemplate = useAppStore((state) => state.deleteTemplate);
   const addCustomExercise = useAppStore((state) => state.addCustomExercise);
   const { isLoadingSuggestions, startWorkout } = useStartWorkout();
+  const navigate = useNavigate();
 
   const [isCreating, setIsCreating] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<WorkoutTemplate | null>(null);
@@ -162,13 +164,26 @@ export const WorkoutPlans: FC = () => {
             </svg>
           </Button>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            {editingTemplate ? 'Edit Template' : 'New Template'}
+            {editingTemplate ? 'Edit Plan' : 'New Plan'}
           </h1>
         </div>
 
+        {/* Create with AI button - only show when creating new */}
+        {!editingTemplate && (
+          <button
+            onClick={() => navigate('/plans/create-with-ai')}
+            className="w-full mb-4 p-4 border-2 border-dashed border-primary/50 rounded-xl text-primary hover:bg-primary/5 transition-colors flex items-center justify-center gap-2"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            Create with AI
+          </button>
+        )}
+
         <div className="space-y-4">
           <Input
-            label="Template Name"
+            label="Plan Name"
             placeholder="e.g., Push Day"
             value={templateName}
             onChange={(e) => setTemplateName(e.target.value)}
@@ -276,7 +291,7 @@ export const WorkoutPlans: FC = () => {
               disabled={!templateName.trim() || templateExercises.length === 0}
               className="w-full"
             >
-              {editingTemplate ? 'Save Changes' : 'Create Template'}
+              {editingTemplate ? 'Save Changes' : 'Create Plan'}
             </Button>
           </div>
         </div>

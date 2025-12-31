@@ -1,8 +1,9 @@
 export { Home } from './Home';
 export { ExerciseLibrary } from './ExerciseLibrary';
 export { WorkoutPlans } from './WorkoutPlans';
+export { AIWorkoutCreator } from './AIWorkoutCreator';
 export { ActiveWorkout } from './ActiveWorkout';
 export { History } from './History';
-export { Assistant } from './Assistant';
+export { You } from './You';
 export { Settings } from './Settings';
 export { Intro } from './Intro';

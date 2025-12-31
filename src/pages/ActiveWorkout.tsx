@@ -1,12 +1,14 @@
-import { useState, useEffect, FC } from 'react';
+import { useState, useEffect, useMemo, FC } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { Button, Card, Input, Modal } from '../components/ui';
 import { RestTimer } from '../components/timer/RestTimer';
 import { ExerciseAccordion } from '../components/workout/ExerciseAccordion';
+import { ExerciseHistorySheet } from '../components/workout/ExerciseHistorySheet';
 import { getAllExercises, searchExercises, getExerciseById } from '../data/exercises';
 import { CompletedSet, SessionExercise, ExerciseSuggestion, WorkoutScoreResult, Exercise, MuscleGroup, Equipment } from '../types';
 import { getWorkoutScore } from '../services/openai';
+import { formatDuration, hasSessionDeviatedFromTemplate } from '../utils/workoutUtils';
 
 const MUSCLE_GROUPS: MuscleGroup[] = ['chest', 'back', 'shoulders', 'biceps', 'triceps', 'forearms', 'core', 'quadriceps', 'hamstrings', 'glutes', 'calves', 'traps', 'lats'];
 const EQUIPMENT_OPTIONS: Equipment[] = ['barbell', 'dumbbell', 'cable', 'machine', 'bodyweight', 'kettlebell', 'ez-bar', 'smith-machine', 'resistance-band', 'other'];
@@ -14,11 +16,13 @@ const EQUIPMENT_OPTIONS: Equipment[] = ['barbell', 'dumbbell', 'cable', 'machine
 export const ActiveWorkout: FC = () => {
   const activeSession = useAppStore((state) => state.activeSession);
   const sessions = useAppStore((state) => state.sessions);
+  const templates = useAppStore((state) => state.templates);
   const preferences = useAppStore((state) => state.preferences);
   const customExercises = useAppStore((state) => state.customExercises);
   const setActiveSession = useAppStore((state) => state.setActiveSession);
   const addSession = useAppStore((state) => state.addSession);
   const addCustomExercise = useAppStore((state) => state.addCustomExercise);
+  const updateTemplate = useAppStore((state) => state.updateTemplate);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -43,6 +47,16 @@ export const ActiveWorkout: FC = () => {
   const [scoreResult, setScoreResult] = useState<WorkoutScoreResult | null>(null);
   const [scoreError, setScoreError] = useState<string | null>(null);
 
+  // Timer state
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  // Exercise history sheet state
+  const [historyExerciseId, setHistoryExerciseId] = useState<string | null>(null);
+  const [historyExerciseName, setHistoryExerciseName] = useState<string>('');
+
+  // Update plan checkbox state
+  const [updatePlan, setUpdatePlan] = useState(false);
+
   const session = activeSession;
 
   // Redirect if no active session
@@ -61,6 +75,26 @@ export const ActiveWorkout: FC = () => {
       setExpandedIndex(firstIncomplete >= 0 ? firstIncomplete : 0);
     }
   }, [session, expandedIndex]);
+
+  // Workout duration timer
+  useEffect(() => {
+    if (!session) return;
+
+    const start = new Date(session.startedAt).getTime();
+    setElapsedSeconds(Math.floor((Date.now() - start) / 1000));
+
+    const interval = setInterval(() => {
+      setElapsedSeconds(Math.floor((Date.now() - start) / 1000));
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [session?.startedAt]);
+
+  // Detect if workout has deviated from template
+  const hasDeviated = useMemo(
+    () => session ? hasSessionDeviatedFromTemplate(session, templates) : false,
+    [session, templates]
+  );
 
   if (!session) return null;
 
@@ -170,11 +204,43 @@ export const ActiveWorkout: FC = () => {
     setShowTimer(true);
   };
 
+  const updateTargetSets = (exerciseId: string, delta: number) => {
+    const newExercises = session.exercises.map(ex =>
+      ex.exerciseId === exerciseId
+        ? { ...ex, targetSets: Math.max(1, ex.targetSets + delta) }
+        : ex
+    );
+    setActiveSession({ ...session, exercises: newExercises });
+  };
+
+  const handleShowHistory = (exerciseId: string) => {
+    const exercise = getExerciseById(exerciseId, customExercises);
+    setHistoryExerciseId(exerciseId);
+    setHistoryExerciseName(exercise?.name || 'Exercise');
+  };
+
   const finishWorkout = async () => {
     const completedSession = {
       ...session,
       completedAt: new Date().toISOString(),
     };
+
+    // Update template if user opted to
+    if (updatePlan && session.templateId && hasDeviated) {
+      const existingTemplate = templates.find(t => t.id === session.templateId);
+      if (existingTemplate) {
+        const updatedTemplate = {
+          ...existingTemplate,
+          exercises: session.exercises.map(ex => ({
+            exerciseId: ex.exerciseId,
+            targetSets: ex.targetSets,
+            targetReps: ex.targetReps,
+            restSeconds: ex.restSeconds,
+          })),
+        };
+        updateTemplate(updatedTemplate);
+      }
+    }
 
     // Save to history immediately
     addSession(completedSession);
@@ -261,9 +327,14 @@ export const ActiveWorkout: FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-            {session.name}
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+              {session.name}
+            </h1>
+            <span className="text-lg font-mono text-primary">
+              {formatDuration(elapsedSeconds)}
+            </span>
+          </div>
           <p className="text-sm text-gray-500 dark:text-gray-400">
             {totalSets} sets | {totalVolume.toLocaleString()} {preferences.weightUnit}
           </p>
@@ -287,6 +358,8 @@ export const ActiveWorkout: FC = () => {
               onRemoveLastSet={() => removeLastSetForExercise(index)}
               onRemoveExercise={() => removeExercise(index)}
               onStartTimer={handleStartTimer}
+              onUpdateTargetSets={(delta) => updateTargetSets(exercise.exerciseId, delta)}
+              onShowHistory={() => handleShowHistory(exercise.exerciseId)}
               weightUnit={preferences.weightUnit}
               suggestion={getSuggestionForExercise(exercise.exerciseId)}
             />
@@ -468,6 +541,19 @@ export const ActiveWorkout: FC = () => {
               <p className="text-sm text-gray-500">Total {preferences.weightUnit}</p>
             </div>
           </div>
+          {hasDeviated && session.templateId && (
+            <label className="flex items-center justify-center gap-2 mt-6 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={updatePlan}
+                onChange={(e) => setUpdatePlan(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+              />
+              <span className="text-sm text-gray-600 dark:text-gray-400">
+                Update saved plan with these changes
+              </span>
+            </label>
+          )}
         </div>
       </Modal>
 
@@ -565,6 +651,16 @@ export const ActiveWorkout: FC = () => {
           <p className="text-xs mt-1">Redirecting to history...</p>
         </div>
       )}
+
+      {/* Exercise History Sheet */}
+      <ExerciseHistorySheet
+        isOpen={historyExerciseId !== null}
+        onClose={() => setHistoryExerciseId(null)}
+        exerciseId={historyExerciseId || ''}
+        exerciseName={historyExerciseName}
+        sessions={sessions}
+        weightUnit={preferences.weightUnit}
+      />
     </div>
   );
 }

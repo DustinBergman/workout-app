@@ -1,11 +1,12 @@
-import { FC, useState, useMemo } from 'react';
+import { FC, useState, useMemo, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { Button, Card, Modal, WeekBadge } from '../components/ui';
 import { WorkoutHeatmap } from '../components/history/WorkoutHeatmap';
 import { calculateSessionStats } from '../hooks/useSessionStats';
 import { useStartWorkout } from '../hooks/useStartWorkout';
-import { ProgressiveOverloadWeek, PROGRESSIVE_OVERLOAD_WEEKS, WORKOUT_GOALS } from '../types';
+import { getProgressiveOverloadRecommendations } from '../services/openai';
+import { ProgressiveOverloadWeek, PROGRESSIVE_OVERLOAD_WEEKS, WORKOUT_GOALS, WorkoutRecommendation } from '../types';
 
 export const Home: FC = () => {
   const templates = useAppStore((state) => state.templates);
@@ -18,6 +19,33 @@ export const Home: FC = () => {
   const navigate = useNavigate();
   const { isLoadingSuggestions, startWorkout, startQuickWorkout } = useStartWorkout();
   const [showWeekSelector, setShowWeekSelector] = useState(false);
+  const [recommendations, setRecommendations] = useState<WorkoutRecommendation[]>([]);
+  const [loadingRecommendations, setLoadingRecommendations] = useState(false);
+
+  const hasApiKey = !!preferences.openaiApiKey;
+
+  // Load progressive overload recommendations
+  useEffect(() => {
+    const loadRecommendations = async () => {
+      if (!preferences.openaiApiKey || sessions.length < 2) return;
+
+      setLoadingRecommendations(true);
+      try {
+        const recs = await getProgressiveOverloadRecommendations(
+          preferences.openaiApiKey,
+          sessions,
+          preferences.weightUnit
+        );
+        setRecommendations(recs);
+      } catch (err) {
+        console.error('Failed to load recommendations:', err);
+      } finally {
+        setLoadingRecommendations(false);
+      }
+    };
+
+    loadRecommendations();
+  }, [preferences.openaiApiKey, sessions, preferences.weightUnit]);
 
   const goalInfo = WORKOUT_GOALS[workoutGoal];
   const showProgressiveOverload = goalInfo.useProgressiveOverload;
@@ -140,6 +168,52 @@ export const Home: FC = () => {
               showDetails
               onClick={() => setShowWeekSelector(true)}
             />
+          </section>
+        )}
+
+        {/* Progressive Overload Recommendations */}
+        {hasApiKey && sessions.length >= 2 && recommendations.length > 0 && (
+          <section className="mb-6">
+            <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+              <h2 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-3 flex items-center">
+                <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                </svg>
+                Progressive Overload Recommendations
+              </h2>
+              <div className="space-y-2">
+                {recommendations.slice(0, 3).map((rec, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between p-2 bg-white dark:bg-gray-800 rounded-lg"
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                        {rec.exerciseName}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {rec.reason}
+                      </p>
+                    </div>
+                    <span
+                      className={`px-2 py-1 text-xs font-medium rounded ${
+                        rec.type === 'increase'
+                          ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+                          : rec.type === 'decrease'
+                          ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+                          : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                      }`}
+                    >
+                      {rec.type === 'increase' && '+'}
+                      {rec.recommendedWeight} {preferences.weightUnit}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              {loadingRecommendations && (
+                <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">Loading...</p>
+              )}
+            </Card>
           </section>
         )}
 
