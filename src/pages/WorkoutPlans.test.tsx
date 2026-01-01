@@ -240,6 +240,30 @@ describe('WorkoutPlans', () => {
     it('shows Add Exercise button', () => {
       expect(screen.getByRole('button', { name: 'Add Exercise' })).toBeInTheDocument();
     });
+
+    it('disables Add Exercise button when exercise has undefined fields', async () => {
+      fireEvent.change(screen.getByLabelText('Plan Name'), { target: { value: 'My Plan' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Add Exercise' }));
+
+      // Wait for and select an exercise
+      const benchPress = await screen.findByText('Barbell Bench Press');
+      fireEvent.click(benchPress);
+
+      // Modal should close
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      });
+
+      // Exercise should now be added
+      expect(screen.getByText('Barbell Bench Press')).toBeInTheDocument();
+
+      // Find and clear the Sets field
+      const setsInput = screen.getAllByDisplayValue('3')[0]; // Sets default is 3
+      fireEvent.change(setsInput, { target: { value: '' } });
+
+      // Now Add Exercise button should be disabled
+      expect(screen.getByRole('button', { name: 'Add Exercise' })).toBeDisabled();
+    });
   });
 
   describe('Exercise Picker Modal', () => {

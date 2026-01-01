@@ -97,7 +97,13 @@ describe('hasSessionDeviatedFromTemplate', () => {
 
     const session = createMockSession({
       templateId: 'template-1',
-      exercises: exercises.map(e => ({ ...e, sets: [] })),
+      exercises: exercises.map(e => ({
+        ...e,
+        targetSets: e.targetSets ?? 3,
+        targetReps: e.targetReps ?? 10,
+        restSeconds: e.restSeconds ?? 60,
+        sets: []
+      })),
     });
 
     const template = createMockTemplate({

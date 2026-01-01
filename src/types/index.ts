@@ -174,16 +174,16 @@ export type Exercise = StrengthExercise | CardioExercise;
 export interface StrengthTemplateExercise {
   type: 'strength';
   exerciseId: string;
-  targetSets: number;
-  targetReps: number;
-  restSeconds: number;
+  targetSets?: number;
+  targetReps?: number;
+  restSeconds?: number;
 }
 
 // Cardio Template Exercise
 export interface CardioTemplateExercise {
   type: 'cardio';
   exerciseId: string;
-  restSeconds: number;
+  restSeconds?: number;
 }
 
 // Template Exercise Union Type

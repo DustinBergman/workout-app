@@ -66,8 +66,8 @@ export const TemplateExerciseCard: FC<TemplateExerciseCardProps> = ({
                   type="number"
                   min="0"
                   step="15"
-                  value={exercise.restSeconds}
-                  onChange={(e) => onUpdate(index, { restSeconds: parseInt(e.target.value) || 0 })}
+                  value={exercise.restSeconds ?? ''}
+                  onChange={(e) => onUpdate(index, { restSeconds: e.target.value === '' ? undefined : parseInt(e.target.value) })}
                   className="w-full px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-center"
                 />
               </div>
@@ -79,8 +79,8 @@ export const TemplateExerciseCard: FC<TemplateExerciseCardProps> = ({
                 <input
                   type="number"
                   min="1"
-                  value={exercise.targetSets}
-                  onChange={(e) => onUpdate(index, { targetSets: parseInt(e.target.value) || 1 })}
+                  value={exercise.targetSets ?? ''}
+                  onChange={(e) => onUpdate(index, { targetSets: e.target.value === '' ? undefined : parseInt(e.target.value) })}
                   className="w-full px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-center"
                 />
               </div>
@@ -89,8 +89,8 @@ export const TemplateExerciseCard: FC<TemplateExerciseCardProps> = ({
                 <input
                   type="number"
                   min="1"
-                  value={exercise.targetReps}
-                  onChange={(e) => onUpdate(index, { targetReps: parseInt(e.target.value) || 1 })}
+                  value={exercise.targetReps ?? ''}
+                  onChange={(e) => onUpdate(index, { targetReps: e.target.value === '' ? undefined : parseInt(e.target.value) })}
                   className="w-full px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-center"
                 />
               </div>
@@ -100,8 +100,8 @@ export const TemplateExerciseCard: FC<TemplateExerciseCardProps> = ({
                   type="number"
                   min="0"
                   step="15"
-                  value={exercise.restSeconds}
-                  onChange={(e) => onUpdate(index, { restSeconds: parseInt(e.target.value) || 0 })}
+                  value={exercise.restSeconds ?? ''}
+                  onChange={(e) => onUpdate(index, { restSeconds: e.target.value === '' ? undefined : parseInt(e.target.value) })}
                   className="w-full px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-center"
                 />
               </div>

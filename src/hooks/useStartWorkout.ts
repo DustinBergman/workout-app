@@ -35,16 +35,16 @@ export const useStartWorkout = (): UseStartWorkoutReturn => {
           return {
             type: 'cardio' as const,
             exerciseId: e.exerciseId,
-            restSeconds: e.restSeconds,
+            restSeconds: e.restSeconds ?? preferences.defaultRestSeconds,
             sets: [],
           };
         }
         return {
           type: 'strength' as const,
           exerciseId: e.exerciseId,
-          targetSets: e.targetSets,
-          targetReps: e.targetReps,
-          restSeconds: e.restSeconds,
+          targetSets: e.targetSets ?? 3,
+          targetReps: e.targetReps ?? 10,
+          restSeconds: e.restSeconds ?? preferences.defaultRestSeconds,
           sets: [],
         };
       }),

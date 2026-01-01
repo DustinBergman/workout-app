@@ -72,6 +72,14 @@ export const TemplateEditor: FC<TemplateEditorProps> = ({
 }) => {
   const navigate = useNavigate();
 
+  const hasIncompleteExercises = templateExercises.some(exercise => {
+    if (exercise.type === 'strength') {
+      return exercise.targetSets === undefined || exercise.targetReps === undefined || exercise.restSeconds === undefined;
+    } else {
+      return exercise.restSeconds === undefined;
+    }
+  });
+
   return (
     <div className="p-4 pb-20">
       <div className="flex items-center gap-3 mb-6">
@@ -111,7 +119,12 @@ export const TemplateEditor: FC<TemplateEditorProps> = ({
             <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
               Exercises
             </label>
-            <Button size="sm" variant="secondary" onClick={onOpenPicker}>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={onOpenPicker}
+              disabled={hasIncompleteExercises}
+            >
               Add Exercise
             </Button>
           </div>
