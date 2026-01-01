@@ -12,6 +12,7 @@ interface CurrentWorkoutState {
   showFinishConfirm: boolean;
   historyExerciseId: string | null;
   updatePlan: boolean;
+  skipAutoExpand: boolean;
 
   // Actions
   setExpandedIndex: (index: number | null) => void;
@@ -22,6 +23,7 @@ interface CurrentWorkoutState {
   setShowFinishConfirm: (show: boolean) => void;
   setHistoryExerciseId: (id: string | null) => void;
   setUpdatePlan: (update: boolean) => void;
+  setSkipAutoExpand: (skip: boolean) => void;
   reset: () => void;
 }
 
@@ -34,6 +36,7 @@ const initialState = {
   showFinishConfirm: false,
   historyExerciseId: null as string | null,
   updatePlan: false,
+  skipAutoExpand: false,
 };
 
 export const useCurrentWorkoutStore = create<CurrentWorkoutState>()(
@@ -50,6 +53,7 @@ export const useCurrentWorkoutStore = create<CurrentWorkoutState>()(
         setShowFinishConfirm: (show) => set({ showFinishConfirm: show }),
         setHistoryExerciseId: (id) => set({ historyExerciseId: id }),
         setUpdatePlan: (update) => set({ updatePlan: update }),
+        setSkipAutoExpand: (skip) => set({ skipAutoExpand: skip }),
         reset: () => set(initialState),
       }),
       {

@@ -1,5 +1,22 @@
-import { FC, useCallback } from 'react';
+import { FC, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  useDndContext,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  sortableKeyboardCoordinates,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { useAppStore } from '../store/useAppStore';
 import { useCurrentWorkoutStore } from '../store/currentWorkoutStore';
 import { Button, Card } from '../components/ui';
@@ -17,7 +34,7 @@ import {
   ScoreErrorToast,
 } from '../components/active-workout';
 import { getExerciseById } from '../data/exercises';
-import { StrengthExercise, CardioExercise } from '../types';
+import { StrengthExercise, CardioExercise, StrengthSessionExercise, CardioSessionExercise, SessionExercise, WorkoutSession, WeightUnit, DistanceUnit, ExerciseSuggestion } from '../types';
 import {
   useActiveWorkout,
   useRestTimer,
@@ -25,6 +42,144 @@ import {
   useCustomExercise,
   useExerciseHistory,
 } from '../hooks/useActiveWorkout';
+
+// Sortable wrapper for exercises
+interface SortableExerciseItemProps {
+  exercise: SessionExercise;
+  exerciseInfo: StrengthExercise | CardioExercise | undefined;
+  index: number;
+  expandedIndex: number | null;
+  setExpandedIndex: (index: number | null) => void;
+  onLogSet: (reps: number, weight: number) => void;
+  onLogCardio: (distance: number, unit: DistanceUnit, durationSeconds: number) => void;
+  onRemoveLastSet: () => void;
+  onRemoveExercise: () => void;
+  onStartTimer: (duration: number) => void;
+  onUpdateTargetSets: (delta: number) => void;
+  onShowHistory: () => void;
+  weightUnit: WeightUnit;
+  distanceUnit: DistanceUnit;
+  suggestion: ExerciseSuggestion | undefined;
+  session: WorkoutSession | null;
+}
+
+const SortableExerciseItem: FC<SortableExerciseItemProps> = ({
+  exercise,
+  exerciseInfo,
+  index,
+  expandedIndex,
+  setExpandedIndex,
+  onLogSet,
+  onLogCardio,
+  onRemoveLastSet,
+  onRemoveExercise,
+  onStartTimer,
+  onUpdateTargetSets,
+  onShowHistory,
+  weightUnit,
+  distanceUnit,
+  suggestion,
+  session,
+}) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: exercise.id! });
+
+  const { active, over } = useDndContext();
+  const isOver = over?.id === exercise.id!;
+
+  // Determine if placeholder should appear below (when dragging from above)
+  let showPlaceholderBelow = false;
+  if (isOver && active && session) {
+    // Find the actual index of the active item in the session
+    const activeIndex = session.exercises.findIndex((ex: SessionExercise) => ex.id === active.id);
+    // If dragging from above the target, show placeholder below
+    // If dragging from below the target, show placeholder above
+    if (activeIndex !== -1 && activeIndex < index) {
+      showPlaceholderBelow = true;
+    }
+  }
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    touchAction: isDragging ? 'none' : undefined,
+  };
+
+  const isExpanded = expandedIndex === index;
+  // Collapse accordion when dragging starts
+  const handleToggle = () => {
+    if (isDragging) return; // Prevent toggling while dragging
+    setExpandedIndex(isExpanded ? null : index);
+  };
+
+  // If dragging this item, collapse it
+  useEffect(() => {
+    if (isDragging && isExpanded) {
+      setExpandedIndex(null);
+    }
+  }, [isDragging, isExpanded, setExpandedIndex]);
+
+  if (exercise.type === 'cardio') {
+    return (
+      <div ref={setNodeRef} style={style}>
+        {isOver && !showPlaceholderBelow && (
+          <div className="mb-2 h-1 bg-blue-500 dark:bg-blue-400 rounded-full" />
+        )}
+        <CardioAccordion
+          exercise={exercise as CardioSessionExercise}
+          exerciseInfo={exerciseInfo as CardioExercise | undefined}
+          isExpanded={isExpanded}
+          onToggle={handleToggle}
+          onLogCardio={onLogCardio}
+          onRemoveLastSet={onRemoveLastSet}
+          onRemoveExercise={onRemoveExercise}
+          onShowHistory={onShowHistory}
+          distanceUnit={distanceUnit}
+          listeners={listeners}
+          attributes={attributes}
+          isDragging={isDragging}
+        />
+        {isOver && showPlaceholderBelow && (
+          <div className="mt-2 h-1 bg-blue-500 dark:bg-blue-400 rounded-full" />
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      {isOver && !showPlaceholderBelow && (
+        <div className="mb-2 h-1 bg-blue-500 dark:bg-blue-400 rounded-full" />
+      )}
+      <ExerciseAccordion
+        exercise={exercise as StrengthSessionExercise}
+        exerciseInfo={exerciseInfo as StrengthExercise | undefined}
+        isExpanded={isExpanded}
+        onToggle={handleToggle}
+        onLogSet={onLogSet}
+        onRemoveLastSet={onRemoveLastSet}
+        onRemoveExercise={onRemoveExercise}
+        onStartTimer={onStartTimer}
+        onUpdateTargetSets={onUpdateTargetSets}
+        onShowHistory={onShowHistory}
+        weightUnit={weightUnit}
+        suggestion={suggestion}
+        listeners={listeners}
+        attributes={attributes}
+        isDragging={isDragging}
+      />
+      {isOver && showPlaceholderBelow && (
+        <div className="mt-2 h-1 bg-blue-500 dark:bg-blue-400 rounded-full" />
+      )}
+    </div>
+  );
+};
 
 export const ActiveWorkout: FC = () => {
   const navigate = useNavigate();
@@ -59,6 +214,7 @@ export const ActiveWorkout: FC = () => {
     addExerciseToSession,
     removeExercise,
     updateTargetSets,
+    reorderExercises,
   } = useExerciseManagement();
   const {
     customExerciseState,
@@ -101,6 +257,75 @@ export const ActiveWorkout: FC = () => {
     }
   }, [createExercise, addExerciseToSession]);
 
+  // DND sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // Require 8px movement before drag starts
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      // Skip auto-expand of accordions when reordering
+      const { setSkipAutoExpand } = useCurrentWorkoutStore.getState();
+      setSkipAutoExpand(true);
+
+      // Reset expanded index to keep accordion collapsed
+      setExpandedIndex(null);
+
+      // Then reorder exercises
+      reorderExercises(active.id as string, over.id as string);
+    }
+  };
+
+  // Migration: Add IDs to exercises that don't have them
+  useEffect(() => {
+    if (session && session.exercises.some(ex => !ex.id)) {
+      const setActiveSession = useAppStore.getState().setActiveSession;
+      const migratedSession = {
+        ...session,
+        exercises: session.exercises.map((ex, idx) => ({
+          ...ex,
+          id: ex.id || `migrated-${session.id}-${idx}`,
+        })),
+      };
+      setActiveSession(migratedSession);
+    }
+  }, [session]);
+
+  // Prevent horizontal scroll entirely
+  useEffect(() => {
+    const handleWheel = (e: WheelEvent) => {
+      // Block any horizontal scroll attempts
+      if (e.deltaX !== 0) {
+        e.preventDefault();
+      }
+    };
+
+    const handleScroll = () => {
+      // Reset scroll position if somehow scrolled horizontally
+      if (window.scrollX !== 0) {
+        window.scrollTo(0, window.scrollY);
+      }
+    };
+
+    window.addEventListener('wheel', handleWheel, { passive: false });
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    document.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => {
+      window.removeEventListener('wheel', handleWheel);
+      window.removeEventListener('scroll', handleScroll);
+      document.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
+
   if (!session) return null;
 
   return (
@@ -120,46 +345,44 @@ export const ActiveWorkout: FC = () => {
       {/* Scrollable Exercise Accordions */}
       {session.exercises.length > 0 ? (
         <div className="space-y-3">
-          {session.exercises.map((exercise, index) => {
-            const exerciseInfo = getExerciseById(exercise.exerciseId, customExercises);
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={session.exercises.map((ex) => ex.id!)}
+              strategy={verticalListSortingStrategy}
+            >
+              {session.exercises.map((exercise, index) => {
+                const exerciseInfo = getExerciseById(exercise.exerciseId, customExercises);
 
-            if (exercise.type === 'cardio') {
-              return (
-                <CardioAccordion
-                  key={index}
-                  exercise={exercise}
-                  exerciseInfo={exerciseInfo as CardioExercise | undefined}
-                  isExpanded={expandedIndex === index}
-                  onToggle={() => setExpandedIndex(expandedIndex === index ? null : index)}
-                  onLogCardio={(distance, unit, durationSeconds) =>
-                    logCardioForExercise(index, distance, unit, durationSeconds)
-                  }
-                  onRemoveLastSet={() => removeLastSetForExercise(index)}
-                  onRemoveExercise={() => removeExercise(index)}
-                  onShowHistory={() => handleShowHistory(exercise.exerciseId)}
-                  distanceUnit={distanceUnit}
-                />
-              );
-            }
-
-            return (
-              <ExerciseAccordion
-                key={index}
-                exercise={exercise}
-                exerciseInfo={exerciseInfo as StrengthExercise | undefined}
-                isExpanded={expandedIndex === index}
-                onToggle={() => setExpandedIndex(expandedIndex === index ? null : index)}
-                onLogSet={(reps, weight) => logSetForExercise(index, reps, weight)}
-                onRemoveLastSet={() => removeLastSetForExercise(index)}
-                onRemoveExercise={() => removeExercise(index)}
-                onStartTimer={handleStartTimer}
-                onUpdateTargetSets={(delta) => updateTargetSets(exercise.exerciseId, delta)}
-                onShowHistory={() => handleShowHistory(exercise.exerciseId)}
-                weightUnit={weightUnit}
-                suggestion={getSuggestionForExercise(exercise.exerciseId)}
-              />
-            );
-          })}
+                return (
+                  <SortableExerciseItem
+                    key={exercise.id}
+                    exercise={exercise}
+                    exerciseInfo={exerciseInfo}
+                    index={index}
+                    expandedIndex={expandedIndex}
+                    setExpandedIndex={setExpandedIndex}
+                    onLogSet={(reps, weight) => logSetForExercise(index, reps, weight)}
+                    onLogCardio={(distance, unit, durationSeconds) =>
+                      logCardioForExercise(index, distance, unit, durationSeconds)
+                    }
+                    onRemoveLastSet={() => removeLastSetForExercise(index)}
+                    onRemoveExercise={() => removeExercise(index)}
+                    onStartTimer={handleStartTimer}
+                    onUpdateTargetSets={(delta) => updateTargetSets(exercise.exerciseId, delta)}
+                    onShowHistory={() => handleShowHistory(exercise.exerciseId)}
+                    weightUnit={weightUnit}
+                    distanceUnit={distanceUnit}
+                    suggestion={getSuggestionForExercise(exercise.exerciseId)}
+                    session={session}
+                  />
+                );
+              })}
+            </SortableContext>
+          </DndContext>
 
           {/* Add Exercise Button */}
           <button

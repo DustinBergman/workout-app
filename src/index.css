@@ -4,8 +4,16 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* Custom base styles */
+html, body {
+  @apply overflow-x-hidden;
+  width: 100%;
+  max-width: 100%;
+}
+
 body {
   @apply min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100;
+  touch-action: pan-y pinch-zoom;
+  overscroll-behavior: none;
 }
 
 @theme inline {
@@ -239,4 +247,14 @@ body {
 
 .animate-float-6 {
   animation: float-6 11s ease-in-out infinite;
+}
+
+/* DND Kit specific fixes - prevent scrolling during drag */
+[data-dnd-dragging] {
+  touch-action: none;
+}
+
+[role="button"][aria-label*="drag"],
+[role="button"][aria-label*="Drag"] {
+  touch-action: none !important;
 }

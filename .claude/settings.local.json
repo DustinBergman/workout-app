@@ -11,7 +11,9 @@
       "Bash(npx tsc:*)",
       "Bash(npm test:*)",
       "Bash(wc:*)",
-      "Bash(timeout 60 npm test:*)"
+      "Bash(timeout 60 npm test:*)",
+      "Bash(ls:*)",
+      "mcp__ide__getDiagnostics"
     ]
   }
 }

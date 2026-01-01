@@ -103,7 +103,16 @@ export const useActiveWorkout = (): UseActiveWorkoutReturn => {
   // Auto-expand first incomplete exercise on mount
   useEffect(() => {
     if (session) {
-      const expandedIndex = useCurrentWorkoutStore.getState().expandedIndex;
+      const state = useCurrentWorkoutStore.getState();
+      const expandedIndex = state.expandedIndex;
+      const skipAutoExpand = state.skipAutoExpand;
+
+      // Skip auto-expand if user just reordered exercises
+      if (skipAutoExpand) {
+        state.setSkipAutoExpand(false);
+        return;
+      }
+
       if (expandedIndex === null) {
         const firstIncomplete = session.exercises.findIndex(
           (ex) => ex.type === 'cardio'

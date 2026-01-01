@@ -221,6 +221,7 @@ export type CompletedSet = StrengthCompletedSet | CardioCompletedSet;
 
 // Strength Session Exercise (exercise with logged sets during a workout)
 export interface StrengthSessionExercise {
+  id?: string;
   type: 'strength';
   exerciseId: string;
   targetSets: number;
@@ -231,6 +232,7 @@ export interface StrengthSessionExercise {
 
 // Cardio Session Exercise
 export interface CardioSessionExercise {
+  id?: string;
   type: 'cardio';
   exerciseId: string;
   restSeconds: number;

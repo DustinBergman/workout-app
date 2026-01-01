@@ -13,6 +13,7 @@ export function createMockCompletedSet(overrides: Partial<StrengthCompletedSet> 
 
 export function createMockSessionExercise(overrides: Partial<StrengthSessionExercise> = {}): StrengthSessionExercise {
   return {
+    id: `exercise-${Date.now()}-${Math.random().toString(36).slice(2)}`,
     type: 'strength',
     exerciseId: 'bench-press',
     targetSets: 3,

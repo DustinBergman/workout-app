@@ -18,7 +18,13 @@ interface UseExerciseManagementReturn {
   addExerciseToSession: (exerciseId: string) => void;
   removeExercise: (index: number) => void;
   updateTargetSets: (exerciseId: string, delta: number) => void;
+  reorderExercises: (activeId: string, overId: string) => void;
 }
+
+// Generate unique instance ID for exercise in session
+const generateExerciseInstanceId = (): string => {
+  return `session-ex-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+};
 
 export const useExerciseManagement = (): UseExerciseManagementReturn => {
   // App store
@@ -137,6 +143,7 @@ export const useExerciseManagement = (): UseExerciseManagementReturn => {
     let newExercise: SessionExercise;
     if (isCardio) {
       newExercise = {
+        id: generateExerciseInstanceId(),
         type: 'cardio',
         exerciseId,
         restSeconds: defaultRestSeconds,
@@ -144,6 +151,7 @@ export const useExerciseManagement = (): UseExerciseManagementReturn => {
       };
     } else {
       newExercise = {
+        id: generateExerciseInstanceId(),
         type: 'strength',
         exerciseId,
         targetSets: 3,
@@ -200,6 +208,32 @@ export const useExerciseManagement = (): UseExerciseManagementReturn => {
     setActiveSession({ ...session, exercises: newExercises });
   }, [session, setActiveSession]);
 
+  // Reorder exercises by dragging
+  const reorderExercises = useCallback((activeId: string, overId: string) => {
+    if (!session || activeId === overId) return;
+
+    const oldIndex = session.exercises.findIndex(ex => ex.id === activeId);
+    const newIndex = session.exercises.findIndex(ex => ex.id === overId);
+
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    // Create new array and remove the dragged item
+    const reordered = [...session.exercises];
+    const [removed] = reordered.splice(oldIndex, 1);
+
+    // Insert at the correct position
+    // If dragging from above (oldIndex < newIndex), insert after (at newIndex)
+    // If dragging from below (oldIndex > newIndex), insert before (at adjusted newIndex)
+    const insertIndex = oldIndex < newIndex ? newIndex : newIndex;
+    reordered.splice(insertIndex, 0, removed);
+
+    setActiveSession({
+      ...session,
+      exercises: reordered,
+    });
+    // Note: expandedIndex is managed separately in handleDragEnd
+  }, [session, setActiveSession]);
+
   return {
     logSetForExercise,
     logCardioForExercise,
@@ -207,5 +241,6 @@ export const useExerciseManagement = (): UseExerciseManagementReturn => {
     addExerciseToSession,
     removeExercise,
     updateTargetSets,
+    reorderExercises,
   };
 };

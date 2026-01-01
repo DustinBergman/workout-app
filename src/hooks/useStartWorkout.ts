@@ -33,6 +33,7 @@ export const useStartWorkout = (): UseStartWorkoutReturn => {
       exercises: template.exercises.map((e) => {
         if (e.type === 'cardio') {
           return {
+            id: generateId(),
             type: 'cardio' as const,
             exerciseId: e.exerciseId,
             restSeconds: e.restSeconds ?? preferences.defaultRestSeconds,
@@ -40,6 +41,7 @@ export const useStartWorkout = (): UseStartWorkoutReturn => {
           };
         }
         return {
+          id: generateId(),
           type: 'strength' as const,
           exerciseId: e.exerciseId,
           targetSets: e.targetSets ?? 3,
