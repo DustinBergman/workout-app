@@ -32,6 +32,8 @@ const createDefaultMockValue = (overrides?: Partial<ActiveWorkoutContextValue>):
   logSetForExercise: vi.fn(),
   logCardioForExercise: vi.fn(),
   removeLastSetForExercise: vi.fn(),
+  removeSetForExercise: vi.fn(),
+  updateSetForExercise: vi.fn(),
   removeExercise: vi.fn(),
   updateTargetSets: vi.fn(),
 

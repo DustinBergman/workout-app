@@ -25,8 +25,9 @@ export const ExerciseAccordion: FC<ExerciseAccordionProps> = ({
     expandedIndex,
     setExpandedIndex,
     logSetForExercise,
-    removeLastSetForExercise,
     removeExercise,
+    removeSetForExercise,
+    updateSetForExercise,
     handleStartTimer,
     updateTargetSets,
     handleShowHistory,
@@ -38,7 +39,6 @@ export const ExerciseAccordion: FC<ExerciseAccordionProps> = ({
 
   // Wrapped handlers that include the index
   const wrappedLogSet = (reps: number, weight: number) => logSetForExercise(index, reps, weight);
-  const wrappedRemoveLastSet = () => removeLastSetForExercise(index);
   const wrappedRemoveExercise = () => removeExercise(index);
   const wrappedUpdateTargetSets = (delta: number) => updateTargetSets(exercise.exerciseId, delta);
   const wrappedShowHistory = () => handleShowHistory(exercise.exerciseId);
@@ -49,6 +49,7 @@ export const ExerciseAccordion: FC<ExerciseAccordionProps> = ({
   const suggestion = getSuggestionForExercise(exercise.exerciseId);
   const [repsInput, setRepsInput] = useState('');
   const [weightInput, setWeightInput] = useState('');
+  const [expandedSetIndex, setExpandedSetIndex] = useState<number | null>(null);
 
   const isComplete = exercise.sets.length >= (exercise.targetSets || 3);
   const progress = `${exercise.sets.length}/${exercise.targetSets || 3}`;
@@ -59,24 +60,39 @@ export const ExerciseAccordion: FC<ExerciseAccordionProps> = ({
     ? Math.round(strengthSets.reduce((sum, s) => sum + ('weight' in s ? s.weight : 0), 0) / strengthSets.length)
     : 0;
 
-  // Pre-fill inputs when expanded or when suggestion changes
+  // Generate array of all sets (completed + empty placeholders)
+  const allSets = Array.from({ length: exercise.targetSets || 3 }, (_, idx) => {
+    if (idx < exercise.sets.length) {
+      return { type: 'completed' as const, data: exercise.sets[idx], index: idx };
+    }
+    return { type: 'empty' as const, index: idx };
+  });
+
+  // Auto-open next incomplete set when exercise accordion is expanded
   useEffect(() => {
     if (isExpanded) {
+      // Auto-open the next incomplete set
+      setExpandedSetIndex(exercise.sets.length);
+    }
+  }, [isExpanded]);
+
+  // Pre-fill inputs when an empty set is expanded
+  useEffect(() => {
+    if (expandedSetIndex !== null && expandedSetIndex >= exercise.sets.length) {
+      // Empty set accordion expanded
       if (exercise.sets.length > 0) {
         const lastSet = exercise.sets[exercise.sets.length - 1];
         if (lastSet.type === 'strength' || !('type' in lastSet)) {
           setWeightInput(('weight' in lastSet ? lastSet.weight : 0).toString());
         }
-        setRepsInput(exercise.targetReps?.toString() || '');
       } else if (suggestion) {
         setWeightInput(suggestion.suggestedWeight.toString());
-        setRepsInput(suggestion.suggestedReps.toString());
       } else {
-        setRepsInput(exercise.targetReps?.toString() || '10');
         setWeightInput('');
       }
+      setRepsInput(exercise.targetReps?.toString() || '10');
     }
-  }, [isExpanded, exercise.sets.length, exercise.targetReps, suggestion]);
+  }, [expandedSetIndex, exercise.sets.length, exercise.targetReps, suggestion]);
 
   const handleLogSet = () => {
     const reps = parseInt(repsInput) || 0;
@@ -162,9 +178,9 @@ export const ExerciseAccordion: FC<ExerciseAccordionProps> = ({
 
       {/* Expanded Content */}
       {isExpanded && (
-        <div className="px-4 pb-4 border-t border-gray-200 dark:border-gray-700">
+        <div className="px-4 pb-4 border-t border-border/50 bg-white/15 dark:bg-white/8 backdrop-blur-lg">
           {/* Control buttons */}
-          <div className="flex items-center gap-2 mt-3 pb-3 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-2 mt-3 pb-3 border-b border-border/50">
             {/* History button */}
             <button
               onClick={(e) => {
@@ -179,34 +195,10 @@ export const ExerciseAccordion: FC<ExerciseAccordionProps> = ({
               History
             </button>
 
-            {/* Set count controls */}
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-700 dark:text-gray-300">Target Sets:</span>
-              <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg px-1">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    wrappedUpdateTargetSets(-1);
-                  }}
-                  disabled={exercise.targetSets <= 1}
-                  className="w-7 h-7 flex items-center justify-center text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-gray-100 disabled:opacity-30"
-                >
-                  -
-                </button>
-                <span className="text-sm font-medium text-gray-900 dark:text-gray-100 min-w-[2rem] text-center">
-                  {exercise.targetSets}
-                </span>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    wrappedUpdateTargetSets(1);
-                  }}
-                  className="w-7 h-7 flex items-center justify-center text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-gray-100"
-                >
-                  +
-                </button>
-              </div>
-            </div>
+            {/* Target sets display (read-only) */}
+            <span className="text-sm text-gray-600 dark:text-gray-400">
+              Target: {exercise.targetSets || 3} sets
+            </span>
           </div>
 
           {/* AI Suggestion badge */}
@@ -266,113 +258,212 @@ export const ExerciseAccordion: FC<ExerciseAccordionProps> = ({
             </div>
           )}
 
-          {/* Completed Sets */}
-          {exercise.sets.length > 0 && (
+          {/* All Sets (Completed + Empty) */}
+          {allSets.length > 0 && (
             <div className="mt-3">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Completed Sets
-                </span>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    wrappedRemoveLastSet();
-                  }}
-                  className="text-xs text-red-500 hover:text-red-700"
-                >
-                  Undo last
-                </button>
-              </div>
-              <div className="space-y-1">
-                {exercise.sets.map((set, index) => {
-                  if (set.type !== 'strength' && 'type' in set) return null;
-                  const strengthSet = set as { weight: number; unit: string; reps: number };
-                  return (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between p-2 bg-green-100 dark:bg-green-900/20 rounded-lg"
-                    >
-                      <span className="text-sm font-medium text-green-700 dark:text-green-300">
-                        Set {index + 1}
-                      </span>
-                      <span className="text-sm text-green-600 dark:text-green-400">
-                        {strengthSet.weight} {strengthSet.unit} x {strengthSet.reps} reps
-                      </span>
-                    </div>
-                  );
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">
+                Sets
+              </span>
+              <div className="space-y-2">
+                {allSets.map((setItem) => {
+                  const isSetExpanded = expandedSetIndex === setItem.index;
+
+                  if (setItem.type === 'completed') {
+                    // Completed set accordion (green)
+                    const strengthSet = setItem.data as { weight: number; unit: string; reps: number };
+                    return (
+                      <div key={setItem.index} className="border border-green-500/40 bg-green-500/25 backdrop-blur-lg rounded-lg overflow-hidden">
+                        {/* Set Header */}
+                        <button
+                          onClick={() => setExpandedSetIndex(isSetExpanded ? null : setItem.index)}
+                          className="w-full flex items-center justify-between p-2 hover:bg-green-500/20 transition-colors"
+                        >
+                          <span className="text-sm font-medium text-green-600 dark:text-green-400">
+                            Set {setItem.index + 1}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-green-600 dark:text-green-400">
+                              {strengthSet.weight} {strengthSet.unit} x {strengthSet.reps} reps
+                            </span>
+                            <svg
+                              className={`w-4 h-4 text-green-600 dark:text-green-400 transition-transform ${isSetExpanded ? 'rotate-180' : ''}`}
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </div>
+                        </button>
+
+                        {/* Set Details */}
+                        {isSetExpanded && (
+                          <div className="px-3 py-2 border-t border-green-500/20 space-y-2">
+                            <div className="flex gap-2">
+                              <div className="flex-1">
+                                <label className="text-xs text-gray-600 dark:text-gray-400 block mb-1">
+                                  Weight ({weightUnit})
+                                </label>
+                                <input
+                                  type="number"
+                                  value={strengthSet.weight}
+                                  onChange={(e) => {
+                                    const newWeight = parseFloat(e.target.value) || 0;
+                                    updateSetForExercise(index, setItem.index, strengthSet.reps, newWeight);
+                                  }}
+                                  className="w-full px-2 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                                />
+                              </div>
+                              <div className="flex-1">
+                                <label className="text-xs text-gray-600 dark:text-gray-400 block mb-1">
+                                  Reps
+                                </label>
+                                <input
+                                  type="number"
+                                  value={strengthSet.reps}
+                                  onChange={(e) => {
+                                    const newReps = parseInt(e.target.value) || 0;
+                                    updateSetForExercise(index, setItem.index, newReps, strengthSet.weight);
+                                  }}
+                                  className="w-full px-2 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                                />
+                              </div>
+                            </div>
+                            <Button
+                              onClick={() => removeSetForExercise(index, setItem.index)}
+                              variant="outline"
+                              className="w-full text-red-600 dark:text-red-400 py-1 text-sm"
+                            >
+                              Remove
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  } else {
+                    // Empty set accordion (gray)
+                    const lastSetWeight = exercise.sets.length > 0
+                      ? (exercise.sets[exercise.sets.length - 1] as { weight?: number }).weight || 0
+                      : suggestion?.suggestedWeight || 0;
+                    const targetReps = exercise.targetReps || 10;
+                    return (
+                      <div key={setItem.index} className="border border-border/60 bg-card/70 backdrop-blur-lg rounded-lg overflow-hidden">
+                        {/* Empty Set Header */}
+                        <button
+                          onClick={() => setExpandedSetIndex(isSetExpanded ? null : setItem.index)}
+                          className="w-full flex items-center justify-between p-2 hover:bg-white/10 dark:hover:bg-white/5 transition-colors"
+                        >
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Set {setItem.index + 1}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-gray-600 dark:text-gray-400">
+                              {targetReps} reps @ {lastSetWeight} {weightUnit}
+                            </span>
+                            <svg
+                              className={`w-4 h-4 text-gray-600 dark:text-gray-400 transition-transform ${isSetExpanded ? 'rotate-180' : ''}`}
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </div>
+                        </button>
+
+                        {/* Empty Set Form */}
+                        {isSetExpanded && (
+                          <div className="px-3 py-3 border-t border-border/50 space-y-3">
+                            <div className="flex gap-3">
+                              <div className="flex-1">
+                                <label className="text-xs text-gray-600 dark:text-gray-400 mb-1 block">
+                                  Weight ({weightUnit})
+                                </label>
+                                <input
+                                  type="number"
+                                  value={weightInput}
+                                  onChange={(e) => setWeightInput(e.target.value)}
+                                  placeholder="0"
+                                  className="w-full px-4 py-3 text-lg text-center rounded-lg border border-border/50 bg-card/70 backdrop-blur-lg text-gray-900 dark:text-gray-100"
+                                />
+                                <div className="flex gap-1 mt-2">
+                                  {[-10, -5, 5, 10].map((delta) => (
+                                    <button
+                                      key={delta}
+                                      onClick={() => {
+                                        const current = parseFloat(weightInput) || 0;
+                                        setWeightInput(Math.max(0, current + delta).toString());
+                                      }}
+                                      className="flex-1 py-1 text-xs rounded bg-white/10 dark:bg-white/5 hover:bg-white/20 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 transition-colors"
+                                    >
+                                      {delta > 0 ? '+' : ''}{delta}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                              <div className="flex-1">
+                                <label className="text-xs text-gray-600 dark:text-gray-400 mb-1 block">Reps</label>
+                                <input
+                                  type="number"
+                                  value={repsInput}
+                                  onChange={(e) => setRepsInput(e.target.value)}
+                                  placeholder="0"
+                                  className="w-full px-4 py-3 text-lg text-center rounded-lg border border-border/50 bg-card/70 backdrop-blur-lg text-gray-900 dark:text-gray-100"
+                                />
+                                <div className="flex gap-1 mt-2">
+                                  {[-2, -1, 1, 2].map((delta) => (
+                                    <button
+                                      key={delta}
+                                      onClick={() => {
+                                        const current = parseInt(repsInput) || 0;
+                                        setRepsInput(Math.max(1, current + delta).toString());
+                                      }}
+                                      className="flex-1 py-1 text-xs rounded bg-white/10 dark:bg-white/5 hover:bg-white/20 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 transition-colors"
+                                    >
+                                      {delta > 0 ? '+' : ''}{delta}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                            <Button
+                              onClick={() => {
+                                handleLogSet();
+                                setExpandedSetIndex(null);
+                                setRepsInput('');
+                                setWeightInput('');
+                              }}
+                              disabled={!repsInput || parseInt(repsInput) <= 0}
+                              className="w-full"
+                              size="lg"
+                            >
+                              Complete Set
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
                 })}
               </div>
             </div>
           )}
 
-          {/* Input for next set */}
-          {!isComplete && (
-            <div className="mt-4">
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                Set {exercise.sets.length + 1} of {exercise.targetSets || 3}
-              </p>
-              <div className="flex gap-3 mb-4">
-                <div className="flex-1">
-                  <label className="text-xs text-gray-500 mb-1 block">
-                    Weight ({weightUnit})
-                  </label>
-                  <input
-                    type="number"
-                    value={weightInput}
-                    onChange={(e) => setWeightInput(e.target.value)}
-                    placeholder="0"
-                    className="w-full px-4 py-3 text-lg text-center rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                  />
-                  <div className="flex gap-1 mt-2">
-                    {[-10, -5, 5, 10].map((delta) => (
-                      <button
-                        key={delta}
-                        onClick={() => {
-                          const current = parseFloat(weightInput) || 0;
-                          setWeightInput(Math.max(0, current + delta).toString());
-                        }}
-                        className="flex-1 py-1 text-xs rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
-                      >
-                        {delta > 0 ? '+' : ''}{delta}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="flex-1">
-                  <label className="text-xs text-gray-500 mb-1 block">Reps</label>
-                  <input
-                    type="number"
-                    value={repsInput}
-                    onChange={(e) => setRepsInput(e.target.value)}
-                    placeholder="0"
-                    className="w-full px-4 py-3 text-lg text-center rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                  />
-                  <div className="flex gap-1 mt-2">
-                    {[-2, -1, 1, 2].map((delta) => (
-                      <button
-                        key={delta}
-                        onClick={() => {
-                          const current = parseInt(repsInput) || 0;
-                          setRepsInput(Math.max(1, current + delta).toString());
-                        }}
-                        className="flex-1 py-1 text-xs rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
-                      >
-                        {delta > 0 ? '+' : ''}{delta}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              <Button
-                onClick={handleLogSet}
-                disabled={!repsInput || parseInt(repsInput) <= 0}
-                className="w-full"
-                size="lg"
-              >
-                Complete Set
-              </Button>
-            </div>
-          )}
+          {/* Add Set Button */}
+          <Button
+            onClick={() => {
+              // If all target sets complete, increase targetSets
+              if (exercise.sets.length >= (exercise.targetSets || 3)) {
+                wrappedUpdateTargetSets(1);
+              }
+              // Expand the next empty set accordion
+              setExpandedSetIndex(exercise.sets.length);
+            }}
+            variant="outline"
+            className="mt-4 w-full"
+          >
+            + Add Set
+          </Button>
 
           {/* Remove exercise button */}
           <Button

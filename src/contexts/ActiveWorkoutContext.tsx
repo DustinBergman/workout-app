@@ -20,6 +20,8 @@ export interface ActiveWorkoutContextValue {
   logSetForExercise: (index: number, reps: number, weight: number) => void;
   logCardioForExercise: (index: number, distance: number, unit: DistanceUnit, durationSeconds: number) => void;
   removeLastSetForExercise: (index: number) => void;
+  removeSetForExercise: (exerciseIndex: number, setIndex: number) => void;
+  updateSetForExercise: (exerciseIndex: number, setIndex: number, reps: number, weight: number) => void;
   removeExercise: (index: number) => void;
   updateTargetSets: (exerciseId: string, delta: number) => void;
 
@@ -67,6 +69,8 @@ export const ActiveWorkoutProvider: FC<ActiveWorkoutProviderProps> = ({ children
     logSetForExercise: hookValues.logSetForExercise,
     logCardioForExercise: hookValues.logCardioForExercise,
     removeLastSetForExercise: hookValues.removeLastSetForExercise,
+    removeSetForExercise: hookValues.removeSetForExercise,
+    updateSetForExercise: hookValues.updateSetForExercise,
     removeExercise: hookValues.removeExercise,
     updateTargetSets: hookValues.updateTargetSets,
 

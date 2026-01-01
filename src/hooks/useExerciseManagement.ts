@@ -15,6 +15,8 @@ interface UseExerciseManagementReturn {
   logSetForExercise: (exerciseIndex: number, reps: number, weight: number) => void;
   logCardioForExercise: (exerciseIndex: number, distance: number, distanceUnit: DistanceUnit, durationSeconds: number) => void;
   removeLastSetForExercise: (exerciseIndex: number) => void;
+  removeSetForExercise: (exerciseIndex: number, setIndex: number) => void;
+  updateSetForExercise: (exerciseIndex: number, setIndex: number, reps: number, weight: number) => void;
   addExerciseToSession: (exerciseId: string) => void;
   removeExercise: (index: number) => void;
   updateTargetSets: (exerciseId: string, delta: number) => void;
@@ -134,6 +136,53 @@ export const useExerciseManagement = (): UseExerciseManagementReturn => {
     });
   }, [session, setActiveSession]);
 
+  // Remove a specific set from an exercise
+  const removeSetForExercise = useCallback((exerciseIndex: number, setIndex: number) => {
+    if (!session) return;
+    const exercise = session.exercises[exerciseIndex];
+    if (setIndex < 0 || setIndex >= exercise.sets.length) return;
+
+    const updatedExercises = [...session.exercises];
+    updatedExercises[exerciseIndex] = {
+      ...exercise,
+      sets: exercise.sets.filter((_, idx) => idx !== setIndex),
+    };
+
+    setActiveSession({
+      ...session,
+      exercises: updatedExercises,
+    });
+  }, [session, setActiveSession]);
+
+  // Update a specific set's weight and reps
+  const updateSetForExercise = useCallback((exerciseIndex: number, setIndex: number, reps: number, weight: number) => {
+    if (!session) return;
+    const exercise = session.exercises[exerciseIndex];
+    if (setIndex < 0 || setIndex >= exercise.sets.length) return;
+    if (exercise.type !== 'strength') return;
+
+    const updatedSets = [...exercise.sets];
+    const setToUpdate = updatedSets[setIndex];
+    if (setToUpdate.type !== 'strength' && 'type' in setToUpdate) return;
+
+    updatedSets[setIndex] = {
+      ...setToUpdate,
+      reps,
+      weight,
+    };
+
+    const updatedExercises = [...session.exercises];
+    updatedExercises[exerciseIndex] = {
+      ...exercise,
+      sets: updatedSets,
+    };
+
+    setActiveSession({
+      ...session,
+      exercises: updatedExercises,
+    });
+  }, [session, setActiveSession]);
+
   // Add an exercise to the session
   const addExerciseToSession = useCallback((exerciseId: string) => {
     if (!session) return;
@@ -238,6 +287,8 @@ export const useExerciseManagement = (): UseExerciseManagementReturn => {
     logSetForExercise,
     logCardioForExercise,
     removeLastSetForExercise,
+    removeSetForExercise,
+    updateSetForExercise,
     addExerciseToSession,
     removeExercise,
     updateTargetSets,
