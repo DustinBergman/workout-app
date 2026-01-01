@@ -11,6 +11,7 @@ interface RestTimerProps {
 
 export const RestTimer: FC<RestTimerProps> = ({ duration, onComplete, onSkip, autoStart = false }) => {
   const hasPlayedRef = useRef(false);
+  const hasStartedRef = useRef(false);
 
   const handleComplete = useCallback(() => {
     // Play notification ding sound
@@ -55,8 +56,10 @@ export const RestTimer: FC<RestTimerProps> = ({ duration, onComplete, onSkip, au
   const { seconds, isRunning, start, pause, resume, reset, isComplete } = useTimer(handleComplete);
 
   useEffect(() => {
-    if (autoStart && duration > 0) {
+    // Only start the timer once per component instance
+    if (autoStart && duration > 0 && !hasStartedRef.current) {
       hasPlayedRef.current = false;
+      hasStartedRef.current = true;
       start(duration);
     }
   }, [autoStart, duration, start]);
@@ -66,10 +69,15 @@ export const RestTimer: FC<RestTimerProps> = ({ duration, onComplete, onSkip, au
     onSkip?.();
   };
 
-  const handleRestart = () => {
-    hasPlayedRef.current = false;
-    start(duration);
-  };
+  // Auto-hide timer when complete
+  useEffect(() => {
+    if (isComplete) {
+      const timer = setTimeout(() => {
+        onSkip?.();
+      }, 2000); // Auto-hide after 2 seconds
+      return () => clearTimeout(timer);
+    }
+  }, [isComplete, onSkip]);
 
   const formatTime = (totalSeconds: number) => {
     const mins = Math.floor(totalSeconds / 60);
@@ -80,73 +88,45 @@ export const RestTimer: FC<RestTimerProps> = ({ duration, onComplete, onSkip, au
   const progress = duration > 0 ? (seconds / duration) * 100 : 0;
 
   return (
-    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 max-w-sm w-full text-center">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-6">
-          {isComplete ? 'Rest Complete!' : 'Rest Timer'}
-        </h2>
+    <div className="fixed bottom-16 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 z-50">
+      {/* Progress Bar */}
+      <div className="h-1 bg-gray-200 dark:bg-gray-700 w-full">
+        <div
+          className={`h-full transition-all duration-1000 ${
+            isComplete ? 'bg-green-500' : 'bg-blue-500'
+          }`}
+          style={{ width: `${progress}%` }}
+        />
+      </div>
 
-        {/* Circular Progress */}
-        <div className="relative w-48 h-48 mx-auto mb-6">
-          <svg className="w-full h-full transform -rotate-90">
-            {/* Background circle */}
-            <circle
-              cx="96"
-              cy="96"
-              r="88"
-              className="fill-none stroke-gray-200 dark:stroke-gray-700"
-              strokeWidth="12"
-            />
-            {/* Progress circle */}
-            <circle
-              cx="96"
-              cy="96"
-              r="88"
-              className={`fill-none transition-all duration-1000 ${
-                isComplete ? 'stroke-green-500' : 'stroke-blue-500'
-              }`}
-              strokeWidth="12"
-              strokeLinecap="round"
-              strokeDasharray={`${2 * Math.PI * 88}`}
-              strokeDashoffset={`${2 * Math.PI * 88 * (1 - progress / 100)}`}
-            />
-          </svg>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <span className={`text-5xl font-bold ${
-              isComplete
-                ? 'text-green-500'
-                : 'text-gray-900 dark:text-gray-100'
-            }`}>
-              {isComplete ? 'GO!' : formatTime(seconds)}
-            </span>
-          </div>
+      {/* Content */}
+      <div className="px-4 py-3 flex items-center justify-between">
+        {/* Time Remaining */}
+        <div className="flex items-center gap-2">
+          <span className={`text-sm font-medium ${
+            isComplete
+              ? 'text-green-600 dark:text-green-400'
+              : 'text-gray-900 dark:text-gray-100'
+          }`}>
+            {isComplete ? 'Rest Complete!' : `Time Remaining: ${formatTime(seconds)}`}
+          </span>
         </div>
 
         {/* Controls */}
-        <div className="flex gap-3 justify-center">
+        <div className="flex gap-2">
           {!isComplete && (
             <>
               {isRunning ? (
-                <Button variant="secondary" onClick={pause}>
+                <Button size="sm" variant="secondary" onClick={pause}>
                   Pause
                 </Button>
               ) : seconds > 0 ? (
-                <Button variant="secondary" onClick={resume}>
+                <Button size="sm" variant="secondary" onClick={resume}>
                   Resume
                 </Button>
               ) : null}
-              <Button variant="ghost" onClick={handleSkip}>
+              <Button size="sm" variant="ghost" onClick={handleSkip}>
                 Skip
-              </Button>
-            </>
-          )}
-          {isComplete && (
-            <>
-              <Button onClick={handleSkip}>
-                Continue
-              </Button>
-              <Button variant="secondary" onClick={handleRestart}>
-                +{Math.floor(duration / 60)}:{(duration % 60).toString().padStart(2, '0')}
               </Button>
             </>
           )}

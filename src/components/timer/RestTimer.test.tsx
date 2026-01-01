@@ -41,14 +41,14 @@ describe('RestTimer', () => {
   });
 
   describe('rendering', () => {
-    it('should render rest timer title', () => {
-      render(<RestTimer duration={60} />);
-      expect(screen.getByText('Rest Timer')).toBeInTheDocument();
+    it('should render timer banner', () => {
+      const { container } = render(<RestTimer duration={60} />);
+      expect(container.querySelector('.fixed.bottom-16')).toBeInTheDocument();
     });
 
     it('should display formatted time', () => {
       render(<RestTimer duration={90} autoStart />);
-      expect(screen.getByText('1:30')).toBeInTheDocument();
+      expect(screen.getByText(/Time Remaining: 1:30/)).toBeInTheDocument();
     });
 
     it('should show Skip button when not complete', () => {
@@ -65,41 +65,40 @@ describe('RestTimer', () => {
   describe('autoStart', () => {
     it('should auto start when autoStart is true', () => {
       render(<RestTimer duration={60} autoStart />);
-      expect(screen.getByText('1:00')).toBeInTheDocument();
+      expect(screen.getByText(/Time Remaining: 1:00/)).toBeInTheDocument();
       expect(screen.getByText('Pause')).toBeInTheDocument();
     });
 
     it('should not auto start when autoStart is false', () => {
       render(<RestTimer duration={60} autoStart={false} />);
       // Timer should show 0:00 since it hasn't started
-      expect(screen.getByText('0:00')).toBeInTheDocument();
+      expect(screen.getByText(/Time Remaining: 0:00/)).toBeInTheDocument();
     });
   });
 
   describe('countdown', () => {
     it('should count down seconds', async () => {
       render(<RestTimer duration={5} autoStart />);
-      expect(screen.getByText('0:05')).toBeInTheDocument();
+      expect(screen.getByText(/Time Remaining: 0:05/)).toBeInTheDocument();
 
       await act(async () => {
         vi.advanceTimersByTime(1000);
       });
-      expect(screen.getByText('0:04')).toBeInTheDocument();
+      expect(screen.getByText(/Time Remaining: 0:04/)).toBeInTheDocument();
 
       await act(async () => {
         vi.advanceTimersByTime(1000);
       });
-      expect(screen.getByText('0:03')).toBeInTheDocument();
+      expect(screen.getByText(/Time Remaining: 0:03/)).toBeInTheDocument();
     });
 
-    it('should show GO! when complete', async () => {
+    it('should show Rest Complete when complete', async () => {
       render(<RestTimer duration={2} autoStart />);
 
       await act(async () => {
         vi.advanceTimersByTime(2000);
       });
 
-      expect(screen.getByText('GO!')).toBeInTheDocument();
       expect(screen.getByText('Rest Complete!')).toBeInTheDocument();
     });
   });
@@ -111,7 +110,7 @@ describe('RestTimer', () => {
       await act(async () => {
         vi.advanceTimersByTime(2000);
       });
-      expect(screen.getByText('0:08')).toBeInTheDocument();
+      expect(screen.getByText(/Time Remaining: 0:08/)).toBeInTheDocument();
 
       fireEvent.click(screen.getByText('Pause'));
 
@@ -122,7 +121,7 @@ describe('RestTimer', () => {
       await act(async () => {
         vi.advanceTimersByTime(2000);
       });
-      expect(screen.getByText('0:08')).toBeInTheDocument();
+      expect(screen.getByText(/Time Remaining: 0:08/)).toBeInTheDocument();
     });
 
     it('should resume timer when Resume is clicked', async () => {
@@ -139,7 +138,7 @@ describe('RestTimer', () => {
       await act(async () => {
         vi.advanceTimersByTime(1000);
       });
-      expect(screen.getByText('0:07')).toBeInTheDocument();
+      expect(screen.getByText(/Time Remaining: 0:07/)).toBeInTheDocument();
     });
 
     it('should call onSkip when Skip is clicked', () => {
@@ -151,50 +150,22 @@ describe('RestTimer', () => {
       expect(onSkip).toHaveBeenCalledTimes(1);
     });
 
-    it('should show Continue button when complete', async () => {
-      render(<RestTimer duration={1} autoStart />);
-
-      await act(async () => {
-        vi.advanceTimersByTime(1000);
-      });
-
-      expect(screen.getByText('Continue')).toBeInTheDocument();
-    });
-
-    it('should call onSkip when Continue is clicked', async () => {
+    it('should auto-hide when complete', async () => {
       const onSkip = vi.fn();
       render(<RestTimer duration={1} autoStart onSkip={onSkip} />);
 
       await act(async () => {
         vi.advanceTimersByTime(1000);
       });
-      fireEvent.click(screen.getByText('Continue'));
+
+      expect(screen.getByText('Rest Complete!')).toBeInTheDocument();
+
+      // Should call onSkip after 2 seconds
+      await act(async () => {
+        vi.advanceTimersByTime(2000);
+      });
 
       expect(onSkip).toHaveBeenCalledTimes(1);
-    });
-
-    it('should show restart button with duration when complete', async () => {
-      render(<RestTimer duration={90} autoStart />);
-
-      await act(async () => {
-        vi.advanceTimersByTime(90000);
-      });
-
-      expect(screen.getByText('+1:30')).toBeInTheDocument();
-    });
-
-    it('should restart timer when restart button is clicked', async () => {
-      render(<RestTimer duration={90} autoStart />);
-
-      await act(async () => {
-        vi.advanceTimersByTime(90000);
-      });
-      expect(screen.getByText('GO!')).toBeInTheDocument();
-
-      fireEvent.click(screen.getByText('+1:30'));
-
-      expect(screen.getByText('1:30')).toBeInTheDocument();
-      expect(screen.getByText('Rest Timer')).toBeInTheDocument();
     });
   });
 
@@ -220,24 +191,24 @@ describe('RestTimer', () => {
       });
 
       // Verify the timer completed (which would trigger audio)
-      expect(screen.getByText('GO!')).toBeInTheDocument();
+      expect(screen.getByText('Rest Complete!')).toBeInTheDocument();
     });
   });
 
   describe('time formatting', () => {
     it('should format single digit seconds with leading zero', () => {
       render(<RestTimer duration={5} autoStart />);
-      expect(screen.getByText('0:05')).toBeInTheDocument();
+      expect(screen.getByText(/Time Remaining: 0:05/)).toBeInTheDocument();
     });
 
     it('should format minutes and seconds correctly', () => {
       render(<RestTimer duration={125} autoStart />);
-      expect(screen.getByText('2:05')).toBeInTheDocument();
+      expect(screen.getByText(/Time Remaining: 2:05/)).toBeInTheDocument();
     });
 
     it('should handle exact minute values', () => {
       render(<RestTimer duration={120} autoStart />);
-      expect(screen.getByText('2:00')).toBeInTheDocument();
+      expect(screen.getByText(/Time Remaining: 2:00/)).toBeInTheDocument();
     });
   });
 });

@@ -41,7 +41,7 @@ export const WorkoutHeader: FC<WorkoutHeaderProps> = ({
           {totalCardioDistance > 0 && ` | ${totalCardioDistance.toFixed(2)} ${distanceUnit}`}
         </p>
       </div>
-      <Button variant="danger" size="sm" onClick={onFinishClick}>
+      <Button size="sm" onClick={onFinishClick}>
         Finish
       </Button>
     </div>

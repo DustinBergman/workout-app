@@ -55,8 +55,6 @@ export const ActiveWorkout: FC = () => {
         navigate={navigate}
         session={session}
         sessions={sessions}
-        showTimer={showTimer}
-        timerDuration={timerDuration}
         showExercisePicker={showExercisePicker}
         setShowExercisePicker={setShowExercisePicker}
         exerciseSearch={exerciseSearch}
@@ -65,7 +63,6 @@ export const ActiveWorkout: FC = () => {
         setShowFinishConfirm={setShowFinishConfirm}
         updatePlan={updatePlan}
         setUpdatePlan={setUpdatePlan}
-        hideTimer={hideTimer}
         addExerciseToSession={addExerciseToSession}
         customExerciseState={customExerciseState}
         setIsCreatingExercise={setIsCreatingExercise}
@@ -87,6 +84,15 @@ export const ActiveWorkout: FC = () => {
         handleDragEnd={handleDragEnd}
         sensors={sensors}
       />
+      {/* Rest Timer - rendered at top level to avoid z-index issues */}
+      {showTimer && (
+        <RestTimer
+          duration={timerDuration}
+          autoStart={true}
+          onComplete={() => {}}
+          onSkip={hideTimer}
+        />
+      )}
     </ActiveWorkoutProvider>
   );
 };
@@ -95,8 +101,6 @@ interface ActiveWorkoutContentProps {
   navigate: ReturnType<typeof useNavigate>;
   session: WorkoutSession | null;
   sessions: WorkoutSession[];
-  showTimer: boolean;
-  timerDuration: number;
   showExercisePicker: boolean;
   setShowExercisePicker: (show: boolean) => void;
   exerciseSearch: string;
@@ -105,7 +109,6 @@ interface ActiveWorkoutContentProps {
   setShowFinishConfirm: (show: boolean) => void;
   updatePlan: boolean;
   setUpdatePlan: (updatePlan: boolean) => void;
-  hideTimer: () => void;
   addExerciseToSession: (exerciseId: string) => void;
   customExerciseState: { isCreating: boolean; name: string; equipment: string; muscleGroups: string[] };
   setIsCreatingExercise: (isCreating: boolean) => void;
@@ -132,8 +135,6 @@ const ActiveWorkoutContent: FC<ActiveWorkoutContentProps> = ({
   navigate,
   session,
   sessions,
-  showTimer,
-  timerDuration,
   showExercisePicker,
   setShowExercisePicker,
   exerciseSearch,
@@ -142,7 +143,6 @@ const ActiveWorkoutContent: FC<ActiveWorkoutContentProps> = ({
   setShowFinishConfirm,
   updatePlan,
   setUpdatePlan,
-  hideTimer,
   addExerciseToSession,
   customExerciseState,
   setIsCreatingExercise,
@@ -177,7 +177,7 @@ const ActiveWorkoutContent: FC<ActiveWorkoutContentProps> = ({
   if (!session) return null;
 
   return (
-    <div className="p-4 pb-24">
+    <div className="p-4 pb-32">
       {/* Header */}
       <WorkoutHeader
         sessionName={session.name}
@@ -211,16 +211,6 @@ const ActiveWorkoutContent: FC<ActiveWorkoutContentProps> = ({
         <>
           <EmptyWorkoutState onAddExercise={() => setShowExercisePicker(true)} />
         </>
-      )}
-
-      {/* Rest Timer */}
-      {showTimer && (
-        <RestTimer
-          duration={timerDuration}
-          autoStart={true}
-          onComplete={() => {}}
-          onSkip={hideTimer}
-        />
       )}
 
       {/* Workout Modals */}
