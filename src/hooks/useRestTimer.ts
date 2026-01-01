@@ -13,11 +13,15 @@ export const useRestTimer = (): UseRestTimerReturn => {
   const timerDuration = useCurrentWorkoutStore((state) => state.timerDuration);
   const setShowTimer = useCurrentWorkoutStore((state) => state.setShowTimer);
   const setTimerDuration = useCurrentWorkoutStore((state) => state.setTimerDuration);
+  const setTimerEndTime = useCurrentWorkoutStore((state) => state.setTimerEndTime);
 
   const handleStartTimer = useCallback((duration: number) => {
     setTimerDuration(duration);
+    // Calculate and store the end time (absolute timestamp) so timer persists across app restarts
+    const endTime = Date.now() + duration * 1000;
+    setTimerEndTime(endTime);
     setShowTimer(true);
-  }, [setTimerDuration, setShowTimer]);
+  }, [setTimerDuration, setTimerEndTime, setShowTimer]);
 
   const hideTimer = useCallback(() => {
     setShowTimer(false);

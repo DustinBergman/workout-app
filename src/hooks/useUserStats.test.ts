@@ -53,6 +53,7 @@ describe('useUserStats', () => {
         averageSessionDuration: 0,
         averageSessionsPerWeek: 0,
         averageVolumePerSession: 0,
+        averageWeightChangePerWeek: 0,
         totalSessions: 0,
       });
     });

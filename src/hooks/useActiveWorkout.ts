@@ -109,8 +109,11 @@ export const useActiveWorkout = (): UseActiveWorkoutReturn => {
 
       // Skip auto-expand if user just reordered exercises
       if (skipAutoExpand) {
-        state.setSkipAutoExpand(false);
-        return;
+        // Reset the flag after a brief delay to allow drag-and-drop to complete
+        const timer = setTimeout(() => {
+          state.setSkipAutoExpand(false);
+        }, 0);
+        return () => clearTimeout(timer);
       }
 
       if (expandedIndex === null) {

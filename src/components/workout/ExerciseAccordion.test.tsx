@@ -486,4 +486,566 @@ describe('ExerciseAccordion', () => {
     const checkmarkSvg = statusIcon?.querySelector('svg');
     expect(checkmarkSvg).toBeInTheDocument();
   });
+
+  describe('completed set editing', () => {
+    it('should show Edit button for completed sets', async () => {
+      const exercise = createMockExercise({
+        sets: [
+          { type: 'strength' as const, weight: 135, unit: 'lbs' as const, reps: 10, completedAt: new Date().toISOString() },
+        ],
+      });
+      const session = createMockSession(exercise);
+
+      render(
+        <MockActiveWorkoutProvider
+          value={{
+            session,
+            expandedIndex: 0,
+          }}
+        >
+          <ExerciseAccordion
+            exercise={exercise}
+            exerciseInfo={mockExerciseInfo}
+          />
+        </MockActiveWorkoutProvider>
+      );
+
+      // Click set header to expand it
+      const setHeader = screen.getByText(/Set 1/).closest('button');
+      if (setHeader) fireEvent.click(setHeader);
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /Edit/ })).toBeInTheDocument();
+      });
+    });
+
+    it('should show editable inputs when Edit button is clicked', async () => {
+      const exercise = createMockExercise({
+        sets: [
+          { type: 'strength' as const, weight: 135, unit: 'lbs' as const, reps: 10, completedAt: new Date().toISOString() },
+        ],
+      });
+      const session = createMockSession(exercise);
+
+      render(
+        <MockActiveWorkoutProvider
+          value={{
+            session,
+            expandedIndex: 0,
+          }}
+        >
+          <ExerciseAccordion
+            exercise={exercise}
+            exerciseInfo={mockExerciseInfo}
+          />
+        </MockActiveWorkoutProvider>
+      );
+
+      // Expand the set accordion
+      const setHeader = screen.getByText(/Set 1/).closest('button');
+      if (setHeader) fireEvent.click(setHeader);
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /Edit/ })).toBeInTheDocument();
+      });
+
+      const editButton = screen.getByRole('button', { name: /Edit/ });
+      fireEvent.click(editButton);
+
+      await waitFor(() => {
+        const inputs = screen.getAllByDisplayValue('135');
+        expect(inputs.length).toBeGreaterThan(0);
+      });
+    });
+
+    it('should show Done and Remove buttons when editing', async () => {
+      const exercise = createMockExercise({
+        sets: [
+          { type: 'strength' as const, weight: 135, unit: 'lbs' as const, reps: 10, completedAt: new Date().toISOString() },
+        ],
+      });
+      const session = createMockSession(exercise);
+
+      render(
+        <MockActiveWorkoutProvider
+          value={{
+            session,
+            expandedIndex: 0,
+          }}
+        >
+          <ExerciseAccordion
+            exercise={exercise}
+            exerciseInfo={mockExerciseInfo}
+          />
+        </MockActiveWorkoutProvider>
+      );
+
+      // Expand the set accordion
+      const setHeader = screen.getByText(/Set 1/).closest('button');
+      if (setHeader) fireEvent.click(setHeader);
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /Edit/ })).toBeInTheDocument();
+      });
+
+      const editButton = screen.getByRole('button', { name: /Edit/ });
+      fireEvent.click(editButton);
+
+      await waitFor(() => {
+        const buttons = screen.getAllByRole('button');
+        const doneButton = buttons.find(btn => btn.textContent?.includes('Done'));
+        const removeButtons = buttons.filter(btn => btn.textContent?.trim() === 'Remove');
+        expect(doneButton).toBeInTheDocument();
+        expect(removeButtons.length).toBeGreaterThan(0);
+      });
+    });
+
+    it('should save changes and collapse when Done is clicked after editing weight', async () => {
+      const updateSetForExercise = vi.fn();
+      const exercise = createMockExercise({
+        sets: [
+          { type: 'strength' as const, weight: 135, unit: 'lbs' as const, reps: 10, completedAt: new Date().toISOString() },
+        ],
+      });
+      const session = createMockSession(exercise);
+
+      render(
+        <MockActiveWorkoutProvider
+          value={{
+            session,
+            expandedIndex: 0,
+            updateSetForExercise,
+          }}
+        >
+          <ExerciseAccordion
+            exercise={exercise}
+            exerciseInfo={mockExerciseInfo}
+          />
+        </MockActiveWorkoutProvider>
+      );
+
+      // Expand the set accordion
+      const setHeader = screen.getByText(/Set 1/).closest('button');
+      if (setHeader) fireEvent.click(setHeader);
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /Edit/ })).toBeInTheDocument();
+      });
+
+      const editButton = screen.getByRole('button', { name: /Edit/ });
+      fireEvent.click(editButton);
+
+      // Find the weight input and change it
+      const inputs = screen.getAllByDisplayValue('135');
+      const weightInput = inputs[0] as HTMLInputElement;
+      fireEvent.change(weightInput, { target: { value: '155' } });
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /Done/ })).toBeInTheDocument();
+      });
+
+      const doneButton = screen.getByRole('button', { name: /Done/ });
+      fireEvent.click(doneButton);
+
+      // Verify updateSetForExercise was called with new weight
+      await waitFor(() => {
+        expect(updateSetForExercise).toHaveBeenCalledWith(0, 0, 10, 155);
+      });
+
+      // Verify Edit button is showing (set is collapsed/not in edit mode)
+      await waitFor(() => {
+        const editButtons = screen.queryAllByRole('button', { name: /Edit/ });
+        expect(editButtons.length).toBe(0);
+      });
+    });
+
+    it('should save changes and collapse when Done is clicked after editing reps', async () => {
+      const updateSetForExercise = vi.fn();
+      const exercise = createMockExercise({
+        sets: [
+          { type: 'strength' as const, weight: 135, unit: 'lbs' as const, reps: 10, completedAt: new Date().toISOString() },
+        ],
+      });
+      const session = createMockSession(exercise);
+
+      render(
+        <MockActiveWorkoutProvider
+          value={{
+            session,
+            expandedIndex: 0,
+            updateSetForExercise,
+          }}
+        >
+          <ExerciseAccordion
+            exercise={exercise}
+            exerciseInfo={mockExerciseInfo}
+          />
+        </MockActiveWorkoutProvider>
+      );
+
+      // Expand the set accordion
+      const setHeader = screen.getByText(/Set 1/).closest('button');
+      if (setHeader) fireEvent.click(setHeader);
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /Edit/ })).toBeInTheDocument();
+      });
+
+      const editButton = screen.getByRole('button', { name: /Edit/ });
+      fireEvent.click(editButton);
+
+      // Find the reps input and change it
+      const inputs = screen.getAllByDisplayValue('10');
+      const repsInput = inputs[0] as HTMLInputElement;
+      fireEvent.change(repsInput, { target: { value: '12' } });
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /Done/ })).toBeInTheDocument();
+      });
+
+      const doneButton = screen.getByRole('button', { name: /Done/ });
+      fireEvent.click(doneButton);
+
+      // Verify updateSetForExercise was called with new reps
+      await waitFor(() => {
+        expect(updateSetForExercise).toHaveBeenCalledWith(0, 0, 12, 135);
+      });
+    });
+
+    it('should save changes when editing both weight and reps', async () => {
+      const updateSetForExercise = vi.fn();
+      const exercise = createMockExercise({
+        sets: [
+          { type: 'strength' as const, weight: 135, unit: 'lbs' as const, reps: 10, completedAt: new Date().toISOString() },
+        ],
+      });
+      const session = createMockSession(exercise);
+
+      render(
+        <MockActiveWorkoutProvider
+          value={{
+            session,
+            expandedIndex: 0,
+            updateSetForExercise,
+          }}
+        >
+          <ExerciseAccordion
+            exercise={exercise}
+            exerciseInfo={mockExerciseInfo}
+          />
+        </MockActiveWorkoutProvider>
+      );
+
+      // Expand the set accordion
+      const setHeader = screen.getByText(/Set 1/).closest('button');
+      if (setHeader) fireEvent.click(setHeader);
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /Edit/ })).toBeInTheDocument();
+      });
+
+      const editButton = screen.getByRole('button', { name: /Edit/ });
+      fireEvent.click(editButton);
+
+      // Change both weight and reps
+      const inputs = screen.getAllByDisplayValue('135');
+      const weightInput = inputs[0] as HTMLInputElement;
+      fireEvent.change(weightInput, { target: { value: '155' } });
+
+      const repsInputs = screen.getAllByDisplayValue('10');
+      const repsInput = repsInputs[0] as HTMLInputElement;
+      fireEvent.change(repsInput, { target: { value: '12' } });
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /Done/ })).toBeInTheDocument();
+      });
+
+      const doneButton = screen.getByRole('button', { name: /Done/ });
+      fireEvent.click(doneButton);
+
+      // Verify updateSetForExercise was called with both new values
+      await waitFor(() => {
+        expect(updateSetForExercise).toHaveBeenCalledWith(0, 0, 12, 155);
+      });
+    });
+
+    it('should call removeSetForExercise when Remove is clicked in edit mode', async () => {
+      const removeSetForExercise = vi.fn();
+      const exercise = createMockExercise({
+        sets: [
+          { type: 'strength' as const, weight: 135, unit: 'lbs' as const, reps: 10, completedAt: new Date().toISOString() },
+        ],
+      });
+      const session = createMockSession(exercise);
+
+      render(
+        <MockActiveWorkoutProvider
+          value={{
+            session,
+            expandedIndex: 0,
+            removeSetForExercise,
+          }}
+        >
+          <ExerciseAccordion
+            exercise={exercise}
+            exerciseInfo={mockExerciseInfo}
+          />
+        </MockActiveWorkoutProvider>
+      );
+
+      // Expand the set accordion
+      const setHeader = screen.getByText(/Set 1/).closest('button');
+      if (setHeader) fireEvent.click(setHeader);
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /Edit/ })).toBeInTheDocument();
+      });
+
+      const editButton = screen.getByRole('button', { name: /Edit/ });
+      fireEvent.click(editButton);
+
+      await waitFor(() => {
+        const buttons = screen.getAllByRole('button');
+        const removeButtons = buttons.filter(btn => btn.textContent?.trim() === 'Remove');
+        expect(removeButtons.length).toBeGreaterThan(0);
+      });
+
+      const buttons = screen.getAllByRole('button');
+      const removeButton = buttons.find(btn => btn.textContent?.trim() === 'Remove');
+      if (removeButton) fireEvent.click(removeButton);
+
+      await waitFor(() => {
+        expect(removeSetForExercise).toHaveBeenCalledWith(0, 0);
+      });
+    });
+  });
+
+  describe('remove set', () => {
+    it('should have "Remove Set" button for empty sets', () => {
+      const exercise = createMockExercise({
+        sets: [],
+        targetSets: 3,
+      });
+      const session = createMockSession(exercise);
+
+      render(
+        <MockActiveWorkoutProvider
+          value={{
+            session,
+            expandedIndex: 0,
+          }}
+        >
+          <ExerciseAccordion
+            exercise={exercise}
+            exerciseInfo={mockExerciseInfo}
+          />
+        </MockActiveWorkoutProvider>
+      );
+
+      expect(screen.getByRole('button', { name: /Remove Set/ })).toBeInTheDocument();
+    });
+
+    it('should call updateTargetSets when Remove Set is clicked', async () => {
+      const updateTargetSets = vi.fn();
+      const exercise = createMockExercise({
+        sets: [],
+        targetSets: 3,
+      });
+      const session = createMockSession(exercise);
+
+      render(
+        <MockActiveWorkoutProvider
+          value={{
+            session,
+            expandedIndex: 0,
+            updateTargetSets,
+          }}
+        >
+          <ExerciseAccordion
+            exercise={exercise}
+            exerciseInfo={mockExerciseInfo}
+          />
+        </MockActiveWorkoutProvider>
+      );
+
+      const removeSetButton = screen.getByRole('button', { name: /Remove Set/ });
+      fireEvent.click(removeSetButton);
+
+      await waitFor(() => {
+        expect(updateTargetSets).toHaveBeenCalledWith(exercise.exerciseId, -1);
+      });
+    });
+
+    it('should collapse empty set after removing', async () => {
+      const setExpandedIndex = vi.fn();
+      const updateTargetSets = vi.fn();
+      const exercise = createMockExercise({
+        sets: [],
+        targetSets: 3,
+      });
+      const session = createMockSession(exercise);
+
+      render(
+        <MockActiveWorkoutProvider
+          value={{
+            session,
+            expandedIndex: 0,
+            setExpandedIndex,
+            updateTargetSets,
+          }}
+        >
+          <ExerciseAccordion
+            exercise={exercise}
+            exerciseInfo={mockExerciseInfo}
+          />
+        </MockActiveWorkoutProvider>
+      );
+
+      const removeSetButton = screen.getByRole('button', { name: /Remove Set/ });
+      fireEvent.click(removeSetButton);
+
+      // Verify that updateTargetSets was called
+      await waitFor(() => {
+        expect(updateTargetSets).toHaveBeenCalledWith(exercise.exerciseId, -1);
+      });
+    });
+
+    it('should not allow removing below 1 target set', () => {
+      const updateTargetSets = vi.fn();
+      const exercise = createMockExercise({
+        sets: [],
+        targetSets: 1,
+      });
+      const session = createMockSession(exercise);
+
+      render(
+        <MockActiveWorkoutProvider
+          value={{
+            session,
+            expandedIndex: 0,
+            updateTargetSets,
+          }}
+        >
+          <ExerciseAccordion
+            exercise={exercise}
+            exerciseInfo={mockExerciseInfo}
+          />
+        </MockActiveWorkoutProvider>
+      );
+
+      const removeSetButton = screen.getByRole('button', { name: /Remove Set/ });
+      fireEvent.click(removeSetButton);
+
+      // updateTargetSets should not be called
+      expect(updateTargetSets).not.toHaveBeenCalled();
+    });
+
+    it('should work with targetSets using default value', async () => {
+      const updateTargetSets = vi.fn();
+      const exercise = createMockExercise({
+        sets: [],
+        targetSets: undefined,
+      });
+      const session = createMockSession(exercise);
+
+      render(
+        <MockActiveWorkoutProvider
+          value={{
+            session,
+            expandedIndex: 0,
+            updateTargetSets,
+          }}
+        >
+          <ExerciseAccordion
+            exercise={exercise}
+            exerciseInfo={mockExerciseInfo}
+          />
+        </MockActiveWorkoutProvider>
+      );
+
+      const removeSetButton = screen.getByRole('button', { name: /Remove Set/ });
+      fireEvent.click(removeSetButton);
+
+      await waitFor(() => {
+        expect(updateTargetSets).toHaveBeenCalledWith(exercise.exerciseId, -1);
+      });
+    });
+  });
+
+  describe('add set', () => {
+    it('should add a new set even when not all sets are completed', async () => {
+      const updateTargetSets = vi.fn();
+      // Exercise with 2 of 3 sets completed
+      const exercise = createMockExercise({
+        targetSets: 3,
+        sets: [
+          { type: 'strength' as const, weight: 135, unit: 'lbs' as const, reps: 10, completedAt: new Date().toISOString() },
+          { type: 'strength' as const, weight: 135, unit: 'lbs' as const, reps: 10, completedAt: new Date().toISOString() },
+        ],
+      });
+      const session = createMockSession(exercise);
+
+      render(
+        <MockActiveWorkoutProvider
+          value={{
+            session,
+            expandedIndex: 0,
+            updateTargetSets,
+          }}
+        >
+          <ExerciseAccordion
+            exercise={exercise}
+            exerciseInfo={mockExerciseInfo}
+          />
+        </MockActiveWorkoutProvider>
+      );
+
+      // Find and click the "Add Set" button
+      const addSetButton = screen.getByRole('button', { name: /\+ Add Set/ });
+      fireEvent.click(addSetButton);
+
+      // Verify updateTargetSets was called to increase targetSets
+      await waitFor(() => {
+        expect(updateTargetSets).toHaveBeenCalledWith(exercise.exerciseId, 1);
+      });
+    });
+
+    it('should add a new set when all sets are completed', async () => {
+      const updateTargetSets = vi.fn();
+      // Exercise with all 3 sets completed
+      const exercise = createMockExercise({
+        targetSets: 3,
+        sets: [
+          { type: 'strength' as const, weight: 135, unit: 'lbs' as const, reps: 10, completedAt: new Date().toISOString() },
+          { type: 'strength' as const, weight: 135, unit: 'lbs' as const, reps: 10, completedAt: new Date().toISOString() },
+          { type: 'strength' as const, weight: 135, unit: 'lbs' as const, reps: 10, completedAt: new Date().toISOString() },
+        ],
+      });
+      const session = createMockSession(exercise);
+
+      render(
+        <MockActiveWorkoutProvider
+          value={{
+            session,
+            expandedIndex: 0,
+            updateTargetSets,
+          }}
+        >
+          <ExerciseAccordion
+            exercise={exercise}
+            exerciseInfo={mockExerciseInfo}
+          />
+        </MockActiveWorkoutProvider>
+      );
+
+      // Find and click the "Add Set" button
+      const addSetButton = screen.getByRole('button', { name: /\+ Add Set/ });
+      fireEvent.click(addSetButton);
+
+      // Verify updateTargetSets was called to increase targetSets
+      await waitFor(() => {
+        expect(updateTargetSets).toHaveBeenCalledWith(exercise.exerciseId, 1);
+      });
+    });
+  });
 });

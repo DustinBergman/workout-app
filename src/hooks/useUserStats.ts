@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { WorkoutSession, MuscleGroup, Exercise } from '../types';
+import { WorkoutSession, MuscleGroup, Exercise, WeightEntry } from '../types';
 import { calculateSessionStats } from './useSessionStats';
 import { getAllExercises } from '../data/exercises';
 
@@ -17,6 +17,7 @@ export interface UserStats {
   averageSessionDuration: number; // in minutes
   averageSessionsPerWeek: number;
   averageVolumePerSession: number;
+  averageWeightChangePerWeek: number; // percentage
   totalSessions: number;
 }
 
@@ -165,10 +166,36 @@ const calculateAverageVolumePerSession = (sessions: WorkoutSession[]): number =>
   return totalVolume / sessions.length;
 };
 
+const calculateWeightChangePerWeek = (weightEntries: WeightEntry[]): number => {
+  if (weightEntries.length < 2) return 0;
+
+  // Sort weight entries by date
+  const sorted = [...weightEntries].sort(
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+  );
+
+  const firstWeight = sorted[0].weight;
+  const lastWeight = sorted[sorted.length - 1].weight;
+
+  if (firstWeight === 0) return 0;
+
+  // Calculate percentage change
+  const percentChange = ((lastWeight - firstWeight) / firstWeight) * 100;
+
+  // Calculate weeks spanned
+  const firstDate = new Date(sorted[0].date).getTime();
+  const lastDate = new Date(sorted[sorted.length - 1].date).getTime();
+  const msPerWeek = 7 * 24 * 60 * 60 * 1000;
+  const weekSpan = Math.max(1, (lastDate - firstDate) / msPerWeek);
+
+  return percentChange / weekSpan;
+};
+
 export const useUserStats = (
   sessions: WorkoutSession[],
   timePeriod: TimePeriod,
-  customExercises: Exercise[] = []
+  customExercises: Exercise[] = [],
+  weightEntries: WeightEntry[] = []
 ): UserStats => {
   return useMemo(() => {
     const filteredSessions = filterByTimePeriod(sessions, timePeriod);
@@ -180,6 +207,7 @@ export const useUserStats = (
         averageSessionDuration: 0,
         averageSessionsPerWeek: 0,
         averageVolumePerSession: 0,
+        averageWeightChangePerWeek: 0,
         totalSessions: 0,
       };
     }
@@ -190,7 +218,8 @@ export const useUserStats = (
       averageSessionDuration: calculateAverageSessionDuration(filteredSessions),
       averageSessionsPerWeek: calculateSessionsPerWeek(filteredSessions),
       averageVolumePerSession: calculateAverageVolumePerSession(filteredSessions),
+      averageWeightChangePerWeek: calculateWeightChangePerWeek(weightEntries),
       totalSessions: filteredSessions.length,
     };
-  }, [sessions, timePeriod, customExercises]);
+  }, [sessions, timePeriod, customExercises, weightEntries]);
 };

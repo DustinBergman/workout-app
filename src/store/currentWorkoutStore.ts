@@ -7,6 +7,7 @@ interface CurrentWorkoutState {
   expandedIndex: number | null;
   showTimer: boolean;
   timerDuration: number;
+  timerEndTime: number | null;
   showExercisePicker: boolean;
   exerciseSearch: string;
   showFinishConfirm: boolean;
@@ -18,6 +19,7 @@ interface CurrentWorkoutState {
   setExpandedIndex: (index: number | null) => void;
   setShowTimer: (show: boolean) => void;
   setTimerDuration: (duration: number) => void;
+  setTimerEndTime: (endTime: number | null) => void;
   setShowExercisePicker: (show: boolean) => void;
   setExerciseSearch: (search: string) => void;
   setShowFinishConfirm: (show: boolean) => void;
@@ -31,6 +33,7 @@ const initialState = {
   expandedIndex: null as number | null,
   showTimer: false,
   timerDuration: 90,
+  timerEndTime: null as number | null,
   showExercisePicker: false,
   exerciseSearch: '',
   showFinishConfirm: false,
@@ -48,6 +51,7 @@ export const useCurrentWorkoutStore = create<CurrentWorkoutState>()(
         setExpandedIndex: (index) => set({ expandedIndex: index }),
         setShowTimer: (show) => set({ showTimer: show }),
         setTimerDuration: (duration) => set({ timerDuration: duration }),
+        setTimerEndTime: (endTime) => set({ timerEndTime: endTime }),
         setShowExercisePicker: (show) => set({ showExercisePicker: show }),
         setExerciseSearch: (search) => set({ exerciseSearch: search }),
         setShowFinishConfirm: (show) => set({ showFinishConfirm: show }),

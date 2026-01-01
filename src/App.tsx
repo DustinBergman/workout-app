@@ -127,12 +127,12 @@ const App: FC = () => {
     <BrowserRouter>
         <div className="min-h-screen">
           {/* Header */}
-          <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-sm border-b border-border">
+          <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-sm border-b border-border">
             <HeaderContent />
           </header>
 
           {/* Main Content */}
-          <main className="pb-16">
+          <main className="pt-14 pb-16">
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/exercises" element={<ExerciseLibrary />} />

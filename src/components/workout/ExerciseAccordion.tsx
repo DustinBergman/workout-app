@@ -50,6 +50,9 @@ export const ExerciseAccordion: FC<ExerciseAccordionProps> = ({
   const [repsInput, setRepsInput] = useState('');
   const [weightInput, setWeightInput] = useState('');
   const [expandedSetIndex, setExpandedSetIndex] = useState<number | null>(null);
+  const [editingSetIndex, setEditingSetIndex] = useState<number | null>(null);
+  const [editingWeight, setEditingWeight] = useState<number | null>(null);
+  const [editingReps, setEditingReps] = useState<number | null>(null);
 
   const isComplete = exercise.sets.length >= (exercise.targetSets || 3);
   const progress = `${exercise.sets.length}/${exercise.targetSets || 3}`;
@@ -299,43 +302,87 @@ export const ExerciseAccordion: FC<ExerciseAccordionProps> = ({
                         {/* Set Details */}
                         {isSetExpanded && (
                           <div className="px-3 py-2 border-t border-green-500/20 space-y-2">
-                            <div className="flex gap-2">
-                              <div className="flex-1">
-                                <label className="text-xs text-gray-600 dark:text-gray-400 block mb-1">
-                                  Weight ({weightUnit})
-                                </label>
-                                <input
-                                  type="number"
-                                  value={strengthSet.weight}
-                                  onChange={(e) => {
-                                    const newWeight = parseFloat(e.target.value) || 0;
-                                    updateSetForExercise(index, setItem.index, strengthSet.reps, newWeight);
+                            {editingSetIndex === setItem.index ? (
+                              <>
+                                <div className="flex gap-2">
+                                  <div className="flex-1">
+                                    <label className="text-xs text-gray-600 dark:text-gray-400 block mb-1">
+                                      Weight ({weightUnit})
+                                    </label>
+                                    <input
+                                      type="number"
+                                      value={editingWeight !== null ? editingWeight : strengthSet.weight}
+                                      onChange={(e) => {
+                                        setEditingWeight(parseFloat(e.target.value) || 0);
+                                      }}
+                                      className="w-full px-2 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                                      autoFocus
+                                    />
+                                  </div>
+                                  <div className="flex-1">
+                                    <label className="text-xs text-gray-600 dark:text-gray-400 block mb-1">
+                                      Reps
+                                    </label>
+                                    <input
+                                      type="number"
+                                      value={editingReps !== null ? editingReps : strengthSet.reps}
+                                      onChange={(e) => {
+                                        setEditingReps(parseInt(e.target.value) || 0);
+                                      }}
+                                      className="w-full px-2 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                                    />
+                                  </div>
+                                </div>
+                                <div className="flex gap-2">
+                                  <Button
+                                    onClick={() => {
+                                      const finalReps = editingReps ?? strengthSet.reps;
+                                      const finalWeight = editingWeight ?? strengthSet.weight;
+                                      updateSetForExercise(index, setItem.index, finalReps, finalWeight);
+                                      setEditingSetIndex(null);
+                                      setExpandedSetIndex(null);
+                                      setEditingWeight(null);
+                                      setEditingReps(null);
+                                    }}
+                                    variant="outline"
+                                    className="flex-1 py-1 text-sm"
+                                  >
+                                    Done
+                                  </Button>
+                                  <Button
+                                    onClick={() => {
+                                      removeSetForExercise(index, setItem.index);
+                                      setEditingSetIndex(null);
+                                      setEditingWeight(null);
+                                      setEditingReps(null);
+                                    }}
+                                    variant="outline"
+                                    className="flex-1 text-red-600 dark:text-red-400 py-1 text-sm"
+                                  >
+                                    Remove
+                                  </Button>
+                                </div>
+                              </>
+                            ) : (
+                              <div className="space-y-2">
+                                <div className="text-sm text-green-700 dark:text-green-300">
+                                  <span className="font-medium">{strengthSet.weight} {strengthSet.unit}</span>
+                                  <span className="text-green-600 dark:text-green-400 ml-2">x</span>
+                                  <span className="font-medium ml-2">{strengthSet.reps} reps</span>
+                                </div>
+                                <Button
+                                  onClick={() => {
+                                    setEditingSetIndex(setItem.index);
+                                    setEditingWeight(strengthSet.weight);
+                                    setEditingReps(strengthSet.reps);
                                   }}
-                                  className="w-full px-2 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                                />
+                                  variant="outline"
+                                  className="w-full py-1 text-sm"
+                                >
+                                  Edit
+                                </Button>
                               </div>
-                              <div className="flex-1">
-                                <label className="text-xs text-gray-600 dark:text-gray-400 block mb-1">
-                                  Reps
-                                </label>
-                                <input
-                                  type="number"
-                                  value={strengthSet.reps}
-                                  onChange={(e) => {
-                                    const newReps = parseInt(e.target.value) || 0;
-                                    updateSetForExercise(index, setItem.index, newReps, strengthSet.weight);
-                                  }}
-                                  className="w-full px-2 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                                />
-                              </div>
-                            </div>
-                            <Button
-                              onClick={() => removeSetForExercise(index, setItem.index)}
-                              variant="outline"
-                              className="w-full text-red-600 dark:text-red-400 py-1 text-sm"
-                            >
-                              Remove
-                            </Button>
+                            )}
                           </div>
                         )}
                       </div>
@@ -439,6 +486,18 @@ export const ExerciseAccordion: FC<ExerciseAccordionProps> = ({
                             >
                               Complete Set
                             </Button>
+                            <Button
+                              onClick={() => {
+                                if ((exercise.targetSets || 3) > 1) {
+                                  wrappedUpdateTargetSets(-1);
+                                  setExpandedSetIndex(null);
+                                }
+                              }}
+                              variant="outline"
+                              className="w-full text-red-600 dark:text-red-400"
+                            >
+                              Remove Set
+                            </Button>
                           </div>
                         )}
                       </div>
@@ -451,13 +510,16 @@ export const ExerciseAccordion: FC<ExerciseAccordionProps> = ({
 
           {/* Add Set Button */}
           <Button
-            onClick={() => {
-              // If all target sets complete, increase targetSets
-              if (exercise.sets.length >= (exercise.targetSets || 3)) {
-                wrappedUpdateTargetSets(1);
-              }
-              // Expand the next empty set accordion
-              setExpandedSetIndex(exercise.sets.length);
+            onClick={(e) => {
+              e.stopPropagation();
+              // Always increase targetSets to add a new set
+              wrappedUpdateTargetSets(1);
+              // Clear form inputs before expanding new set
+              setRepsInput('');
+              setWeightInput('');
+              // Expand the newly added set accordion
+              // The new set will be at index equal to current targetSets (which is the last index after increment)
+              setExpandedSetIndex((exercise.targetSets || 3));
             }}
             variant="outline"
             className="mt-4 w-full"

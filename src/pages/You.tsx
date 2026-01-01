@@ -44,7 +44,7 @@ export const You: FC = () => {
   const customExercises = useAppStore((state) => state.customExercises);
   const weightEntries = useAppStore((state) => state.weightEntries);
 
-  const stats = useUserStats(sessions, timePeriod, customExercises);
+  const stats = useUserStats(sessions, timePeriod, customExercises, weightEntries);
 
   const pieChartData = stats.muscleGroupBreakdown.map((item) => ({
     name: formatMuscleGroup(item.muscleGroup),
@@ -239,7 +239,7 @@ export const You: FC = () => {
                 </p>
               </Card>
 
-              {/* Sessions Per Week */}
+              {/* Workouts Per Week */}
               <Card padding="md">
                 <div className="flex items-center gap-2 mb-1">
                   <svg
@@ -255,10 +255,40 @@ export const You: FC = () => {
                       d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
                     />
                   </svg>
-                  <span className="text-xs text-muted-foreground">Per Week</span>
+                  <span className="text-xs text-muted-foreground">Workouts/Week</span>
                 </div>
                 <p className="text-xl font-bold text-foreground">
                   {stats.averageSessionsPerWeek.toFixed(1)}
+                </p>
+              </Card>
+
+              {/* Weight Change Per Week */}
+              <Card padding="md">
+                <div className="flex items-center gap-2 mb-1">
+                  <svg
+                    className="w-4 h-4 text-muted-foreground"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"
+                    />
+                  </svg>
+                  <span className="text-xs text-muted-foreground">Weight Change/Wk</span>
+                </div>
+                <p className={`text-xl font-bold ${
+                  stats.averageWeightChangePerWeek > 0
+                    ? 'text-red-600 dark:text-red-400'
+                    : stats.averageWeightChangePerWeek < 0
+                    ? 'text-green-600 dark:text-green-400'
+                    : 'text-foreground'
+                }`}>
+                  {stats.averageWeightChangePerWeek > 0 ? '+' : ''}
+                  {stats.averageWeightChangePerWeek.toFixed(1)}%
                 </p>
               </Card>
             </div>

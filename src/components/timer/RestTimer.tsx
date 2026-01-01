@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback, FC } from 'react';
 import { useTimer } from '../../hooks/useTimer';
+import { useCurrentWorkoutStore } from '../../store/currentWorkoutStore';
 import { Button } from '../ui';
 
 interface RestTimerProps {
@@ -12,6 +13,7 @@ interface RestTimerProps {
 export const RestTimer: FC<RestTimerProps> = ({ duration, onComplete, onSkip, autoStart = false }) => {
   const hasPlayedRef = useRef(false);
   const hasStartedRef = useRef(false);
+  const timerEndTime = useCurrentWorkoutStore((state) => state.timerEndTime);
 
   const handleComplete = useCallback(() => {
     // Play notification ding sound
@@ -60,9 +62,18 @@ export const RestTimer: FC<RestTimerProps> = ({ duration, onComplete, onSkip, au
     if (autoStart && duration > 0 && !hasStartedRef.current) {
       hasPlayedRef.current = false;
       hasStartedRef.current = true;
-      start(duration);
+
+      // Calculate the actual remaining time from the persisted endTime
+      // If timerEndTime exists and is in the future, use that to calculate remaining time
+      // Otherwise use the full duration
+      let remainingDuration = duration;
+      if (timerEndTime && timerEndTime > Date.now()) {
+        remainingDuration = Math.max(0, Math.ceil((timerEndTime - Date.now()) / 1000));
+      }
+
+      start(remainingDuration);
     }
-  }, [autoStart, duration, start]);
+  }, [autoStart, duration, start, timerEndTime]);
 
   const handleSkip = () => {
     reset();

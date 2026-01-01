@@ -263,4 +263,83 @@ describe('useTimer', () => {
       expect(onComplete2).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe('timestamp-based persistence', () => {
+    it('should continue counting down even if component unmounts and remounts', () => {
+      const { result, unmount } = renderHook(() => useTimer());
+
+      // Start timer
+      act(() => {
+        result.current.start(10);
+      });
+
+      // Advance time by 3 seconds
+      act(() => {
+        vi.advanceTimersByTime(3000);
+      });
+
+      expect(result.current.seconds).toBe(7);
+
+      // Unmount and remount the hook
+      unmount();
+      const { result: result2 } = renderHook(() => useTimer());
+
+      // Timer should be reset to initial state since it's a new hook instance
+      expect(result2.current.seconds).toBe(0);
+    });
+
+    it('should accurately calculate remaining time from absolute timestamp', () => {
+      const { result } = renderHook(() => useTimer());
+
+      act(() => {
+        result.current.start(5);
+      });
+
+      expect(result.current.seconds).toBe(5);
+
+      // Advance by 1.5 seconds
+      act(() => {
+        vi.advanceTimersByTime(1500);
+      });
+
+      // Should show 4 seconds remaining (5 - 1.5 rounded up)
+      expect(result.current.seconds).toBe(4);
+
+      // Advance by another 1.5 seconds
+      act(() => {
+        vi.advanceTimersByTime(1500);
+      });
+
+      // Should show 2 seconds remaining
+      expect(result.current.seconds).toBe(2);
+    });
+
+    it('should not call onComplete multiple times even with updates', () => {
+      const onComplete = vi.fn();
+      const { result } = renderHook(() => useTimer(onComplete));
+
+      act(() => {
+        result.current.start(1);
+      });
+
+      act(() => {
+        vi.advanceTimersByTime(500);
+      });
+
+      expect(onComplete).not.toHaveBeenCalled();
+
+      act(() => {
+        vi.advanceTimersByTime(500);
+      });
+
+      expect(onComplete).toHaveBeenCalledTimes(1);
+
+      // Advance more time - should not call again
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+
+      expect(onComplete).toHaveBeenCalledTimes(1);
+    });
+  });
 });
