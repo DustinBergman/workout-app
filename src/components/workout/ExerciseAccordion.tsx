@@ -1,21 +1,12 @@
 import { useState, useEffect, FC, DOMAttributes } from 'react';
 import { DraggableAttributes } from '@dnd-kit/core';
-import { StrengthSessionExercise, ExerciseSuggestion, WeightUnit, StrengthExercise } from '../../types';
+import { StrengthSessionExercise, StrengthExercise } from '../../types';
 import { Card, Button } from '../ui';
+import { useActiveWorkoutContext } from '../../contexts/ActiveWorkoutContext';
 
 interface ExerciseAccordionProps {
   exercise: StrengthSessionExercise;
   exerciseInfo: StrengthExercise | undefined;
-  isExpanded: boolean;
-  onToggle: () => void;
-  onLogSet: (reps: number, weight: number) => void;
-  onRemoveLastSet: () => void;
-  onRemoveExercise: () => void;
-  onStartTimer: (duration: number) => void;
-  onUpdateTargetSets: (delta: number) => void;
-  onShowHistory: () => void;
-  weightUnit: WeightUnit;
-  suggestion?: ExerciseSuggestion;
   listeners?: Partial<DOMAttributes<HTMLElement>>;
   attributes?: DraggableAttributes;
   isDragging?: boolean;
@@ -24,20 +15,38 @@ interface ExerciseAccordionProps {
 export const ExerciseAccordion: FC<ExerciseAccordionProps> = ({
   exercise,
   exerciseInfo,
-  isExpanded,
-  onToggle,
-  onLogSet,
-  onRemoveLastSet,
-  onRemoveExercise,
-  onStartTimer,
-  onUpdateTargetSets,
-  onShowHistory,
-  weightUnit,
-  suggestion,
   listeners,
   attributes,
   isDragging,
 }) => {
+  const {
+    session,
+    weightUnit,
+    expandedIndex,
+    setExpandedIndex,
+    logSetForExercise,
+    removeLastSetForExercise,
+    removeExercise,
+    handleStartTimer,
+    updateTargetSets,
+    handleShowHistory,
+    getSuggestionForExercise,
+  } = useActiveWorkoutContext();
+
+  // Find the index of this exercise in the session
+  const index = session?.exercises.findIndex(ex => ex.id === exercise.id) ?? -1;
+
+  // Wrapped handlers that include the index
+  const wrappedLogSet = (reps: number, weight: number) => logSetForExercise(index, reps, weight);
+  const wrappedRemoveLastSet = () => removeLastSetForExercise(index);
+  const wrappedRemoveExercise = () => removeExercise(index);
+  const wrappedUpdateTargetSets = (delta: number) => updateTargetSets(exercise.exerciseId, delta);
+  const wrappedShowHistory = () => handleShowHistory(exercise.exerciseId);
+
+  // Derived state from context
+  const isExpanded = expandedIndex === index;
+  const onToggle = () => setExpandedIndex(isExpanded ? null : index);
+  const suggestion = getSuggestionForExercise(exercise.exerciseId);
   const [repsInput, setRepsInput] = useState('');
   const [weightInput, setWeightInput] = useState('');
 
@@ -74,8 +83,8 @@ export const ExerciseAccordion: FC<ExerciseAccordionProps> = ({
     const weight = parseFloat(weightInput) || 0;
     if (reps <= 0) return;
 
-    onLogSet(reps, weight);
-    onStartTimer(exercise.restSeconds || 90);
+    wrappedLogSet(reps, weight);
+    handleStartTimer(exercise.restSeconds || 90);
   };
 
   return (
@@ -160,7 +169,7 @@ export const ExerciseAccordion: FC<ExerciseAccordionProps> = ({
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                onShowHistory();
+                wrappedShowHistory();
               }}
               className="flex-1 py-2 px-3 text-sm rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center justify-center gap-2"
             >
@@ -177,7 +186,7 @@ export const ExerciseAccordion: FC<ExerciseAccordionProps> = ({
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    onUpdateTargetSets(-1);
+                    wrappedUpdateTargetSets(-1);
                   }}
                   disabled={exercise.targetSets <= 1}
                   className="w-7 h-7 flex items-center justify-center text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 disabled:opacity-30"
@@ -190,7 +199,7 @@ export const ExerciseAccordion: FC<ExerciseAccordionProps> = ({
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    onUpdateTargetSets(1);
+                    wrappedUpdateTargetSets(1);
                   }}
                   className="w-7 h-7 flex items-center justify-center text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
                 >
@@ -267,7 +276,7 @@ export const ExerciseAccordion: FC<ExerciseAccordionProps> = ({
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    onRemoveLastSet();
+                    wrappedRemoveLastSet();
                   }}
                   className="text-xs text-red-500 hover:text-red-700"
                 >
@@ -370,7 +379,7 @@ export const ExerciseAccordion: FC<ExerciseAccordionProps> = ({
             onClick={(e) => {
               e.stopPropagation();
               if (confirm('Remove this exercise?')) {
-                onRemoveExercise();
+                wrappedRemoveExercise();
               }
             }}
             className="mt-4 w-full py-2 text-sm text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
