@@ -29,8 +29,8 @@ export const Home: FC = () => {
     activeSession,
     preferences,
     currentWeek,
+    workoutGoal,
     hasApiKey,
-    showProgressiveOverload,
     recentSessions,
     nextWorkout,
     shouldShowWeightReminder,
@@ -57,12 +57,11 @@ export const Home: FC = () => {
           <h1 className="text-2xl font-bold text-foreground">
             {preferences.firstName ? `Hello ${preferences.firstName}` : 'Lift'}
           </h1>
-          {showProgressiveOverload && (
-            <WeekBadge
-              week={currentWeek}
-              onClick={() => setShowWeekSelector(true)}
-            />
-          )}
+          <WeekBadge
+            week={currentWeek}
+            workoutGoal={workoutGoal}
+            onClick={() => setShowWeekSelector(true)}
+          />
         </div>
 
         {/* API Key Banner */}
@@ -73,16 +72,15 @@ export const Home: FC = () => {
           <WeightReminderBanner onClick={() => setShowWeightModal(true)} />
         )}
 
-        {/* Progressive Overload Week Card */}
-        {showProgressiveOverload && (
-          <section className="mb-6">
-            <WeekBadge
-              week={currentWeek}
-              showDetails
-              onClick={() => setShowWeekSelector(true)}
-            />
-          </section>
-        )}
+        {/* Training Week Card */}
+        <section className="mb-6">
+          <WeekBadge
+            week={currentWeek}
+            workoutGoal={workoutGoal}
+            showDetails
+            onClick={() => setShowWeekSelector(true)}
+          />
+        </section>
 
         {/* Progressive Overload Recommendations */}
         {hasApiKey && sessions.length >= 2 && recommendations.length > 0 && (
@@ -140,6 +138,7 @@ export const Home: FC = () => {
           isOpen={showWeekSelector}
           onClose={() => setShowWeekSelector(false)}
           currentWeek={currentWeek}
+          workoutGoal={workoutGoal}
           onSelectWeek={selectWeek}
         />
 

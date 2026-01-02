@@ -6,6 +6,7 @@ import {
   ProgressIndicator,
   WelcomeStep,
   GoalSelectionStep,
+  ExperienceLevelStep,
   PreferencesStep,
   WeightStep,
   ApiKeyStep,
@@ -49,6 +50,7 @@ export const Intro: FC = () => {
       firstName: '',
       lastName: '',
       goal: 'build',
+      experienceLevel: 'intermediate',
       weightUnit: 'lbs',
       distanceUnit: 'mi',
       darkMode: false,
@@ -58,6 +60,7 @@ export const Intro: FC = () => {
   });
 
   const selectedGoal = watch('goal');
+  const selectedExperienceLevel = watch('experienceLevel');
   const selectedUnit = watch('weightUnit');
   const selectedDistanceUnit = watch('distanceUnit');
   const darkMode = watch('darkMode');
@@ -76,6 +79,7 @@ export const Intro: FC = () => {
     updatePreferences({
       firstName: data.firstName.trim(),
       lastName: data.lastName.trim(),
+      experienceLevel: data.experienceLevel,
       weightUnit: data.weightUnit,
       distanceUnit: data.distanceUnit,
       darkMode: data.darkMode,
@@ -99,7 +103,7 @@ export const Intro: FC = () => {
     setHasCompletedIntro(true);
   };
 
-  const nextStep = () => setStep((s) => Math.min(s + 1, 5));
+  const nextStep = () => setStep((s) => Math.min(s + 1, 6));
   const prevStep = () => setStep((s) => Math.max(s - 1, 1));
 
   const firstNameValue = watch('firstName');
@@ -111,7 +115,7 @@ export const Intro: FC = () => {
       <AnimatedBackground />
 
       <div className="relative z-10 flex flex-col min-h-screen p-6">
-        <ProgressIndicator currentStep={step} totalSteps={5} />
+        <ProgressIndicator currentStep={step} totalSteps={6} />
 
         <form onSubmit={handleSubmit(completeIntro)} className="flex-1 flex flex-col">
           {step === 1 && (
@@ -134,6 +138,15 @@ export const Intro: FC = () => {
           )}
 
           {step === 3 && (
+            <ExperienceLevelStep
+              selectedLevel={selectedExperienceLevel}
+              onSelectLevel={(level) => setValue('experienceLevel', level)}
+              onBack={prevStep}
+              onNext={nextStep}
+            />
+          )}
+
+          {step === 4 && (
             <PreferencesStep
               selectedUnit={selectedUnit}
               onSelectUnit={(unit) => setValue('weightUnit', unit)}
@@ -148,7 +161,7 @@ export const Intro: FC = () => {
             />
           )}
 
-          {step === 4 && (
+          {step === 5 && (
             <WeightStep
               register={register}
               weightUnit={selectedUnit}
@@ -157,7 +170,7 @@ export const Intro: FC = () => {
             />
           )}
 
-          {step === 5 && (
+          {step === 6 && (
             <ApiKeyStep
               register={register}
               onBack={prevStep}

@@ -1,11 +1,12 @@
 import { FC } from 'react';
 import { Modal } from '../ui';
-import { ProgressiveOverloadWeek, PROGRESSIVE_OVERLOAD_WEEKS } from '../../types';
+import { ProgressiveOverloadWeek, WorkoutGoal, getWeekConfigForGoal, WORKOUT_GOALS } from '../../types';
 
 interface WeekSelectorModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentWeek: ProgressiveOverloadWeek;
+  workoutGoal: WorkoutGoal;
   onSelectWeek: (week: ProgressiveOverloadWeek) => void;
 }
 
@@ -13,21 +14,25 @@ export const WeekSelectorModal: FC<WeekSelectorModalProps> = ({
   isOpen,
   onClose,
   currentWeek,
+  workoutGoal,
   onSelectWeek,
 }) => {
+  const weekConfig = getWeekConfigForGoal(workoutGoal);
+  const goalInfo = WORKOUT_GOALS[workoutGoal];
+
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Select Training Week"
+      title={`Select ${goalInfo.cycleName} Week`}
     >
       <div className="space-y-3">
         <p className="text-sm text-muted-foreground mb-4">
-          Choose your current progressive overload week. AI suggestions will be adjusted accordingly.
+          Choose your current training week. AI suggestions will be adjusted accordingly.
         </p>
         <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
           {([0, 1, 2, 3, 4] as ProgressiveOverloadWeek[]).map((week) => {
-            const weekInfo = PROGRESSIVE_OVERLOAD_WEEKS[week];
+            const weekInfo = weekConfig[week];
             const isSelected = week === currentWeek;
             return (
               <button

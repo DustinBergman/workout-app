@@ -1,9 +1,10 @@
 import { FC } from 'react';
 import { cn } from '@/lib/utils';
-import { ProgressiveOverloadWeek, PROGRESSIVE_OVERLOAD_WEEKS } from '../../types';
+import { ProgressiveOverloadWeek, WorkoutGoal, getWeekConfigForGoal } from '../../types';
 
 interface WeekBadgeProps {
   week: ProgressiveOverloadWeek;
+  workoutGoal: WorkoutGoal;
   onClick?: () => void;
   showDetails?: boolean;
   className?: string;
@@ -39,11 +40,13 @@ const weekColors: Record<ProgressiveOverloadWeek, { bg: string; text: string; bo
 
 export const WeekBadge: FC<WeekBadgeProps> = ({
   week,
+  workoutGoal,
   onClick,
   showDetails = false,
   className,
 }) => {
-  const weekInfo = PROGRESSIVE_OVERLOAD_WEEKS[week];
+  const weekConfig = getWeekConfigForGoal(workoutGoal);
+  const weekInfo = weekConfig[week];
   const colors = weekColors[week];
 
   if (showDetails) {

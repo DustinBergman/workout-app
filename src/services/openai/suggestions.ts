@@ -3,13 +3,14 @@ import {
   ExerciseSuggestion,
   WorkoutTemplate,
   ProgressiveOverloadWeek,
-  PROGRESSIVE_OVERLOAD_WEEKS,
   WorkoutGoal,
   WORKOUT_GOALS,
   StrengthCompletedSet,
   StrengthTemplateExercise,
   WeightEntry,
   Exercise,
+  ExperienceLevel,
+  getWeekConfigForGoal,
 } from '../../types';
 import { getExerciseById } from '../../data/exercises';
 import { getCustomExercises } from '../storage';
@@ -67,19 +68,76 @@ Consider this when suggesting weights:
 `;
 };
 
+const buildExperienceLevelGuidance = (experienceLevel: ExperienceLevel): string => {
+  switch (experienceLevel) {
+    case 'beginner':
+      return `
+EXPERIENCE LEVEL: Beginner (Less than 1 year of training)
+- Neuromuscular adaptations allow faster progression
+- Can expect 5-10% weight increases when progressing
+- Focus on form while progressing - technique is still developing
+- Recovery is typically faster, can handle slightly more aggressive increases
+`;
+    case 'intermediate':
+      return `
+EXPERIENCE LEVEL: Intermediate (1-2 years of training)
+- Moderate progression rate expected
+- Can expect 2-5% weight increases when progressing
+- May need to cycle rep ranges to continue progress
+- Balance between pushing limits and avoiding plateaus
+`;
+    case 'advanced':
+      return `
+EXPERIENCE LEVEL: Advanced (2+ years of consistent training)
+- Progression is slow and hard-earned
+- Expect only 1-2.5% weight increases at most
+- Volume manipulation more important than linear weight increases
+- Focus on technique refinement and intensity techniques
+- Small PRs are significant achievements at this level
+`;
+    default:
+      return '';
+  }
+};
+
 const buildTrainingGuidance = (
   workoutGoal: WorkoutGoal,
-  currentWeek?: ProgressiveOverloadWeek
+  currentWeek?: ProgressiveOverloadWeek,
+  experienceLevel: ExperienceLevel = 'intermediate'
 ): string => {
   const goalInfo = WORKOUT_GOALS[workoutGoal];
+  const experienceGuidance = buildExperienceLevelGuidance(experienceLevel);
 
-  if (workoutGoal === 'build' && currentWeek !== undefined) {
-    // Progressive overload mode - use week-based guidance
-    const weekInfo = PROGRESSIVE_OVERLOAD_WEEKS[currentWeek];
+  const volumeGuidance = `
+VOLUME GUIDANCE (Science-Based):
+- Prefer 2-3 working sets per exercise taken to failure
+- Quality over quantity - fewer sets with maximum effort
+- Research shows diminishing returns beyond 3 hard sets
+- Each set should be performed with high intensity (close to or at failure)
+`;
+
+  // All goals now use week-based guidance
+  if (currentWeek === undefined) {
+    // Fallback if no week specified
     return `
-TRAINING GOAL: ${goalInfo.name} - ${goalInfo.description}
+TRAINING GOAL: ${goalInfo.name}
+${experienceGuidance}
+${volumeGuidance}
+${goalInfo.aiGuidance}
+Target rep range: ${goalInfo.defaultRepRange}
+`;
+  }
 
-IMPORTANT - Progressive Overload Week ${currentWeek + 1}: ${weekInfo.name}
+  const weekConfig = getWeekConfigForGoal(workoutGoal);
+  const weekInfo = weekConfig[currentWeek];
+
+  if (workoutGoal === 'build') {
+    // Progressive overload mode
+    return `
+TRAINING GOAL: ${goalInfo.name} - ${goalInfo.cycleName} Cycle
+${experienceGuidance}
+${volumeGuidance}
+IMPORTANT - ${goalInfo.cycleName} Week ${currentWeek + 1}: ${weekInfo.name}
 - Goal: ${weekInfo.description}
 - Weight Adjustment: ${weekInfo.weightAdjustment}
 - Target Rep Range: ${weekInfo.repRange}
@@ -94,43 +152,60 @@ Apply these week-specific guidelines when calculating suggestions:
   }
 
   if (workoutGoal === 'lose') {
-    // Weight loss mode - maintain strength, no progression
+    // Fatigue management mode - cycle intensity/volume while preserving muscle
     return `
-TRAINING GOAL: ${goalInfo.name} - ${goalInfo.description}
+TRAINING GOAL: ${goalInfo.name} - ${goalInfo.cycleName} Cycle
+${experienceGuidance}
+${volumeGuidance}
+IMPORTANT - ${goalInfo.cycleName} Week ${currentWeek + 1}: ${weekInfo.name}
+- Goal: ${weekInfo.description}
+- Weight Adjustment: ${weekInfo.weightAdjustment}
+- Target Rep Range: ${weekInfo.repRange}
 
-CRITICAL GUIDANCE FOR CALORIC DEFICIT TRAINING:
-${goalInfo.aiGuidance}
+CRITICAL - Caloric Deficit Training Principles:
+- DO NOT suggest weight increases - the body cannot build muscle in a deficit
+- Focus on MAINTAINING strength while managing fatigue
+- Recovery is impaired, so follow the week's volume/intensity guidelines strictly
 
-Key principles:
-- Use the SAME weights as previous sessions (maintain strength)
-- DO NOT suggest weight increases - the body cannot build muscle effectively in a deficit
-- Keep weights heavy to signal the body to retain muscle mass
-- Target rep range: 6-10 reps (heavier is better for muscle retention)
-- If the user struggled with previous weights, maintain or slightly reduce (never increase)
-- Focus on form and avoiding injury during recovery-impaired state
+Week-specific guidelines for fatigue management:
+- Week 1 (Baseline Strength): Use current working weights, 6-10 reps - establish maintenance baseline
+- Week 2 (Volume Reduction): Same weights but reduce sets by 1 - manage accumulating fatigue
+- Week 3 (Intensity Focus): Same heavy weights, low volume (4-6 reps) - preserve strength signal
+- Week 4 (Moderate Recovery): Reduce weight by 10%, moderate volume - partial recovery
+- Week 5 (Full Deload): Reduce weight by 30%, light volume - full recovery before next cycle
 `;
   }
 
   if (workoutGoal === 'maintain') {
-    // Maintenance mode - steady state, no progression
+    // Intensity wave mode - vary intensity to prevent staleness
     return `
-TRAINING GOAL: ${goalInfo.name} - ${goalInfo.description}
+TRAINING GOAL: ${goalInfo.name} - ${goalInfo.cycleName} Cycle
+${experienceGuidance}
+${volumeGuidance}
+IMPORTANT - ${goalInfo.cycleName} Week ${currentWeek + 1}: ${weekInfo.name}
+- Goal: ${weekInfo.description}
+- Weight Adjustment: ${weekInfo.weightAdjustment}
+- Target Rep Range: ${weekInfo.repRange}
 
-GUIDANCE FOR MAINTENANCE TRAINING:
-${goalInfo.aiGuidance}
+Intensity Wave Principles:
+- Vary intensity week-to-week to prevent staleness and maintain engagement
+- No net progression expected - weights should average out over the cycle
+- Focus on sustainable, enjoyable training
 
-Key principles:
-- Suggest the SAME weights as previous successful sessions
-- No progressive overload - goal is consistency, not progression
-- Target rep range: 8-12 reps (comfortable, sustainable)
-- Keep volume moderate and consistent week to week
-- If no previous data, suggest conservative starting weights
+Week-specific guidelines for intensity waves:
+- Week 1 (Standard): Use current baseline weights, 8-12 reps - normal moderate training
+- Week 2 (Light Wave): Reduce weight by 10-15%, higher reps (12-15) - active recovery feel
+- Week 3 (Moderate Push): Increase weight by 5% from baseline, 8-10 reps - slight challenge
+- Week 4 (Heavy Wave): Increase weight by 10% from baseline, lower reps (6-8) - intensity peak
+- Week 5 (Recovery): Reduce weight by 20%, moderate reps - reset before next cycle
 `;
   }
 
-  // Default/fallback - basic guidance
+  // Default/fallback
   return `
 TRAINING GOAL: ${goalInfo.name}
+${experienceGuidance}
+${volumeGuidance}
 ${goalInfo.aiGuidance}
 Target rep range: ${goalInfo.defaultRepRange}
 `;
@@ -143,7 +218,8 @@ export const getPreWorkoutSuggestions = async (
   weightUnit: 'lbs' | 'kg',
   currentWeek?: ProgressiveOverloadWeek,
   workoutGoal: WorkoutGoal = 'build',
-  weightEntries: WeightEntry[] = []
+  weightEntries: WeightEntry[] = [],
+  experienceLevel: ExperienceLevel = 'intermediate'
 ): Promise<ExerciseSuggestion[]> => {
   const customExercises = getCustomExercises();
 
@@ -206,7 +282,7 @@ export const getPreWorkoutSuggestions = async (
     };
   });
 
-  const trainingGuidance = buildTrainingGuidance(workoutGoal, currentWeek);
+  const trainingGuidance = buildTrainingGuidance(workoutGoal, currentWeek, experienceLevel);
   const weightContext = buildWeightContext(weightEntries, weightUnit);
   const analysisContext = buildExerciseAnalysisContext(exerciseAnalyses);
 

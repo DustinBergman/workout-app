@@ -145,13 +145,13 @@ describe('getPreWorkoutSuggestions', () => {
       exercises: [{ type: 'strength', exerciseId: 'bench', targetSets: 3, targetReps: 10, restSeconds: 90 }],
     });
 
-    await getPreWorkoutSuggestions('test-key', template, [], 'lbs', undefined, 'lose');
+    await getPreWorkoutSuggestions('test-key', template, [], 'lbs', 0, 'lose');
 
     const requestBody = JSON.parse(mockFetch.mock.calls[0][1].body);
     const userMessage = requestBody.messages[1];
 
     expect(userMessage.content).toContain('Lose Weight');
-    expect(userMessage.content).toContain('CALORIC DEFICIT');
+    expect(userMessage.content).toContain('Fatigue Management');
     expect(userMessage.content).toContain('DO NOT suggest weight increases');
   });
 
@@ -168,14 +168,14 @@ describe('getPreWorkoutSuggestions', () => {
       exercises: [{ type: 'strength', exerciseId: 'bench', targetSets: 3, targetReps: 10, restSeconds: 90 }],
     });
 
-    await getPreWorkoutSuggestions('test-key', template, [], 'lbs', undefined, 'maintain');
+    await getPreWorkoutSuggestions('test-key', template, [], 'lbs', 0, 'maintain');
 
     const requestBody = JSON.parse(mockFetch.mock.calls[0][1].body);
     const userMessage = requestBody.messages[1];
 
     expect(userMessage.content).toContain('Maintain');
-    expect(userMessage.content).toContain('MAINTENANCE TRAINING');
-    expect(userMessage.content).toContain('SAME weights');
+    expect(userMessage.content).toContain('Intensity Waves');
+    expect(userMessage.content).toContain('intensity week-to-week');
   });
 
   it('should default to build goal', async () => {

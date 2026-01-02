@@ -60,6 +60,7 @@ const defaultPreferences: UserPreferences = {
   distanceUnit: 'mi',
   defaultRestSeconds: 90,
   darkMode: false,
+  experienceLevel: 'intermediate',
 };
 
 export const useAppStore = create<AppState>()(

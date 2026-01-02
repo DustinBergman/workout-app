@@ -107,14 +107,107 @@ export const PROGRESSIVE_OVERLOAD_WEEKS: Record<ProgressiveOverloadWeek, WeekInf
   },
 };
 
+// Lose Weight Weeks - Fatigue Management Cycle
+export const LOSE_WEIGHT_WEEKS: Record<ProgressiveOverloadWeek, WeekInfo> = {
+  0: {
+    week: 0,
+    name: 'Baseline Strength',
+    description: 'Establish maintenance weights',
+    weightAdjustment: 'Current weights',
+    repRange: '6-10 reps',
+  },
+  1: {
+    week: 1,
+    name: 'Volume Reduction',
+    description: 'Same weights, fewer sets to manage fatigue',
+    weightAdjustment: 'Same weight',
+    repRange: '6-8 reps, -1 set',
+  },
+  2: {
+    week: 2,
+    name: 'Intensity Focus',
+    description: 'Heavy weights, minimal volume',
+    weightAdjustment: 'Same weight',
+    repRange: '4-6 reps',
+  },
+  3: {
+    week: 3,
+    name: 'Moderate Recovery',
+    description: 'Slightly lighter, moderate volume',
+    weightAdjustment: '-10%',
+    repRange: '8-10 reps',
+  },
+  4: {
+    week: 4,
+    name: 'Full Deload',
+    description: 'Light recovery week',
+    weightAdjustment: '-30%',
+    repRange: '10-12 reps',
+  },
+};
+
+// Maintain Weeks - Intensity Wave Cycle
+export const MAINTAIN_WEEKS: Record<ProgressiveOverloadWeek, WeekInfo> = {
+  0: {
+    week: 0,
+    name: 'Standard',
+    description: 'Baseline moderate training',
+    weightAdjustment: 'Current weights',
+    repRange: '8-12 reps',
+  },
+  1: {
+    week: 1,
+    name: 'Light Wave',
+    description: 'Reduced intensity, higher reps',
+    weightAdjustment: '-10-15%',
+    repRange: '12-15 reps',
+  },
+  2: {
+    week: 2,
+    name: 'Moderate Push',
+    description: 'Slightly heavier weights',
+    weightAdjustment: '+5%',
+    repRange: '8-10 reps',
+  },
+  3: {
+    week: 3,
+    name: 'Heavy Wave',
+    description: 'Intensity peak week',
+    weightAdjustment: '+10%',
+    repRange: '6-8 reps',
+  },
+  4: {
+    week: 4,
+    name: 'Recovery',
+    description: 'Light deload week',
+    weightAdjustment: '-20%',
+    repRange: '10-12 reps',
+  },
+};
+
 // Workout Goals
 export type WorkoutGoal = 'build' | 'lose' | 'maintain';
+
+// Helper function to get week config for a goal
+export const getWeekConfigForGoal = (goal: WorkoutGoal): Record<ProgressiveOverloadWeek, WeekInfo> => {
+  switch (goal) {
+    case 'build':
+      return PROGRESSIVE_OVERLOAD_WEEKS;
+    case 'lose':
+      return LOSE_WEIGHT_WEEKS;
+    case 'maintain':
+      return MAINTAIN_WEEKS;
+  }
+};
+
+// Experience Level
+export type ExperienceLevel = 'beginner' | 'intermediate' | 'advanced';
 
 export interface GoalInfo {
   goal: WorkoutGoal;
   name: string;
   description: string;
-  useProgressiveOverload: boolean;
+  cycleName: string;
   defaultRepRange: string;
   aiGuidance: string;
 }
@@ -123,26 +216,26 @@ export const WORKOUT_GOALS: Record<WorkoutGoal, GoalInfo> = {
   build: {
     goal: 'build',
     name: 'Build Muscle',
-    description: 'Progressive overload to gain strength and size',
-    useProgressiveOverload: true,
+    description: '5-week progressive overload cycle',
+    cycleName: 'Progressive Overload',
     defaultRepRange: '6-12 reps',
     aiGuidance: 'Focus on progressive overload. Follow the current week\'s guidance for weight adjustments and rep ranges. Aim to increase weight or reps over time.',
   },
   lose: {
     goal: 'lose',
     name: 'Lose Weight',
-    description: 'Preserve muscle while in caloric deficit',
-    useProgressiveOverload: false,
+    description: '5-week fatigue management cycle',
+    cycleName: 'Fatigue Management',
     defaultRepRange: '6-10 reps',
-    aiGuidance: 'Maintain current working weights to preserve muscle mass during caloric deficit. Do NOT suggest weight increases - the body cannot build muscle in a deficit. Keep weights heavy (6-10 reps) to signal muscle retention. Prioritize form and recovery.',
+    aiGuidance: 'Manage fatigue while preserving muscle mass during caloric deficit. Follow the week\'s guidance for volume and intensity adjustments. Prioritize form and recovery.',
   },
   maintain: {
     goal: 'maintain',
     name: 'Maintain',
-    description: 'Keep current fitness level steady',
-    useProgressiveOverload: false,
+    description: '5-week intensity wave cycle',
+    cycleName: 'Intensity Waves',
     defaultRepRange: '8-12 reps',
-    aiGuidance: 'Maintain consistent weights and volume. No progression needed - focus on sustainable, comfortable training. Keep rep ranges moderate (8-12 reps). Suggest same weights as previous sessions.',
+    aiGuidance: 'Follow the intensity wave pattern to prevent staleness while maintaining fitness. Vary intensity week to week for sustainable training.',
   },
 };
 
@@ -261,6 +354,7 @@ export interface UserPreferences {
   darkMode: boolean;
   firstName?: string;
   lastName?: string;
+  experienceLevel?: ExperienceLevel;
 }
 
 // AI Assistant Message

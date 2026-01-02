@@ -65,7 +65,8 @@ export const useStartWorkout = (): UseStartWorkoutReturn => {
           preferences.weightUnit,
           currentWeek,
           workoutGoal,
-          weightEntries
+          weightEntries,
+          preferences.experienceLevel || 'intermediate'
         );
       } catch (err) {
         console.error('Failed to get suggestions:', err);

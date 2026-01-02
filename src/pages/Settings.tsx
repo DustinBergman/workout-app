@@ -11,20 +11,24 @@ import {
   SelectContent,
   SelectItem,
   Label,
+  Modal,
 } from '../components/ui';
 import { exportAllData, importAllData, clearAllData } from '../services/storage';
-import { WorkoutGoal, WORKOUT_GOALS } from '../types';
+import { WorkoutGoal, WORKOUT_GOALS, ExperienceLevel, ProgressiveOverloadWeek } from '../types';
 
 export const Settings: FC = () => {
   const preferences = useAppStore((state) => state.preferences);
   const updatePreferences = useAppStore((state) => state.updatePreferences);
   const workoutGoal = useAppStore((state) => state.workoutGoal);
   const setWorkoutGoal = useAppStore((state) => state.setWorkoutGoal);
+  const setCurrentWeek = useAppStore((state) => state.setCurrentWeek);
   const [showApiKey, setShowApiKey] = useState(false);
   const [apiKeyInput, setApiKeyInput] = useState(preferences.openaiApiKey || '');
   const [importError, setImportError] = useState('');
   const [importSuccess, setImportSuccess] = useState(false);
   const [apiKeySaved, setApiKeySaved] = useState(false);
+  const [showGoalConfirm, setShowGoalConfirm] = useState(false);
+  const [pendingGoal, setPendingGoal] = useState<WorkoutGoal | null>(null);
 
   const handleExport = () => {
     const data = exportAllData();
@@ -73,6 +77,26 @@ export const Settings: FC = () => {
     updatePreferences({ openaiApiKey: trimmedKey });
     setApiKeySaved(true);
     setTimeout(() => setApiKeySaved(false), 2000);
+  };
+
+  const handleGoalClick = (goal: WorkoutGoal) => {
+    if (goal === workoutGoal) return;
+    setPendingGoal(goal);
+    setShowGoalConfirm(true);
+  };
+
+  const confirmGoalChange = () => {
+    if (pendingGoal) {
+      setWorkoutGoal(pendingGoal);
+      setCurrentWeek(0 as ProgressiveOverloadWeek);
+    }
+    setShowGoalConfirm(false);
+    setPendingGoal(null);
+  };
+
+  const cancelGoalChange = () => {
+    setShowGoalConfirm(false);
+    setPendingGoal(null);
   };
 
   return (
@@ -163,6 +187,27 @@ export const Settings: FC = () => {
               onCheckedChange={(checked) => updatePreferences({ darkMode: checked })}
             />
           </div>
+
+          {/* Experience Level */}
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="font-medium text-foreground">Experience Level</Label>
+              <p className="text-sm text-muted-foreground">Affects AI progression recommendations</p>
+            </div>
+            <Select
+              value={preferences.experienceLevel || 'intermediate'}
+              onValueChange={(value) => updatePreferences({ experienceLevel: value as ExperienceLevel })}
+            >
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="beginner">Beginner (&lt;1 year)</SelectItem>
+                <SelectItem value="intermediate">Intermediate (1-2 years)</SelectItem>
+                <SelectItem value="advanced">Advanced (2+ years)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </Card>
       </section>
 
@@ -179,7 +224,7 @@ export const Settings: FC = () => {
             return (
               <button
                 key={goal}
-                onClick={() => setWorkoutGoal(goal)}
+                onClick={() => handleGoalClick(goal)}
                 className={`w-full p-4 rounded-xl border text-left transition-all ${
                   isSelected
                     ? 'border-primary bg-primary/10'
@@ -201,11 +246,7 @@ export const Settings: FC = () => {
                 </p>
                 <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
                   <span>Rep range: {goalInfo.defaultRepRange}</span>
-                  {goalInfo.useProgressiveOverload ? (
-                    <span className="text-green-600 dark:text-green-400">Progressive overload enabled</span>
-                  ) : (
-                    <span className="text-orange-500 dark:text-orange-400">Maintain weights</span>
-                  )}
+                  <span className="text-primary">{goalInfo.cycleName} cycle</span>
                 </div>
               </button>
             );
@@ -365,6 +406,37 @@ export const Settings: FC = () => {
           </p>
         </Card>
       </section>
+
+      {/* Goal Change Confirmation Modal */}
+      <Modal
+        isOpen={showGoalConfirm}
+        onClose={cancelGoalChange}
+        title="Change Training Goal"
+        footer={
+          <>
+            <Button variant="secondary" onClick={cancelGoalChange}>
+              Cancel
+            </Button>
+            <Button onClick={confirmGoalChange}>
+              Continue
+            </Button>
+          </>
+        }
+      >
+        <p className="text-foreground">
+          Are you sure you want to change your training goal?
+        </p>
+        <p className="text-muted-foreground mt-2">
+          You will be set back to Week 1 of your new training cycle.
+        </p>
+        {pendingGoal && (
+          <div className="mt-4 p-4 bg-muted rounded-lg">
+            <p className="text-sm text-muted-foreground">New goal:</p>
+            <p className="font-semibold text-foreground">{WORKOUT_GOALS[pendingGoal].name}</p>
+            <p className="text-sm text-primary">{WORKOUT_GOALS[pendingGoal].cycleName} cycle</p>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

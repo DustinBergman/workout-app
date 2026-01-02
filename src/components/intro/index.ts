@@ -12,6 +12,9 @@ export type { WelcomeStepProps } from './WelcomeStep';
 export { GoalSelectionStep } from './GoalSelectionStep';
 export type { GoalSelectionStepProps, GoalOption } from './GoalSelectionStep';
 
+export { ExperienceLevelStep } from './ExperienceLevelStep';
+export type { ExperienceLevelStepProps, ExperienceLevelOption } from './ExperienceLevelStep';
+
 export { PreferencesStep } from './PreferencesStep';
 export type { PreferencesStepProps, UnitOption, DistanceUnitOption } from './PreferencesStep';
 

@@ -74,23 +74,23 @@ describe('useHome', () => {
     });
   });
 
-  describe('showProgressiveOverload', () => {
-    it('should return true for build goal', () => {
+  describe('workoutGoal', () => {
+    it('should return build goal', () => {
       useAppStore.setState({ workoutGoal: 'build' });
       const { result } = renderHook(() => useHome());
-      expect(result.current.showProgressiveOverload).toBe(true);
+      expect(result.current.workoutGoal).toBe('build');
     });
 
-    it('should return false for lose goal', () => {
+    it('should return lose goal', () => {
       useAppStore.setState({ workoutGoal: 'lose' });
       const { result } = renderHook(() => useHome());
-      expect(result.current.showProgressiveOverload).toBe(false);
+      expect(result.current.workoutGoal).toBe('lose');
     });
 
-    it('should return false for maintain goal', () => {
+    it('should return maintain goal', () => {
       useAppStore.setState({ workoutGoal: 'maintain' });
       const { result } = renderHook(() => useHome());
-      expect(result.current.showProgressiveOverload).toBe(false);
+      expect(result.current.workoutGoal).toBe('maintain');
     });
   });
 
@@ -351,21 +351,21 @@ describe('useHome', () => {
       useAppStore.setState({ workoutGoal: 'build' });
       const { result } = renderHook(() => useHome());
       expect(result.current.goalInfo.name).toBe('Build Muscle');
-      expect(result.current.goalInfo.useProgressiveOverload).toBe(true);
+      expect(result.current.goalInfo.cycleName).toBe('Progressive Overload');
     });
 
     it('should return correct goal info for lose', () => {
       useAppStore.setState({ workoutGoal: 'lose' });
       const { result } = renderHook(() => useHome());
       expect(result.current.goalInfo.name).toBe('Lose Weight');
-      expect(result.current.goalInfo.useProgressiveOverload).toBe(false);
+      expect(result.current.goalInfo.cycleName).toBe('Fatigue Management');
     });
 
     it('should return correct goal info for maintain', () => {
       useAppStore.setState({ workoutGoal: 'maintain' });
       const { result } = renderHook(() => useHome());
       expect(result.current.goalInfo.name).toBe('Maintain');
-      expect(result.current.goalInfo.useProgressiveOverload).toBe(false);
+      expect(result.current.goalInfo.cycleName).toBe('Intensity Waves');
     });
   });
 });

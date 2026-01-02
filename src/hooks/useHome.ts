@@ -24,7 +24,6 @@ export interface UseHomeReturn {
 
   // Computed values
   hasApiKey: boolean;
-  showProgressiveOverload: boolean;
   goalInfo: GoalInfo;
   recentSessions: WorkoutSession[];
   nextWorkout: WorkoutTemplate | null;
@@ -68,7 +67,6 @@ export const useHome = (): UseHomeReturn => {
   // Computed values
   const hasApiKey = !!preferences.openaiApiKey;
   const goalInfo = WORKOUT_GOALS[workoutGoal];
-  const showProgressiveOverload = goalInfo.useProgressiveOverload;
 
   // Weight tracking computed values
   const lastWeightEntry = useMemo(() => {
@@ -179,7 +177,6 @@ export const useHome = (): UseHomeReturn => {
 
     // Computed values
     hasApiKey,
-    showProgressiveOverload,
     goalInfo,
     recentSessions,
     nextWorkout,
