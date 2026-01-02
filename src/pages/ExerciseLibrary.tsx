@@ -1,5 +1,6 @@
 import { useState, useMemo, FC } from 'react';
 import { exercises, searchExercises } from '../data/exercises';
+import { useAppStore } from '../store/useAppStore';
 import {
   Card,
   Input,
@@ -40,14 +41,23 @@ const muscleGroupColors: Record<MuscleGroup, string> = {
 };
 
 export const ExerciseLibrary: FC = () => {
+  const customExercises = useAppStore((state) => state.customExercises);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState<ExerciseType | ''>('');
   const [selectedMuscle, setSelectedMuscle] = useState<MuscleGroup | ''>('');
   const [selectedEquipment, setSelectedEquipment] = useState<Equipment | ''>('');
   const [expandedExercise, setExpandedExercise] = useState<string | null>(null);
 
+  // Combine built-in and custom exercises
+  const allExercises = useMemo(() => [...exercises, ...customExercises], [customExercises]);
+
+  // Check if an exercise is custom
+  const isCustomExercise = (exerciseId: string) => {
+    return customExercises.some((e) => e.id === exerciseId);
+  };
+
   const filteredExercises = useMemo(() => {
-    let result: Exercise[] = searchQuery ? searchExercises(searchQuery) : exercises;
+    let result: Exercise[] = searchQuery ? searchExercises(searchQuery, customExercises) : allExercises;
 
     // Filter by exercise type (strength/cardio)
     if (selectedType) {
@@ -184,9 +194,16 @@ export const ExerciseLibrary: FC = () => {
           >
             <div className="flex items-start justify-between">
               <div className="flex-1">
-                <h3 className="font-medium text-foreground">
-                  {exercise.name}
-                </h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-medium text-foreground">
+                    {exercise.name}
+                  </h3>
+                  {isCustomExercise(exercise.id) && (
+                    <Badge variant="secondary" className="text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 border-0">
+                      Custom
+                    </Badge>
+                  )}
+                </div>
                 <div className="flex flex-wrap gap-1 mt-1">
                   {exercise.type === 'cardio' ? (
                     <Badge variant="secondary" className="text-xs bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 border-0">

@@ -1,5 +1,4 @@
-import { useEffect, useRef, useCallback, FC } from 'react';
-import { useTimer } from '../../hooks/useTimer';
+import { useEffect, useRef, useCallback, useState, FC } from 'react';
 import { useCurrentWorkoutStore } from '../../store/currentWorkoutStore';
 import { Button } from '../ui';
 
@@ -11,72 +10,93 @@ interface RestTimerProps {
 }
 
 export const RestTimer: FC<RestTimerProps> = ({ duration, onComplete, onSkip, autoStart = false }) => {
-  const hasPlayedRef = useRef(false);
   const hasStartedRef = useRef(false);
+  const hasCompletedRef = useRef(false);
+
+  // Store state
   const timerEndTime = useCurrentWorkoutStore((state) => state.timerEndTime);
+  const timerPaused = useCurrentWorkoutStore((state) => state.timerPaused);
+  const timerRemainingWhenPaused = useCurrentWorkoutStore((state) => state.timerRemainingWhenPaused);
+  const setTimerEndTime = useCurrentWorkoutStore((state) => state.setTimerEndTime);
+  const pauseTimer = useCurrentWorkoutStore((state) => state.pauseTimer);
+  const resumeTimer = useCurrentWorkoutStore((state) => state.resumeTimer);
+
+  // Local display state
+  const [seconds, setSeconds] = useState(0);
+  const [isComplete, setIsComplete] = useState(false);
 
   const handleComplete = useCallback(() => {
-    // Play notification ding sound
-    if (!hasPlayedRef.current) {
-      hasPlayedRef.current = true;
-      try {
-        const audioContext = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
-
-        // Play a pleasant double-ding notification
-        const playDing = (time: number) => {
-          const oscillator = audioContext.createOscillator();
-          const gainNode = audioContext.createGain();
-
-          oscillator.connect(gainNode);
-          gainNode.connect(audioContext.destination);
-
-          oscillator.frequency.value = 1047; // C6 note - bright ding
-          oscillator.type = 'sine';
-
-          // Bell-like envelope with quick attack and decay
-          gainNode.gain.setValueAtTime(0, time);
-          gainNode.gain.linearRampToValueAtTime(0.4, time + 0.01);
-          gainNode.gain.exponentialRampToValueAtTime(0.01, time + 0.4);
-
-          oscillator.start(time);
-          oscillator.stop(time + 0.4);
-        };
-
-        const now = audioContext.currentTime;
-        playDing(now);
-        playDing(now + 0.2); // Second ding slightly after
-
-        // Close audio context after sounds finish
-        setTimeout(() => audioContext.close(), 1000);
-      } catch (e) {
-        console.log('Audio notification failed:', e);
-      }
-    }
+    // Sound is handled globally by GlobalTimerNotification
     onComplete?.();
   }, [onComplete]);
 
-  const { seconds, isRunning, start, pause, resume, reset, isComplete } = useTimer(handleComplete);
-
+  // Initialize timer on mount
   useEffect(() => {
-    // Only start the timer once per component instance
     if (autoStart && duration > 0 && !hasStartedRef.current) {
-      hasPlayedRef.current = false;
       hasStartedRef.current = true;
 
-      // Calculate the actual remaining time from the persisted endTime
-      // If timerEndTime exists and is in the future, use that to calculate remaining time
-      // Otherwise use the full duration
-      let remainingDuration = duration;
-      if (timerEndTime && timerEndTime > Date.now()) {
-        remainingDuration = Math.max(0, Math.ceil((timerEndTime - Date.now()) / 1000));
+      // If timer is paused, use the remaining time from when it was paused
+      if (timerPaused && timerRemainingWhenPaused !== null) {
+        setSeconds(timerRemainingWhenPaused);
+        return;
       }
 
-      start(remainingDuration);
+      // If timer has an end time in the future, calculate remaining
+      if (timerEndTime && timerEndTime > Date.now()) {
+        const remaining = Math.max(0, Math.ceil((timerEndTime - Date.now()) / 1000));
+        setSeconds(remaining);
+        return;
+      }
+
+      // Otherwise start a new timer
+      const endTime = Date.now() + duration * 1000;
+      setTimerEndTime(endTime);
+      setSeconds(duration);
     }
-  }, [autoStart, duration, start, timerEndTime]);
+  }, [autoStart, duration, timerEndTime, timerPaused, timerRemainingWhenPaused, setTimerEndTime]);
+
+  // Update seconds countdown
+  useEffect(() => {
+    // If paused, just display the remaining time
+    if (timerPaused) {
+      if (timerRemainingWhenPaused !== null) {
+        setSeconds(timerRemainingWhenPaused);
+      }
+      return;
+    }
+
+    // If no end time, nothing to do
+    if (!timerEndTime) return;
+
+    const updateSeconds = () => {
+      const now = Date.now();
+      const remaining = Math.max(0, Math.ceil((timerEndTime - now) / 1000));
+      setSeconds(remaining);
+
+      if (remaining <= 0 && !hasCompletedRef.current) {
+        hasCompletedRef.current = true;
+        setIsComplete(true);
+        handleComplete();
+      }
+    };
+
+    updateSeconds();
+    const interval = setInterval(updateSeconds, 100);
+
+    return () => clearInterval(interval);
+  }, [timerEndTime, timerPaused, timerRemainingWhenPaused, handleComplete]);
+
+  const handlePause = () => {
+    pauseTimer();
+  };
+
+  const handleResume = () => {
+    hasCompletedRef.current = false;
+    resumeTimer();
+  };
 
   const handleSkip = () => {
-    reset();
+    setTimerEndTime(null);
     onSkip?.();
   };
 
@@ -97,6 +117,7 @@ export const RestTimer: FC<RestTimerProps> = ({ duration, onComplete, onSkip, au
   };
 
   const progress = duration > 0 ? (seconds / duration) * 100 : 0;
+  const isRunning = !timerPaused && !isComplete && timerEndTime !== null;
 
   return (
     <div className="fixed bottom-16 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 z-50">
@@ -128,11 +149,11 @@ export const RestTimer: FC<RestTimerProps> = ({ duration, onComplete, onSkip, au
           {!isComplete && (
             <>
               {isRunning ? (
-                <Button size="sm" variant="secondary" onClick={pause}>
+                <Button size="sm" variant="secondary" onClick={handlePause}>
                   Pause
                 </Button>
               ) : seconds > 0 ? (
-                <Button size="sm" variant="secondary" onClick={resume}>
+                <Button size="sm" variant="secondary" onClick={handleResume}>
                   Resume
                 </Button>
               ) : null}

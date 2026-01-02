@@ -13,6 +13,7 @@ import {
   Intro,
 } from './pages';
 import { useAppStore } from './store/useAppStore';
+import { GlobalTimerNotification } from './components/timer/GlobalTimerNotification';
 
 const HeaderContent: FC = () => {
   const location = useLocation();
@@ -126,6 +127,9 @@ const App: FC = () => {
   return (
     <BrowserRouter>
         <div className="min-h-screen">
+          {/* Global Timer Notification - plays ding on any page */}
+          <GlobalTimerNotification />
+
           {/* Header */}
           <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-sm border-b border-border">
             <HeaderContent />

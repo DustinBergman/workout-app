@@ -293,7 +293,7 @@ ${analysisContext}
 Exercises for today's workout:
 ${JSON.stringify(exerciseContext, null, 2)}
 
-For each exercise, provide a suggestion. Consider:
+CRITICAL: You MUST provide a suggestion for EVERY exercise listed below. Do not skip any exercises, even custom ones or ones without previous data. For each exercise, provide a suggestion. Consider:
 - The training goal and guidelines above (CRITICAL - follow these strictly)
 - The 10-week progress analysis and plateau signals
 - Previous performance data to establish their baseline working weights
@@ -334,19 +334,68 @@ Use ${weightUnit} for weights. Confidence should be:
 - "medium" if there's some data but pattern is unclear
 - "low" if there's minimal or no previous data`;
 
+  // Calculate token limit based on number of exercises (roughly 150 tokens per exercise suggestion)
+  const estimatedTokensNeeded = Math.max(2000, strengthTemplateExercises.length * 200);
+
   const content = await callOpenAI({
     apiKey,
     messages: [
       {
         role: 'system',
-        content: 'You are a fitness analysis AI that detects training plateaus and provides smart recommendations. Respond only with valid JSON.',
+        content: 'You are a fitness analysis AI that detects training plateaus and provides smart recommendations. Respond only with valid JSON. IMPORTANT: You MUST provide a suggestion for EVERY exercise in the list - do not skip any exercises.',
       },
       { role: 'user', content: prompt },
     ],
-    maxTokens: 1500,
+    maxTokens: estimatedTokensNeeded,
     temperature: 0.3,
   });
 
   const parsed = parseJSONResponse<{ suggestions?: ExerciseSuggestion[] }>(content, {});
-  return parsed.suggestions || [];
+  const aiSuggestions = parsed.suggestions || [];
+
+  // Ensure every exercise has a suggestion - create fallbacks for any missing
+  const completeSuggestions: ExerciseSuggestion[] = strengthTemplateExercises.map((templateEx) => {
+    const existingSuggestion = aiSuggestions.find((s) => s.exerciseId === templateEx.exerciseId);
+
+    if (existingSuggestion) {
+      return existingSuggestion;
+    }
+
+    // Create a fallback suggestion for missing exercises
+    const exerciseInfo = getExerciseById(templateEx.exerciseId, customExercises);
+    const exerciseName = exerciseInfo?.name || templateEx.exerciseId;
+
+    // Find the most recent performance for this exercise
+    let lastWeight = 0;
+    let lastReps = templateEx.targetReps;
+
+    for (const session of previousSessions) {
+      const matchingEx = session.exercises.find((ex) => ex.exerciseId === templateEx.exerciseId);
+      if (matchingEx && matchingEx.sets.length > 0) {
+        const lastSet = matchingEx.sets[matchingEx.sets.length - 1];
+        if (lastSet.type === 'strength' || !('type' in lastSet)) {
+          const strengthSet = lastSet as StrengthCompletedSet;
+          lastWeight = strengthSet.weight;
+          lastReps = strengthSet.reps;
+          break;
+        }
+      }
+    }
+
+    // Create fallback suggestion based on last performance or conservative start
+    const fallbackSuggestion: ExerciseSuggestion = {
+      exerciseId: templateEx.exerciseId,
+      suggestedWeight: lastWeight > 0 ? lastWeight : 0,
+      suggestedReps: lastReps ?? templateEx.targetReps ?? 10,
+      reasoning: lastWeight > 0
+        ? `Continue with your previous weight for ${exerciseName}`
+        : `Start light and establish your working weight for ${exerciseName}`,
+      confidence: lastWeight > 0 ? 'medium' : 'low',
+      progressStatus: lastWeight > 0 ? 'improving' : 'new',
+    };
+
+    return fallbackSuggestion;
+  });
+
+  return completeSuggestions;
 };

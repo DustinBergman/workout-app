@@ -1,9 +1,11 @@
 import { useCallback, useEffect } from 'react';
 import {
   DragEndEvent,
+  DragStartEvent,
   useSensor,
   useSensors,
   PointerSensor,
+  TouchSensor,
   KeyboardSensor,
 } from '@dnd-kit/core';
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
@@ -94,17 +96,31 @@ export const useActiveWorkoutPage = (): any => {
     }
   }, [createExercise, addExerciseToSession]);
 
-  // DND sensors
+  // DND sensors - TouchSensor for mobile with delay, PointerSensor for mouse
   const sensors = useSensors(
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 200, // Must hold for 200ms before drag starts
+        tolerance: 5, // Allow 5px of movement during delay
+      },
+    }),
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8, // Require 8px movement before drag starts
+        distance: 8, // Require 8px movement before drag starts (mouse only)
       },
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+
+  // Haptic feedback when drag starts
+  const handleDragStart = useCallback((_event: DragStartEvent) => {
+    // Trigger haptic feedback on supported devices
+    if (navigator.vibrate) {
+      navigator.vibrate(50); // Short 50ms vibration
+    }
+  }, []);
 
   // Drag end handler
   const handleDragEnd = useCallback((event: DragEndEvent) => {
@@ -233,6 +249,7 @@ export const useActiveWorkoutPage = (): any => {
 
     // Handlers
     handleCreateExercise,
+    handleDragStart,
     handleDragEnd,
 
     // DND

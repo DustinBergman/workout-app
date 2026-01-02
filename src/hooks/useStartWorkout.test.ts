@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useStartWorkout } from './useStartWorkout';
 import { useAppStore } from '../store/useAppStore';
+import { useCurrentWorkoutStore } from '../store/currentWorkoutStore';
 import { WorkoutTemplate, StrengthTemplateExercise, StrengthSessionExercise } from '../types';
 
 // Mock react-router-dom
@@ -53,6 +54,7 @@ const resetStore = () => {
     customExercises: [],
     currentWeek: 0,
   });
+  useCurrentWorkoutStore.getState().reset();
 };
 
 describe('useStartWorkout', () => {
@@ -81,8 +83,11 @@ describe('useStartWorkout', () => {
     expect(activeSession?.templateId).toBe('template-1');
     expect(activeSession?.name).toBe('Test Template');
 
+    // Check that suggestions were saved to current workout store (empty because no API key)
+    expect(useCurrentWorkoutStore.getState().suggestions).toEqual([]);
+
     // Check that navigate was called
-    expect(mockNavigate).toHaveBeenCalledWith('/workout', { state: { suggestions: [] } });
+    expect(mockNavigate).toHaveBeenCalledWith('/workout');
   });
 
   it('should start a quick workout', async () => {
@@ -141,6 +146,7 @@ describe('useStartWorkout', () => {
     });
 
     expect(result.current.isLoadingSuggestions).toBe(false);
-    expect(mockNavigate).toHaveBeenCalledWith('/workout', { state: { suggestions: [] } });
+    expect(useCurrentWorkoutStore.getState().suggestions).toEqual([]);
+    expect(mockNavigate).toHaveBeenCalledWith('/workout');
   });
 });

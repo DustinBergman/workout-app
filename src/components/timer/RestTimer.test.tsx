@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import { RestTimer } from './RestTimer';
+import { useCurrentWorkoutStore } from '../../store/currentWorkoutStore';
 
 // Mock AudioContext
 const mockClose = vi.fn();
@@ -30,14 +31,27 @@ const MockAudioContext = vi.fn(() => ({
 
 (window as unknown as { AudioContext: typeof MockAudioContext }).AudioContext = MockAudioContext;
 
+// Helper to reset store between tests
+const resetStore = () => {
+  useCurrentWorkoutStore.setState({
+    showTimer: false,
+    timerDuration: 90,
+    timerEndTime: null,
+    timerPaused: false,
+    timerRemainingWhenPaused: null,
+  });
+};
+
 describe('RestTimer', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.clearAllMocks();
+    resetStore();
   });
 
   afterEach(() => {
     vi.useRealTimers();
+    resetStore();
   });
 
   describe('rendering', () => {
@@ -209,6 +223,72 @@ describe('RestTimer', () => {
     it('should handle exact minute values', () => {
       render(<RestTimer duration={120} autoStart />);
       expect(screen.getByText(/Time Remaining: 2:00/)).toBeInTheDocument();
+    });
+  });
+
+  describe('pause persistence', () => {
+    it('should persist paused state across component remounts', async () => {
+      // First render - start timer and pause it
+      const { unmount } = render(<RestTimer duration={10} autoStart />);
+
+      // Let timer run for 2 seconds
+      await act(async () => {
+        vi.advanceTimersByTime(2000);
+      });
+      expect(screen.getByText(/Time Remaining: 0:08/)).toBeInTheDocument();
+
+      // Pause the timer
+      fireEvent.click(screen.getByText('Pause'));
+      expect(screen.getByText('Resume')).toBeInTheDocument();
+
+      // Verify the store has the paused state
+      const storeState = useCurrentWorkoutStore.getState();
+      expect(storeState.timerPaused).toBe(true);
+      expect(storeState.timerRemainingWhenPaused).toBe(8);
+
+      // Unmount (simulates navigating away)
+      unmount();
+
+      // Remount the component (simulates navigating back)
+      render(<RestTimer duration={10} autoStart />);
+
+      // Should still show Resume button (paused state)
+      expect(screen.getByText('Resume')).toBeInTheDocument();
+
+      // Should show the same remaining time
+      expect(screen.getByText(/Time Remaining: 0:08/)).toBeInTheDocument();
+
+      // Time should not advance while paused
+      await act(async () => {
+        vi.advanceTimersByTime(2000);
+      });
+      expect(screen.getByText(/Time Remaining: 0:08/)).toBeInTheDocument();
+    });
+
+    it('should resume timer correctly after remount', async () => {
+      // First render - start timer and pause it
+      const { unmount } = render(<RestTimer duration={10} autoStart />);
+
+      await act(async () => {
+        vi.advanceTimersByTime(2000);
+      });
+      fireEvent.click(screen.getByText('Pause'));
+
+      // Unmount
+      unmount();
+
+      // Remount
+      render(<RestTimer duration={10} autoStart />);
+
+      // Resume the timer
+      fireEvent.click(screen.getByText('Resume'));
+      expect(screen.getByText('Pause')).toBeInTheDocument();
+
+      // Timer should continue counting down
+      await act(async () => {
+        vi.advanceTimersByTime(1000);
+      });
+      expect(screen.getByText(/Time Remaining: 0:07/)).toBeInTheDocument();
     });
   });
 });

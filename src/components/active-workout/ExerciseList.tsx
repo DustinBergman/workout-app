@@ -1,6 +1,7 @@
 import { FC } from 'react';
 import {
   DndContext,
+  DragStartEvent,
   DragEndEvent,
   closestCenter,
 } from '@dnd-kit/core';
@@ -15,12 +16,14 @@ interface ExerciseListProps {
   session: WorkoutSession;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   sensors: any[];
+  onDragStart?: (event: DragStartEvent) => void;
   onDragEnd: (event: DragEndEvent) => void;
 }
 
 export const ExerciseList: FC<ExerciseListProps> = ({
   session,
   sensors,
+  onDragStart,
   onDragEnd,
 }) => {
   if (session.exercises.length === 0) {
@@ -32,6 +35,7 @@ export const ExerciseList: FC<ExerciseListProps> = ({
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
+        onDragStart={onDragStart}
         onDragEnd={onDragEnd}
       >
         <SortableContext

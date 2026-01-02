@@ -220,7 +220,7 @@ describe('getPreWorkoutSuggestions', () => {
     expect(userMessage.content).toContain('Use kg for weights');
   });
 
-  it('should return empty array for malformed JSON', async () => {
+  it('should return fallback suggestions for malformed JSON', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: () =>
@@ -235,7 +235,11 @@ describe('getPreWorkoutSuggestions', () => {
 
     const result = await getPreWorkoutSuggestions('test-key', template, [], 'lbs');
 
-    expect(result).toEqual([]);
+    // Should still return fallback suggestions for each exercise
+    expect(result).toHaveLength(1);
+    expect(result[0].exerciseId).toBe('bench');
+    expect(result[0].confidence).toBe('low');
+    expect(result[0].progressStatus).toBe('new');
   });
 
   it('should throw error on API failure', async () => {

@@ -1,7 +1,8 @@
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
-import { WorkoutSession, WorkoutTemplate, ExerciseSuggestion } from '../types';
+import { useCurrentWorkoutStore } from '../store/currentWorkoutStore';
+import { WorkoutSession, WorkoutTemplate } from '../types';
 import { getPreWorkoutSuggestions } from '../services/openai';
 
 const generateId = (): string => {
@@ -21,6 +22,7 @@ export const useStartWorkout = (): UseStartWorkoutReturn => {
   const workoutGoal = useAppStore((state) => state.workoutGoal);
   const weightEntries = useAppStore((state) => state.weightEntries);
   const setActiveSession = useAppStore((state) => state.setActiveSession);
+  const setSuggestions = useCurrentWorkoutStore((state) => state.setSuggestions);
   const navigate = useNavigate();
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
 
@@ -54,11 +56,10 @@ export const useStartWorkout = (): UseStartWorkoutReturn => {
     setActiveSession(session);
 
     // Get AI suggestions if API key exists and there's workout history
-    let suggestions: ExerciseSuggestion[] = [];
     if (preferences.openaiApiKey && sessions.length > 0) {
       setIsLoadingSuggestions(true);
       try {
-        suggestions = await getPreWorkoutSuggestions(
+        const suggestions = await getPreWorkoutSuggestions(
           preferences.openaiApiKey,
           template,
           sessions,
@@ -68,16 +69,20 @@ export const useStartWorkout = (): UseStartWorkoutReturn => {
           weightEntries,
           preferences.experienceLevel || 'intermediate'
         );
+        setSuggestions(suggestions);
       } catch (err) {
         console.error('Failed to get suggestions:', err);
         // Continue without suggestions on error
+        setSuggestions([]);
       } finally {
         setIsLoadingSuggestions(false);
       }
+    } else {
+      setSuggestions([]);
     }
 
-    navigate('/workout', { state: { suggestions } });
-  }, [sessions, preferences, currentWeek, workoutGoal, weightEntries, setActiveSession, navigate]);
+    navigate('/workout');
+  }, [sessions, preferences, currentWeek, workoutGoal, weightEntries, setActiveSession, setSuggestions, navigate]);
 
   const startQuickWorkout = useCallback(() => {
     const session: WorkoutSession = {

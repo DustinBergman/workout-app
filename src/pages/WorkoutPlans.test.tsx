@@ -229,21 +229,21 @@ describe('WorkoutPlans', () => {
     });
 
     it('save button is disabled without name', () => {
-      expect(screen.getByRole('button', { name: 'Create Plan' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Finish' })).toBeDisabled();
     });
 
     it('save button is disabled without exercises', () => {
       fireEvent.change(screen.getByLabelText('Plan Name'), { target: { value: 'My Plan' } });
-      expect(screen.getByRole('button', { name: 'Create Plan' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Finish' })).toBeDisabled();
     });
 
     it('shows Add Exercise button', () => {
-      expect(screen.getByRole('button', { name: 'Add Exercise' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Add Exercise/ })).toBeInTheDocument();
     });
 
     it('disables Add Exercise button when exercise has undefined fields', async () => {
       fireEvent.change(screen.getByLabelText('Plan Name'), { target: { value: 'My Plan' } });
-      fireEvent.click(screen.getByRole('button', { name: 'Add Exercise' }));
+      fireEvent.click(screen.getByRole('button', { name: /Add Exercise/ }));
 
       // Wait for and select an exercise
       const benchPress = await screen.findByText('Barbell Bench Press');
@@ -262,7 +262,7 @@ describe('WorkoutPlans', () => {
       fireEvent.change(setsInput, { target: { value: '' } });
 
       // Now Add Exercise button should be disabled
-      expect(screen.getByRole('button', { name: 'Add Exercise' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: /Add Exercise/ })).toBeDisabled();
     });
   });
 
@@ -270,7 +270,7 @@ describe('WorkoutPlans', () => {
     beforeEach(() => {
       render(<WorkoutPlans />);
       fireEvent.click(screen.getByRole('button', { name: /New/ }));
-      fireEvent.click(screen.getByRole('button', { name: 'Add Exercise' }));
+      fireEvent.click(screen.getByRole('button', { name: /Add Exercise/ }));
     });
 
     it('opens exercise picker modal', () => {
@@ -342,7 +342,7 @@ describe('WorkoutPlans', () => {
       fireEvent.click(screen.getByRole('button', { name: /New/ }));
 
       // Add an exercise
-      fireEvent.click(screen.getByRole('button', { name: 'Add Exercise' }));
+      fireEvent.click(screen.getByRole('button', { name: /Add Exercise/ }));
 
       // Wait for exercises to load, then click
       const benchPress = await screen.findByText('Barbell Bench Press');
@@ -409,7 +409,7 @@ describe('WorkoutPlans', () => {
       fireEvent.click(screen.getByRole('button', { name: /New/ }));
 
       // Add first exercise
-      fireEvent.click(screen.getByRole('button', { name: 'Add Exercise' }));
+      fireEvent.click(screen.getByRole('button', { name: /Add Exercise/ }));
       const benchPress = await screen.findByText('Barbell Bench Press');
       fireEvent.click(benchPress);
       await waitFor(() => {
@@ -417,7 +417,7 @@ describe('WorkoutPlans', () => {
       });
 
       // Add second exercise
-      fireEvent.click(screen.getByRole('button', { name: 'Add Exercise' }));
+      fireEvent.click(screen.getByRole('button', { name: /Add Exercise/ }));
       // Wait for dialog to open and exercises to load
       const dialog = await screen.findByRole('dialog');
       await within(dialog).findByText('Barbell Bench Press'); // Wait for list to load
@@ -459,7 +459,7 @@ describe('WorkoutPlans', () => {
     beforeEach(() => {
       render(<WorkoutPlans />);
       fireEvent.click(screen.getByRole('button', { name: /New/ }));
-      fireEvent.click(screen.getByRole('button', { name: 'Add Exercise' }));
+      fireEvent.click(screen.getByRole('button', { name: /Add Exercise/ }));
       fireEvent.click(screen.getByText('Create New Exercise'));
     });
 
@@ -544,7 +544,7 @@ describe('WorkoutPlans', () => {
       fireEvent.change(screen.getByLabelText('Plan Name'), { target: { value: 'My New Plan' } });
 
       // Add exercise
-      fireEvent.click(screen.getByRole('button', { name: 'Add Exercise' }));
+      fireEvent.click(screen.getByRole('button', { name: /Add Exercise/ }));
       const benchPress = await screen.findByText('Barbell Bench Press');
       fireEvent.click(benchPress);
 
@@ -553,7 +553,7 @@ describe('WorkoutPlans', () => {
       });
 
       // Save
-      fireEvent.click(screen.getByRole('button', { name: 'Create Plan' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Finish' }));
 
       // Should return to list view with new template
       await waitFor(() => {
@@ -579,7 +579,7 @@ describe('WorkoutPlans', () => {
       fireEvent.change(screen.getByDisplayValue('Push Day'), { target: { value: 'Updated Push Day' } });
 
       // Save
-      fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Finish' }));
 
       // Check store
       const state = useAppStore.getState();
@@ -607,10 +607,9 @@ describe('WorkoutPlans', () => {
       expect(screen.queryByText('Create with AI')).not.toBeInTheDocument();
     });
 
-    it('shows Save Changes button instead of Create Plan', () => {
+    it('shows Finish button when editing', () => {
       setupEditMode();
-      expect(screen.getByRole('button', { name: 'Save Changes' })).toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: 'Create Plan' })).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Finish' })).toBeInTheDocument();
     });
 
     it('populates form with template data', async () => {
@@ -642,7 +641,7 @@ describe('WorkoutPlans', () => {
       fireEvent.click(screen.getByRole('button', { name: /New/ }));
 
       // Add cardio exercise
-      fireEvent.click(screen.getByRole('button', { name: 'Add Exercise' }));
+      fireEvent.click(screen.getByRole('button', { name: /Add Exercise/ }));
       // Wait for exercises to load
       const outdoorRun = await screen.findByText('Outdoor Run');
       fireEvent.click(outdoorRun);
@@ -673,7 +672,7 @@ describe('WorkoutPlans', () => {
 
       render(<WorkoutPlans />);
       fireEvent.click(screen.getByRole('button', { name: /New/ }));
-      fireEvent.click(screen.getByRole('button', { name: 'Add Exercise' }));
+      fireEvent.click(screen.getByRole('button', { name: /Add Exercise/ }));
 
       // Search for custom exercise
       const searchInput = screen.getByPlaceholderText('Search exercises...');

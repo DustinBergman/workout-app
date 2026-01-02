@@ -1,6 +1,6 @@
 import { FC } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { DragEndEvent } from '@dnd-kit/core';
+import { DragStartEvent, DragEndEvent } from '@dnd-kit/core';
 import { RestTimer } from '../components/timer/RestTimer';
 import { WorkoutHeader } from '../components/active-workout';
 import { ExerciseList } from '../components/active-workout/ExerciseList';
@@ -45,6 +45,7 @@ export const ActiveWorkout: FC = () => {
     finishWorkout,
     cancelWorkout,
     handleCreateExercise,
+    handleDragStart,
     handleDragEnd,
     sensors,
   } = useActiveWorkoutPage();
@@ -81,6 +82,7 @@ export const ActiveWorkout: FC = () => {
         finishWorkout={finishWorkout}
         cancelWorkout={cancelWorkout}
         handleCreateExercise={handleCreateExercise}
+        handleDragStart={handleDragStart}
         handleDragEnd={handleDragEnd}
         sensors={sensors}
       />
@@ -127,6 +129,7 @@ interface ActiveWorkoutContentProps {
   finishWorkout: () => void;
   cancelWorkout: () => void;
   handleCreateExercise: () => void;
+  handleDragStart: (event: DragStartEvent) => void;
   handleDragEnd: (event: DragEndEvent) => void;
   sensors: unknown[];
 }
@@ -161,6 +164,7 @@ const ActiveWorkoutContent: FC<ActiveWorkoutContentProps> = ({
   finishWorkout,
   cancelWorkout,
   handleCreateExercise,
+  handleDragStart,
   handleDragEnd,
   sensors,
 }) => {
@@ -204,6 +208,7 @@ const ActiveWorkoutContent: FC<ActiveWorkoutContentProps> = ({
           <ExerciseList
             session={session}
             sensors={sensors}
+            onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
           />
 

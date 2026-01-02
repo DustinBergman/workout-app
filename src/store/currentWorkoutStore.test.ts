@@ -20,6 +20,18 @@ describe('currentWorkoutStore', () => {
       expect(useCurrentWorkoutStore.getState().timerDuration).toBe(90);
     });
 
+    it('should have timerEndTime as null', () => {
+      expect(useCurrentWorkoutStore.getState().timerEndTime).toBeNull();
+    });
+
+    it('should have timerPaused as false', () => {
+      expect(useCurrentWorkoutStore.getState().timerPaused).toBe(false);
+    });
+
+    it('should have timerRemainingWhenPaused as null', () => {
+      expect(useCurrentWorkoutStore.getState().timerRemainingWhenPaused).toBeNull();
+    });
+
     it('should have showExercisePicker as false', () => {
       expect(useCurrentWorkoutStore.getState().showExercisePicker).toBe(false);
     });
@@ -38,6 +50,10 @@ describe('currentWorkoutStore', () => {
 
     it('should have updatePlan as false', () => {
       expect(useCurrentWorkoutStore.getState().updatePlan).toBe(false);
+    });
+
+    it('should have empty suggestions array', () => {
+      expect(useCurrentWorkoutStore.getState().suggestions).toEqual([]);
     });
   });
 
@@ -76,6 +92,125 @@ describe('currentWorkoutStore', () => {
     it('should allow any positive duration', () => {
       useCurrentWorkoutStore.getState().setTimerDuration(300);
       expect(useCurrentWorkoutStore.getState().timerDuration).toBe(300);
+    });
+  });
+
+  describe('setTimerEndTime', () => {
+    it('should set timer end time', () => {
+      const endTime = Date.now() + 60000;
+      useCurrentWorkoutStore.getState().setTimerEndTime(endTime);
+      expect(useCurrentWorkoutStore.getState().timerEndTime).toBe(endTime);
+    });
+
+    it('should reset pause state when setting end time', () => {
+      // First pause the timer
+      const endTime = Date.now() + 60000;
+      useCurrentWorkoutStore.getState().setTimerEndTime(endTime);
+      useCurrentWorkoutStore.getState().pauseTimer();
+
+      // Now set a new end time
+      const newEndTime = Date.now() + 90000;
+      useCurrentWorkoutStore.getState().setTimerEndTime(newEndTime);
+
+      expect(useCurrentWorkoutStore.getState().timerPaused).toBe(false);
+      expect(useCurrentWorkoutStore.getState().timerRemainingWhenPaused).toBeNull();
+    });
+
+    it('should allow clearing timer end time', () => {
+      const endTime = Date.now() + 60000;
+      useCurrentWorkoutStore.getState().setTimerEndTime(endTime);
+      useCurrentWorkoutStore.getState().setTimerEndTime(null);
+      expect(useCurrentWorkoutStore.getState().timerEndTime).toBeNull();
+    });
+  });
+
+  describe('pauseTimer', () => {
+    it('should pause the timer and store remaining seconds', () => {
+      // Set end time 60 seconds in the future
+      const endTime = Date.now() + 60000;
+      useCurrentWorkoutStore.getState().setTimerEndTime(endTime);
+
+      useCurrentWorkoutStore.getState().pauseTimer();
+
+      expect(useCurrentWorkoutStore.getState().timerPaused).toBe(true);
+      expect(useCurrentWorkoutStore.getState().timerRemainingWhenPaused).toBe(60);
+    });
+
+    it('should not pause if already paused', () => {
+      const endTime = Date.now() + 60000;
+      useCurrentWorkoutStore.getState().setTimerEndTime(endTime);
+      useCurrentWorkoutStore.getState().pauseTimer();
+
+      // Try to pause again - should not change state
+      const remaining = useCurrentWorkoutStore.getState().timerRemainingWhenPaused;
+      useCurrentWorkoutStore.getState().pauseTimer();
+
+      expect(useCurrentWorkoutStore.getState().timerRemainingWhenPaused).toBe(remaining);
+    });
+
+    it('should not pause if no end time', () => {
+      useCurrentWorkoutStore.getState().pauseTimer();
+      expect(useCurrentWorkoutStore.getState().timerPaused).toBe(false);
+    });
+  });
+
+  describe('resumeTimer', () => {
+    it('should resume the timer and recalculate end time', () => {
+      // Set end time and pause
+      const endTime = Date.now() + 60000;
+      useCurrentWorkoutStore.getState().setTimerEndTime(endTime);
+      useCurrentWorkoutStore.getState().pauseTimer();
+
+      const beforeResume = Date.now();
+      useCurrentWorkoutStore.getState().resumeTimer();
+      const afterResume = Date.now();
+
+      expect(useCurrentWorkoutStore.getState().timerPaused).toBe(false);
+      expect(useCurrentWorkoutStore.getState().timerRemainingWhenPaused).toBeNull();
+
+      // New end time should be ~60 seconds from now
+      const newEndTime = useCurrentWorkoutStore.getState().timerEndTime;
+      expect(newEndTime).not.toBeNull();
+      if (newEndTime) {
+        expect(newEndTime).toBeGreaterThanOrEqual(beforeResume + 60000);
+        expect(newEndTime).toBeLessThanOrEqual(afterResume + 60000);
+      }
+    });
+
+    it('should not resume if not paused', () => {
+      const endTime = Date.now() + 60000;
+      useCurrentWorkoutStore.getState().setTimerEndTime(endTime);
+
+      useCurrentWorkoutStore.getState().resumeTimer();
+
+      // End time should not change
+      expect(useCurrentWorkoutStore.getState().timerEndTime).toBe(endTime);
+    });
+
+    it('should not resume if no remaining time stored', () => {
+      useCurrentWorkoutStore.setState({ timerPaused: true, timerRemainingWhenPaused: null });
+      useCurrentWorkoutStore.getState().resumeTimer();
+
+      expect(useCurrentWorkoutStore.getState().timerPaused).toBe(true);
+    });
+  });
+
+  describe('setSuggestions', () => {
+    it('should set suggestions', () => {
+      const suggestions = [
+        { exerciseId: 'bench-press', suggestedWeight: 135, suggestedReps: 10, reasoning: 'test', confidence: 'high' as const },
+      ];
+      useCurrentWorkoutStore.getState().setSuggestions(suggestions);
+      expect(useCurrentWorkoutStore.getState().suggestions).toEqual(suggestions);
+    });
+
+    it('should clear suggestions with empty array', () => {
+      const suggestions = [
+        { exerciseId: 'bench-press', suggestedWeight: 135, suggestedReps: 10, reasoning: 'test', confidence: 'high' as const },
+      ];
+      useCurrentWorkoutStore.getState().setSuggestions(suggestions);
+      useCurrentWorkoutStore.getState().setSuggestions([]);
+      expect(useCurrentWorkoutStore.getState().suggestions).toEqual([]);
     });
   });
 
@@ -150,6 +285,11 @@ describe('currentWorkoutStore', () => {
       useCurrentWorkoutStore.getState().setExpandedIndex(5);
       useCurrentWorkoutStore.getState().setShowTimer(true);
       useCurrentWorkoutStore.getState().setTimerDuration(180);
+      useCurrentWorkoutStore.getState().setTimerEndTime(Date.now() + 60000);
+      useCurrentWorkoutStore.getState().pauseTimer();
+      useCurrentWorkoutStore.getState().setSuggestions([
+        { exerciseId: 'test', suggestedWeight: 100, suggestedReps: 10, reasoning: 'test', confidence: 'high' as const },
+      ]);
       useCurrentWorkoutStore.getState().setShowExercisePicker(true);
       useCurrentWorkoutStore.getState().setExerciseSearch('squat');
       useCurrentWorkoutStore.getState().setShowFinishConfirm(true);
@@ -164,6 +304,10 @@ describe('currentWorkoutStore', () => {
       expect(state.expandedIndex).toBeNull();
       expect(state.showTimer).toBe(false);
       expect(state.timerDuration).toBe(90);
+      expect(state.timerEndTime).toBeNull();
+      expect(state.timerPaused).toBe(false);
+      expect(state.timerRemainingWhenPaused).toBeNull();
+      expect(state.suggestions).toEqual([]);
       expect(state.showExercisePicker).toBe(false);
       expect(state.exerciseSearch).toBe('');
       expect(state.showFinishConfirm).toBe(false);

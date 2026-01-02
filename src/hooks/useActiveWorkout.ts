@@ -1,5 +1,5 @@
 import { useMemo, useCallback, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { useCurrentWorkoutStore } from '../store/currentWorkoutStore';
 import { getAllExercises, searchExercises } from '../data/exercises';
@@ -49,7 +49,6 @@ export interface UseActiveWorkoutReturn {
 
 export const useActiveWorkout = (): UseActiveWorkoutReturn => {
   const navigate = useNavigate();
-  const location = useLocation();
 
   // App store selectors (granular)
   const session = useAppStore((state) => state.activeSession);
@@ -64,17 +63,12 @@ export const useActiveWorkout = (): UseActiveWorkoutReturn => {
   const updatePlan = useCurrentWorkoutStore((state) => state.updatePlan);
   const setShowFinishConfirm = useCurrentWorkoutStore((state) => state.setShowFinishConfirm);
   const setExpandedIndex = useCurrentWorkoutStore((state) => state.setExpandedIndex);
+  const suggestions = useCurrentWorkoutStore((state) => state.suggestions);
 
   // Compose sub-hooks
   const { elapsedSeconds } = useWorkoutTimer(session);
   const scoring = useWorkoutScoring();
   const sessionStats = useSessionStats(session);
-
-  // Suggestions from navigation state (memoized)
-  const suggestions: ExerciseSuggestion[] = useMemo(
-    () => location.state?.suggestions || [],
-    [location.state?.suggestions]
-  );
 
   // Computed values
   const hasDeviated = useMemo(

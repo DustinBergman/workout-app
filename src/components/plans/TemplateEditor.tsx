@@ -82,15 +82,23 @@ export const TemplateEditor: FC<TemplateEditorProps> = ({
 
   return (
     <div className="p-4 pb-20">
-      <div className="flex items-center gap-3 mb-6">
-        <Button variant="ghost" size="sm" onClick={onBack}>
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={onBack}>
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </Button>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            {editingTemplate ? 'Edit Plan' : 'New Plan'}
+          </h1>
+        </div>
+        <Button
+          onClick={onSave}
+          disabled={!templateName.trim() || templateExercises.length === 0}
+        >
+          Finish
         </Button>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-          {editingTemplate ? 'Edit Plan' : 'New Plan'}
-        </h1>
       </div>
 
       {/* Create with AI button - only show when creating new */}
@@ -115,19 +123,9 @@ export const TemplateEditor: FC<TemplateEditorProps> = ({
         />
 
         <div>
-          <div className="flex items-center justify-between mb-2">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Exercises
-            </label>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={onOpenPicker}
-              disabled={hasIncompleteExercises}
-            >
-              Add Exercise
-            </Button>
-          </div>
+          <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+            Exercises
+          </label>
 
           {templateExercises.length === 0 ? (
             <Card className="text-center py-6">
@@ -152,16 +150,15 @@ export const TemplateEditor: FC<TemplateEditorProps> = ({
               ))}
             </div>
           )}
-        </div>
 
-        <div className="pt-4">
-          <Button
-            onClick={onSave}
-            disabled={!templateName.trim() || templateExercises.length === 0}
-            className="w-full"
+          {/* Add Exercise button at the bottom of exercises */}
+          <button
+            onClick={onOpenPicker}
+            disabled={hasIncompleteExercises}
+            className="w-full mt-3 py-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl text-gray-500 dark:text-gray-400 hover:border-blue-400 hover:text-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {editingTemplate ? 'Save Changes' : 'Create Plan'}
-          </Button>
+            + Add Exercise
+          </button>
         </div>
       </div>
 
