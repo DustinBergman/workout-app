@@ -57,6 +57,8 @@ export const useHome = (): UseHomeReturn => {
   const setCurrentWeek = useAppStore((state) => state.setCurrentWeek);
   const advanceWeek = useAppStore((state) => state.advanceWeek);
   const weightEntries = useAppStore((state) => state.weightEntries);
+  const customExercises = useAppStore((state) => state.customExercises);
+  const experienceLevel = preferences.experienceLevel;
 
   // Local state
   const [showWeekSelector, setShowWeekSelector] = useState(false);
@@ -144,7 +146,10 @@ export const useHome = (): UseHomeReturn => {
         const recs = await getProgressiveOverloadRecommendations(
           preferences.openaiApiKey,
           sessions,
-          preferences.weightUnit
+          preferences.weightUnit,
+          customExercises,
+          experienceLevel,
+          workoutGoal
         );
         setRecommendations(recs);
       } catch (err) {
@@ -155,7 +160,7 @@ export const useHome = (): UseHomeReturn => {
     };
 
     loadRecommendations();
-  }, [preferences.openaiApiKey, sessions, preferences.weightUnit]);
+  }, [preferences.openaiApiKey, sessions, preferences.weightUnit, customExercises, experienceLevel, workoutGoal]);
 
   // Select week and close modal
   const selectWeek = useCallback(

@@ -4,13 +4,16 @@ import { useNavigate } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { Button, Card, Input } from '../components/ui';
-import { MuscleGroup, Equipment } from '../types';
+import { MuscleGroup, Equipment, CardioType } from '../types';
 import { getAllExercises } from '../data/exercises';
 import {
   generateWorkoutPlan,
+  generateCardioPlan,
   createTemplateFromPlan,
+  createCardioTemplateFromPlan,
   WorkoutType,
   GeneratedPlan,
+  GeneratedCardioPlan,
 } from '../services/openai/planGenerator';
 
 // Workout type options
@@ -22,6 +25,7 @@ const WORKOUT_TYPE_OPTIONS: { value: WorkoutType; label: string; description: st
   { value: 'upper', label: 'Upper Body', description: 'All upper body muscles' },
   { value: 'lower', label: 'Lower Body', description: 'All lower body muscles' },
   { value: 'custom', label: 'Custom', description: 'Select specific muscle groups' },
+  { value: 'cardio', label: 'Cardio', description: 'Running, cycling, HIIT, and more' },
 ];
 
 // Equipment options
@@ -54,9 +58,24 @@ const MUSCLE_GROUP_OPTIONS: { value: MuscleGroup; label: string }[] = [
   { value: 'traps', label: 'Traps' },
 ];
 
+// Cardio type options
+const CARDIO_TYPE_OPTIONS: { value: CardioType; label: string }[] = [
+  { value: 'running', label: 'Running' },
+  { value: 'walking', label: 'Walking' },
+  { value: 'cycling', label: 'Cycling' },
+  { value: 'rowing', label: 'Rowing' },
+  { value: 'elliptical', label: 'Elliptical' },
+  { value: 'stair-climber', label: 'Stair Climber' },
+  { value: 'swimming', label: 'Swimming' },
+  { value: 'hiking', label: 'Hiking' },
+  { value: 'hiit', label: 'HIIT' },
+  { value: 'boxing', label: 'Boxing' },
+];
+
 interface AIWorkoutFormData {
   workoutType: WorkoutType;
   customMuscleGroups: MuscleGroup[];
+  selectedCardioTypes: CardioType[];
   numberOfExercises: number;
   availableEquipment: Equipment[];
   additionalComments: string;
@@ -66,7 +85,7 @@ interface AIWorkoutFormData {
 export const AIWorkoutCreator: FC = () => {
   const [step, setStep] = useState(1);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedPlan, setGeneratedPlan] = useState<GeneratedPlan | null>(null);
+  const [generatedPlan, setGeneratedPlan] = useState<GeneratedPlan | GeneratedCardioPlan | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const navigate = useNavigate();
@@ -78,6 +97,7 @@ export const AIWorkoutCreator: FC = () => {
     defaultValues: {
       workoutType: 'full-body',
       customMuscleGroups: [],
+      selectedCardioTypes: [],
       numberOfExercises: 6,
       availableEquipment: ['barbell', 'dumbbell', 'cable', 'machine', 'bodyweight'],
       additionalComments: '',
@@ -88,9 +108,12 @@ export const AIWorkoutCreator: FC = () => {
   const selectedWorkoutType = watch('workoutType');
   const selectedEquipment = watch('availableEquipment');
   const selectedMuscleGroups = watch('customMuscleGroups');
+  const selectedCardioTypes = watch('selectedCardioTypes');
   const numberOfExercises = watch('numberOfExercises');
   const additionalComments = watch('additionalComments');
   const planName = watch('planName');
+
+  const isCardioWorkout = selectedWorkoutType === 'cardio';
 
   const nextStep = () => setStep((s) => Math.min(s + 1, 4));
   const prevStep = () => setStep((s) => Math.max(s - 1, 1));
@@ -113,8 +136,17 @@ export const AIWorkoutCreator: FC = () => {
     }
   };
 
-  const canProceedFromStep1 = selectedWorkoutType !== 'custom' || selectedMuscleGroups.length > 0;
-  const canProceedFromStep2 = selectedEquipment.length > 0;
+  const toggleCardioType = (cardioType: CardioType) => {
+    const current = selectedCardioTypes;
+    if (current.includes(cardioType)) {
+      setValue('selectedCardioTypes', current.filter((c) => c !== cardioType));
+    } else {
+      setValue('selectedCardioTypes', [...current, cardioType]);
+    }
+  };
+
+  const canProceedFromStep1 = selectedWorkoutType === 'cardio' || selectedWorkoutType !== 'custom' || selectedMuscleGroups.length > 0;
+  const canProceedFromStep2 = isCardioWorkout ? selectedCardioTypes.length > 0 : selectedEquipment.length > 0;
 
   const handleGenerate = async () => {
     if (!apiKey) {
@@ -126,20 +158,35 @@ export const AIWorkoutCreator: FC = () => {
     setError(null);
 
     try {
-      const plan = await generateWorkoutPlan(
-        apiKey,
-        {
-          workoutType: selectedWorkoutType,
-          customMuscleGroups: selectedMuscleGroups,
-          numberOfExercises,
-          availableEquipment: selectedEquipment,
-          additionalComments,
-        },
-        customExercises
-      );
-
-      setGeneratedPlan(plan);
-      setValue('planName', plan.name);
+      if (isCardioWorkout) {
+        const plan = await generateCardioPlan(
+          apiKey,
+          {
+            workoutType: 'cardio',
+            selectedCardioTypes: selectedCardioTypes,
+            numberOfExercises,
+            availableEquipment: [],
+            additionalComments,
+          },
+          customExercises
+        );
+        setGeneratedPlan(plan);
+        setValue('planName', plan.name);
+      } else {
+        const plan = await generateWorkoutPlan(
+          apiKey,
+          {
+            workoutType: selectedWorkoutType,
+            customMuscleGroups: selectedMuscleGroups,
+            numberOfExercises,
+            availableEquipment: selectedEquipment,
+            additionalComments,
+          },
+          customExercises
+        );
+        setGeneratedPlan(plan);
+        setValue('planName', plan.name);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate workout plan');
     } finally {
@@ -150,7 +197,9 @@ export const AIWorkoutCreator: FC = () => {
   const handleSave = () => {
     if (!generatedPlan) return;
 
-    const template = createTemplateFromPlan(generatedPlan, planName || generatedPlan.name);
+    const template = isCardioWorkout
+      ? createCardioTemplateFromPlan(generatedPlan as GeneratedCardioPlan, planName || generatedPlan.name)
+      : createTemplateFromPlan(generatedPlan as GeneratedPlan, planName || generatedPlan.name);
     addTemplate(template);
     navigate('/plans');
   };
@@ -204,8 +253,8 @@ export const AIWorkoutCreator: FC = () => {
 
         {/* Step 1: Workout Type */}
         {step === 1 && (
-          <div className="flex-1 flex flex-col max-w-md mx-auto w-full">
-            <div className="text-center mb-6">
+          <div className="flex-1 flex flex-col max-w-md mx-auto w-full overflow-hidden">
+            <div className="text-center mb-6 flex-shrink-0">
               <h2 className="text-2xl font-bold text-foreground mb-2">
                 What type of workout?
               </h2>
@@ -214,7 +263,7 @@ export const AIWorkoutCreator: FC = () => {
               </p>
             </div>
 
-            <div className="flex-1 space-y-3 mb-6 overflow-y-auto max-h-[50vh]">
+            <div className="flex-1 space-y-3 mb-6 overflow-y-auto">
               {WORKOUT_TYPE_OPTIONS.map((option) => (
                 <button
                   key={option.value}
@@ -241,36 +290,36 @@ export const AIWorkoutCreator: FC = () => {
                   </p>
                 </button>
               ))}
-            </div>
 
-            {/* Custom muscle group selection */}
-            {selectedWorkoutType === 'custom' && (
-              <Card padding="md" className="mb-6">
-                <p className="font-medium text-foreground mb-3">Select muscle groups</p>
-                <div className="flex flex-wrap gap-2">
-                  {MUSCLE_GROUP_OPTIONS.map((option) => (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => toggleMuscleGroup(option.value)}
-                      className={`px-3 py-1.5 text-sm rounded-full transition-all ${
-                        selectedMuscleGroups.includes(option.value)
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              </Card>
-            )}
+              {/* Custom muscle group selection - inside scrollable area */}
+              {selectedWorkoutType === 'custom' && (
+                <Card padding="md" className="mt-4">
+                  <p className="font-medium text-foreground mb-3">Select muscle groups</p>
+                  <div className="flex flex-wrap gap-2">
+                    {MUSCLE_GROUP_OPTIONS.map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => toggleMuscleGroup(option.value)}
+                        className={`px-3 py-1.5 text-sm rounded-full transition-all ${
+                          selectedMuscleGroups.includes(option.value)
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </Card>
+              )}
+            </div>
 
             <Button
               type="button"
               onClick={nextStep}
               disabled={!canProceedFromStep1}
-              className="w-full"
+              className="w-full flex-shrink-0"
               size="lg"
             >
               Next
@@ -283,10 +332,10 @@ export const AIWorkoutCreator: FC = () => {
           <div className="flex-1 flex flex-col max-w-md mx-auto w-full overflow-hidden">
             <div className="text-center mb-6 flex-shrink-0">
               <h2 className="text-2xl font-bold text-foreground mb-2">
-                Customize your workout
+                {isCardioWorkout ? 'Choose cardio types' : 'Customize your workout'}
               </h2>
               <p className="text-muted-foreground">
-                Set your preferences
+                {isCardioWorkout ? 'Select the types of cardio you want' : 'Set your preferences'}
               </p>
             </div>
 
@@ -298,45 +347,77 @@ export const AIWorkoutCreator: FC = () => {
                 </p>
                 <input
                   type="range"
-                  min="4"
-                  max="10"
+                  min={isCardioWorkout ? 1 : 4}
+                  max={isCardioWorkout ? 5 : 10}
                   value={numberOfExercises}
                   onChange={(e) => setValue('numberOfExercises', parseInt(e.target.value))}
                   className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
                 />
                 <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                  <span>4</span>
-                  <span>10</span>
+                  <span>{isCardioWorkout ? 1 : 4}</span>
+                  <span>{isCardioWorkout ? 5 : 10}</span>
                 </div>
               </Card>
 
-              {/* Equipment selection */}
-              <Card padding="lg">
-                <p className="font-medium text-foreground mb-3">
-                  Available equipment
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {EQUIPMENT_OPTIONS.map((option) => (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => toggleEquipment(option.value)}
-                      className={`px-3 py-1.5 text-sm rounded-full transition-all ${
-                        selectedEquipment.includes(option.value)
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-                {selectedEquipment.length === 0 && (
-                  <p className="text-sm text-red-500 mt-2">
-                    Please select at least one equipment type
+              {/* Cardio type selection - shown for cardio workouts */}
+              {isCardioWorkout && (
+                <Card padding="lg">
+                  <p className="font-medium text-foreground mb-3">
+                    Cardio types
                   </p>
-                )}
-              </Card>
+                  <div className="flex flex-wrap gap-2">
+                    {CARDIO_TYPE_OPTIONS.map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => toggleCardioType(option.value)}
+                        className={`px-3 py-1.5 text-sm rounded-full transition-all ${
+                          selectedCardioTypes.includes(option.value)
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                  {selectedCardioTypes.length === 0 && (
+                    <p className="text-sm text-red-500 mt-2">
+                      Please select at least one cardio type
+                    </p>
+                  )}
+                </Card>
+              )}
+
+              {/* Equipment selection - shown for strength workouts */}
+              {!isCardioWorkout && (
+                <Card padding="lg">
+                  <p className="font-medium text-foreground mb-3">
+                    Available equipment
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {EQUIPMENT_OPTIONS.map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => toggleEquipment(option.value)}
+                        className={`px-3 py-1.5 text-sm rounded-full transition-all ${
+                          selectedEquipment.includes(option.value)
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                  {selectedEquipment.length === 0 && (
+                    <p className="text-sm text-red-500 mt-2">
+                      Please select at least one equipment type
+                    </p>
+                  )}
+                </Card>
+              )}
             </div>
 
             <div className="flex gap-3 flex-shrink-0 pt-4">
@@ -463,12 +544,21 @@ export const AIWorkoutCreator: FC = () => {
                     <span className="text-muted-foreground">Exercises</span>
                     <span className="font-medium text-foreground">{numberOfExercises}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Equipment</span>
-                    <span className="font-medium text-foreground text-right max-w-[60%]">
-                      {selectedEquipment.length} types
-                    </span>
-                  </div>
+                  {isCardioWorkout ? (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Cardio Types</span>
+                      <span className="font-medium text-foreground text-right max-w-[60%]">
+                        {selectedCardioTypes.length} selected
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Equipment</span>
+                      <span className="font-medium text-foreground text-right max-w-[60%]">
+                        {selectedEquipment.length} types
+                      </span>
+                    </div>
+                  )}
                   {additionalComments && (
                     <div className="pt-2 border-t border-border">
                       <span className="text-muted-foreground text-sm">Notes: </span>
@@ -513,7 +603,10 @@ export const AIWorkoutCreator: FC = () => {
                           {index + 1}. {getExerciseName(ex.exerciseId)}
                         </span>
                         <span className="text-xs text-muted-foreground">
-                          {ex.targetSets}x{ex.targetReps}
+                          {isCardioWorkout
+                            ? `${(ex as GeneratedCardioPlan['exercises'][0]).restSeconds || 60}s rest`
+                            : `${(ex as GeneratedPlan['exercises'][0]).targetSets}x${(ex as GeneratedPlan['exercises'][0]).targetReps}`
+                          }
                         </span>
                       </div>
                     ))}

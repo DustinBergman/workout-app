@@ -1,12 +1,12 @@
-import { StrengthExercise, MuscleGroup, Equipment, WorkoutTemplate, StrengthTemplateExercise, Exercise } from '../../types';
+import { StrengthExercise, CardioExercise, MuscleGroup, Equipment, CardioType, WorkoutTemplate, StrengthTemplateExercise, CardioTemplateExercise, Exercise } from '../../types';
 import { getAllExercises } from '../../data/exercises';
 import { callOpenAI, parseJSONResponse } from './client';
 
 // Workout type options
-export type WorkoutType = 'full-body' | 'push' | 'pull' | 'legs' | 'upper' | 'lower' | 'custom';
+export type WorkoutType = 'full-body' | 'push' | 'pull' | 'legs' | 'upper' | 'lower' | 'custom' | 'cardio';
 
-// Mapping of workout types to target muscle groups
-export const WORKOUT_TYPE_MUSCLES: Record<Exclude<WorkoutType, 'custom'>, MuscleGroup[]> = {
+// Mapping of workout types to target muscle groups (excludes cardio since it doesn't use muscle groups)
+export const WORKOUT_TYPE_MUSCLES: Record<Exclude<WorkoutType, 'custom' | 'cardio'>, MuscleGroup[]> = {
   'full-body': ['chest', 'back', 'shoulders', 'biceps', 'triceps', 'quadriceps', 'hamstrings', 'glutes', 'core'],
   'push': ['chest', 'shoulders', 'triceps'],
   'pull': ['back', 'lats', 'biceps', 'traps'],
@@ -18,6 +18,7 @@ export const WORKOUT_TYPE_MUSCLES: Record<Exclude<WorkoutType, 'custom'>, Muscle
 export interface GeneratePlanInput {
   workoutType: WorkoutType;
   customMuscleGroups?: MuscleGroup[];
+  selectedCardioTypes?: CardioType[];
   numberOfExercises: number;
   availableEquipment: Equipment[];
   additionalComments: string;
@@ -30,6 +31,14 @@ export interface GeneratedPlan {
     targetSets: number;
     targetReps: number;
     restSeconds: number;
+  }>;
+}
+
+export interface GeneratedCardioPlan {
+  name: string;
+  exercises: Array<{
+    exerciseId: string;
+    restSeconds?: number;
   }>;
 }
 
@@ -52,7 +61,7 @@ const buildUserPrompt = (
   input: GeneratePlanInput,
   availableExercises: StrengthExercise[]
 ): string => {
-  const targetMuscles = input.workoutType === 'custom'
+  const targetMuscles = input.workoutType === 'custom' || input.workoutType === 'cardio'
     ? input.customMuscleGroups || []
     : WORKOUT_TYPE_MUSCLES[input.workoutType];
 
@@ -108,7 +117,7 @@ export const generateWorkoutPlan = async (
   );
 
   // Get target muscles for this workout type
-  const targetMuscles = input.workoutType === 'custom'
+  const targetMuscles = input.workoutType === 'custom' || input.workoutType === 'cardio'
     ? input.customMuscleGroups || []
     : WORKOUT_TYPE_MUSCLES[input.workoutType];
 
@@ -166,6 +175,130 @@ export const createTemplateFromPlan = (
     exerciseId: ex.exerciseId,
     targetSets: ex.targetSets,
     targetReps: ex.targetReps,
+    restSeconds: ex.restSeconds,
+  }));
+  return {
+    id: Math.random().toString(36).substring(2, 15),
+    name: customName || plan.name,
+    exercises,
+    createdAt: now,
+    updatedAt: now,
+  };
+};
+
+// ============== CARDIO PLAN GENERATION ==============
+
+const CARDIO_SYSTEM_PROMPT = `You are a professional fitness coach AI that creates personalized cardio training plans.
+
+IMPORTANT RULES:
+1. Only use exercises from the provided cardio exercise list - do not invent exercises
+2. Select exercises that match the user's preferred cardio types
+3. Order exercises strategically for an effective cardio session
+4. Respond ONLY with valid JSON - no explanations or markdown
+
+Guidelines for cardio workouts:
+- Consider starting with a lower intensity warmup activity if appropriate
+- Place higher intensity activities after warmup
+- Mix activities for variety if multiple types are selected
+- Rest between activities: 30-60 seconds for continuous flow, 60-120 seconds for interval-style`;
+
+const buildCardioUserPrompt = (
+  input: GeneratePlanInput,
+  availableExercises: CardioExercise[]
+): string => {
+  const cardioTypes = input.selectedCardioTypes?.join(', ') || 'any';
+
+  return `Create a cardio workout plan with the following requirements:
+
+PREFERRED CARDIO TYPES: ${cardioTypes}
+
+NUMBER OF EXERCISES: ${input.numberOfExercises}
+
+${input.additionalComments ? `USER NOTES: ${input.additionalComments}` : ''}
+
+AVAILABLE EXERCISES (you MUST only choose from this list):
+${JSON.stringify(availableExercises.map(e => ({
+  id: e.id,
+  name: e.name,
+  cardioType: e.cardioType
+})), null, 2)}
+
+Respond with a JSON object in this exact format:
+{
+  "name": "Suggested cardio workout name",
+  "exercises": [
+    {
+      "exerciseId": "exact-id-from-list",
+      "restSeconds": 60
+    }
+  ]
+}`;
+};
+
+export const generateCardioPlan = async (
+  apiKey: string,
+  input: GeneratePlanInput,
+  customExercises: Exercise[] = []
+): Promise<GeneratedCardioPlan> => {
+  const allExercises = getAllExercises(customExercises);
+
+  // Filter to cardio exercises only
+  const cardioExercises = allExercises.filter(
+    (ex): ex is CardioExercise => ex.type === 'cardio'
+  );
+
+  // Filter by selected cardio types if specified
+  const relevantExercises = input.selectedCardioTypes?.length
+    ? cardioExercises.filter(ex => input.selectedCardioTypes!.includes(ex.cardioType))
+    : cardioExercises;
+
+  if (relevantExercises.length === 0) {
+    throw new Error('No cardio exercises match your selected types. Try selecting more cardio types.');
+  }
+
+  const userPrompt = buildCardioUserPrompt(input, relevantExercises);
+
+  const content = await callOpenAI({
+    apiKey,
+    messages: [
+      { role: 'system', content: CARDIO_SYSTEM_PROMPT },
+      { role: 'user', content: userPrompt }
+    ],
+    maxTokens: 1000,
+    temperature: 0.3,
+  });
+
+  // Parse and validate response
+  const parsed = parseJSONResponse<GeneratedCardioPlan>(content, {
+    name: 'AI Generated Cardio Workout',
+    exercises: []
+  });
+
+  // Validate that all exercise IDs exist
+  const validExerciseIds = new Set(allExercises.map(e => e.id));
+  const validatedExercises = parsed.exercises.filter(
+    ex => validExerciseIds.has(ex.exerciseId)
+  );
+
+  if (validatedExercises.length === 0) {
+    throw new Error('AI failed to generate a valid cardio plan. Please try again.');
+  }
+
+  return {
+    name: parsed.name || 'AI Generated Cardio Workout',
+    exercises: validatedExercises
+  };
+};
+
+// Helper to convert GeneratedCardioPlan to WorkoutTemplate
+export const createCardioTemplateFromPlan = (
+  plan: GeneratedCardioPlan,
+  customName?: string
+): WorkoutTemplate => {
+  const now = new Date().toISOString();
+  const exercises: CardioTemplateExercise[] = plan.exercises.map(ex => ({
+    type: 'cardio' as const,
+    exerciseId: ex.exerciseId,
     restSeconds: ex.restSeconds,
   }));
   return {
