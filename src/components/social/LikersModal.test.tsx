@@ -92,9 +92,8 @@ describe('LikersModal', () => {
   });
 
   it('should show loading state', async () => {
-    let resolvePromise: (value: unknown) => void;
     vi.mocked(getWorkoutLikes).mockImplementation(
-      () => new Promise((resolve) => { resolvePromise = resolve; })
+      () => new Promise(() => { /* never resolves */ })
     );
 
     renderComponent();

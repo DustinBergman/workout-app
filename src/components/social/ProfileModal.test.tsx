@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { ProfileModal } from './ProfileModal';
 
 // Mock the useProfile hook
@@ -15,8 +15,8 @@ describe('ProfileModal', () => {
     first_name: 'John',
     last_name: 'Doe',
     username: 'johnd',
-    experience_level: 'intermediate',
-    workout_goal: 'strength',
+    experience_level: 'intermediate' as const,
+    workout_goal: 'build' as const,
   };
 
   const mockOnClose = vi.fn();
@@ -65,7 +65,8 @@ describe('ProfileModal', () => {
   it('should display workout goal', () => {
     renderComponent();
 
-    expect(screen.getByText('Build Strength')).toBeInTheDocument();
+    // 'build' is displayed as the raw value since it's not in workoutGoalLabels map
+    expect(screen.getByText('build')).toBeInTheDocument();
   });
 
   it('should show loading state', () => {

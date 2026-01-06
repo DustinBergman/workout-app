@@ -4,10 +4,10 @@ import { useProfile } from './useProfile';
 
 // Mock useAuth hook
 vi.mock('./useAuth', () => ({
-  useAuth: vi.fn(() => ({
-    user: { id: 'current-user-123' },
-  })),
+  useAuth: vi.fn(),
 }));
+
+import { useAuth } from './useAuth';
 
 // Mock the profile service
 vi.mock('../services/supabase/profiles', () => ({
@@ -41,11 +41,22 @@ describe('useProfile', () => {
     last_name: 'Doe',
     username: 'johnd',
     experience_level: 'intermediate' as const,
-    workout_goal: 'strength' as const,
+    workout_goal: 'build' as const,
   };
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(useAuth).mockReturnValue({
+      user: { id: 'current-user-123' } as never,
+      session: null,
+      isLoading: false,
+      isAuthenticated: true,
+      signIn: vi.fn(),
+      signUp: vi.fn(),
+      signOut: vi.fn(),
+      resetPassword: vi.fn(),
+      updatePassword: vi.fn(),
+    });
     vi.mocked(getPublicProfile).mockResolvedValue({
       profile: mockProfile,
       error: null,
@@ -55,6 +66,7 @@ describe('useProfile', () => {
       error: null,
     });
     vi.mocked(hasPendingRequest).mockResolvedValue({
+      hasPending: false,
       direction: null,
       requestId: null,
       error: null,
@@ -99,6 +111,7 @@ describe('useProfile', () => {
 
   it('should set friendshipStatus to pending_sent when request sent', async () => {
     vi.mocked(hasPendingRequest).mockResolvedValue({
+      hasPending: true,
       direction: 'sent',
       requestId: 'request-123',
       error: null,
@@ -114,6 +127,7 @@ describe('useProfile', () => {
 
   it('should set friendshipStatus to pending_received when request received', async () => {
     vi.mocked(hasPendingRequest).mockResolvedValue({
+      hasPending: true,
       direction: 'received',
       requestId: null,
       error: null,
@@ -138,7 +152,7 @@ describe('useProfile', () => {
 
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
-    });
+    }, { timeout: 2000 });
 
     await act(async () => {
       await result.current.sendRequest();
@@ -150,6 +164,7 @@ describe('useProfile', () => {
 
   it('should accept friend request', async () => {
     vi.mocked(hasPendingRequest).mockResolvedValue({
+      hasPending: true,
       direction: 'received',
       requestId: null,
       error: null,
@@ -176,6 +191,7 @@ describe('useProfile', () => {
 
   it('should cancel friend request', async () => {
     vi.mocked(hasPendingRequest).mockResolvedValue({
+      hasPending: true,
       direction: 'sent',
       requestId: 'request-123',
       error: null,

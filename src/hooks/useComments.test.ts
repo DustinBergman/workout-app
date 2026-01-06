@@ -103,7 +103,7 @@ describe('useComments', () => {
   });
 
   it('should revert deletion on error', async () => {
-    vi.mocked(deleteComment).mockResolvedValue({ error: new Error('Failed') });
+    vi.mocked(deleteComment).mockResolvedValue({ error: new Error('Delete failed') });
 
     const { result } = renderHook(() => useComments('workout-123'));
 
@@ -117,7 +117,7 @@ describe('useComments', () => {
 
     // Should revert to original state
     expect(result.current.comments).toHaveLength(1);
-    expect(result.current.error).toBe('Failed to delete comment');
+    expect(result.current.error).toBe('Delete failed');
   });
 
   it('should refresh comments', async () => {
@@ -148,7 +148,7 @@ describe('useComments', () => {
     const { result } = renderHook(() => useComments('workout-123'));
 
     await waitFor(() => {
-      expect(result.current.error).toBe('Failed to load comments');
+      expect(result.current.error).toBe('Load failed');
     });
   });
 

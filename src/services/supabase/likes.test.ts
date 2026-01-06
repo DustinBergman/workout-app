@@ -11,8 +11,6 @@ import {
 const mockRpc = vi.fn();
 const mockDelete = vi.fn();
 const mockSelect = vi.fn();
-const mockEq = vi.fn();
-const mockIn = vi.fn();
 const mockOrder = vi.fn();
 const mockLimit = vi.fn();
 const mockMaybeSingle = vi.fn();
@@ -66,7 +64,7 @@ describe('Likes Service', () => {
       vi.mocked(supabase.auth.getUser).mockResolvedValue({
         data: { user: null },
         error: null,
-      });
+      } as never);
 
       const result = await likeWorkout('workout-123');
 
@@ -102,7 +100,7 @@ describe('Likes Service', () => {
       vi.mocked(supabase.auth.getUser).mockResolvedValue({
         data: { user: null },
         error: null,
-      });
+      } as never);
 
       const result = await unlikeWorkout('workout-123');
 
@@ -155,7 +153,7 @@ describe('Likes Service', () => {
       vi.mocked(supabase.auth.getUser).mockResolvedValue({
         data: { user: null },
         error: null,
-      });
+      } as never);
 
       const result = await getLikeSummary('workout-123');
 
@@ -176,7 +174,7 @@ describe('Likes Service', () => {
       vi.mocked(supabase.auth.getUser).mockResolvedValue({
         data: { user: null },
         error: null,
-      });
+      } as never);
 
       const result = await getBatchLikeSummaries(['workout-123']);
 

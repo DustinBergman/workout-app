@@ -55,7 +55,7 @@ describe('Comments Service', () => {
       vi.mocked(supabase.auth.getUser).mockResolvedValue({
         data: { user: null },
         error: null,
-      });
+      } as never);
 
       const result = await addComment('workout-123', 'Great workout!');
 
@@ -118,7 +118,7 @@ describe('Comments Service', () => {
       vi.mocked(supabase.auth.getUser).mockResolvedValue({
         data: { user: null },
         error: null,
-      });
+      } as never);
 
       const result = await deleteComment('comment-123');
 
