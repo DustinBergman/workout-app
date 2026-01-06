@@ -166,11 +166,14 @@ export const SyncProvider: FC<SyncProviderProps> = ({ children }) => {
           return;
         }
 
-        // Sync from cloud
+        // Sync from cloud - wait for this to complete before showing app
         await syncFromCloud();
+        setIsInitialLoading(false);
+      } else if (!isAuthenticated) {
+        // Not authenticated - no sync needed, will redirect to auth
+        setIsInitialLoading(false);
       }
-
-      setIsInitialLoading(false);
+      // If authenticated but offline, keep isInitialLoading true until online
     };
 
     initSync();

@@ -12,12 +12,15 @@ import {
   Settings,
   Intro,
   Auth,
+  Feed,
+  Friends,
 } from './pages';
 import { useAppStore, migrateTemplates } from './store/useAppStore';
 import { GlobalTimerNotification } from './components/timer/GlobalTimerNotification';
 import { AuthProvider } from './contexts/AuthContext';
 import { SyncProvider } from './contexts/SyncContext';
 import { MigrationPrompt } from './components/auth';
+import { NotificationBell } from './components/notifications';
 import { useAuth } from './hooks/useAuth';
 import { useSync } from './hooks/useSync';
 import { markMigrationComplete } from './services/supabase';
@@ -98,11 +101,14 @@ const HeaderContent: FC = () => {
 
   return (
     <div className="flex items-center justify-between px-4 h-14">
-      <Link to="/" className="text-xl font-bold text-primary">
-        overload.ai
-      </Link>
       <div className="flex items-center gap-3">
+        <Link to="/" className="text-xl font-bold text-primary">
+          overload.ai
+        </Link>
         <SyncIndicator />
+      </div>
+      <div className="flex items-center gap-2">
+        <NotificationBell />
         <Link
           to="/settings"
           className="p-2 text-muted-foreground hover:text-foreground transition-colors"
@@ -131,15 +137,16 @@ const HeaderContent: FC = () => {
 const AppContent: FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { isAuthenticated, isLoading } = useAuth();
-  const { showMigrationPrompt, setShowMigrationPrompt, syncFromCloud } = useSync();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { showMigrationPrompt, setShowMigrationPrompt, syncFromCloud, isInitialLoading } = useSync();
+  const hasCompletedIntro = useAppStore((state) => state.hasCompletedIntro);
 
   // Redirect to /auth if not authenticated (except when already on /auth)
   useEffect(() => {
-    if (!isLoading && !isAuthenticated && location.pathname !== '/auth') {
+    if (!authLoading && !isAuthenticated && location.pathname !== '/auth') {
       navigate('/auth', { replace: true });
     }
-  }, [isAuthenticated, isLoading, location.pathname, navigate]);
+  }, [isAuthenticated, authLoading, location.pathname, navigate]);
 
   const handleMigrationComplete = () => {
     markMigrationComplete();
@@ -154,8 +161,8 @@ const AppContent: FC = () => {
     syncFromCloud();
   };
 
-  // Show loading while checking auth
-  if (isLoading) {
+  // Show loading while checking auth or doing initial sync
+  if (authLoading || isInitialLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
@@ -174,6 +181,11 @@ const AppContent: FC = () => {
         <Route path="*" element={<Auth />} />
       </Routes>
     );
+  }
+
+  // Show intro wizard if not completed (check AFTER sync so we have latest from Supabase)
+  if (!hasCompletedIntro) {
+    return <Intro />;
   }
 
   return (
@@ -198,6 +210,8 @@ const AppContent: FC = () => {
             <Route path="/workout" element={<ActiveWorkout />} />
             <Route path="/history" element={<History />} />
             <Route path="/you" element={<You />} />
+            <Route path="/feed" element={<Feed />} />
+            <Route path="/friends" element={<Friends />} />
             <Route path="/settings" element={<Settings />} />
           </Routes>
         </main>
@@ -218,17 +232,11 @@ const AppContent: FC = () => {
 };
 
 const App: FC = () => {
-  const hasCompletedIntro = useAppStore((state) => state.hasCompletedIntro);
-
   // Run migration once on app startup
   // TODO: Remove this after all users have migrated (added Jan 2026)
   useEffect(() => {
     migrateTemplates();
   }, []);
-
-  if (!hasCompletedIntro) {
-    return <Intro />;
-  }
 
   return (
     <AuthProvider>

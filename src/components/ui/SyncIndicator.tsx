@@ -12,12 +12,11 @@ export const SyncIndicator: FC = () => {
   // Don't show anything if not authenticated
   if (!isAuthenticated) return null;
 
-  // Only show indicator for syncing or offline states
+  // Only show indicator when syncing, offline, or error
   if (status === 'syncing') {
     return (
-      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-        <span className="hidden sm:inline">Syncing...</span>
+      <div className="flex items-center">
+        <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -44,16 +43,6 @@ export const SyncIndicator: FC = () => {
     );
   }
 
-  // For synced state, show a subtle cloud icon
-  if (status === 'synced') {
-    return (
-      <div className="flex items-center gap-1.5 text-xs text-green-500">
-        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
-        </svg>
-      </div>
-    );
-  }
-
+  // Don't show anything for synced or idle states
   return null;
 };

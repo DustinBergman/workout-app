@@ -216,45 +216,49 @@ describe('Migration Service', () => {
   });
 
   describe('markMigrationComplete', () => {
-    it('should remove localStorage data', () => {
+    it('should set migration complete flag', () => {
+      markMigrationComplete();
+
+      expect(localStorage.getItem('workout-app-migration-complete')).toBe('true');
+    });
+
+    it('should not throw when called multiple times', () => {
+      expect(() => markMigrationComplete()).not.toThrow();
+      expect(() => markMigrationComplete()).not.toThrow();
+    });
+
+    it('should not affect the main storage key', () => {
       const data = createMockStorageData();
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 
       markMigrationComplete();
 
-      expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
-    });
-
-    it('should not throw when no localStorage data', () => {
-      expect(() => markMigrationComplete()).not.toThrow();
-    });
-
-    it('should not throw on invalid JSON', () => {
-      localStorage.setItem(STORAGE_KEY, 'invalid json');
-      expect(() => markMigrationComplete()).not.toThrow();
-      expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+      // Main storage key should still exist (Zustand uses it)
+      expect(localStorage.getItem(STORAGE_KEY)).not.toBeNull();
+      // Migration flag should be set
+      expect(localStorage.getItem('workout-app-migration-complete')).toBe('true');
     });
   });
 
   describe('isMigrationComplete', () => {
-    it('should return true when no localStorage data', () => {
-      expect(isMigrationComplete()).toBe(true);
+    it('should return false when migration flag not set', () => {
+      expect(isMigrationComplete()).toBe(false);
     });
 
-    it('should return false when data exists but not migrated', () => {
+    it('should return false when data exists but migration flag not set', () => {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(createMockStorageData()));
       expect(isMigrationComplete()).toBe(false);
     });
 
-    it('should return true when migrated flag is set', () => {
-      const data = { ...createMockStorageData(), migrated: true };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    it('should return true when migration flag is set', () => {
+      localStorage.setItem('workout-app-migration-complete', 'true');
       expect(isMigrationComplete()).toBe(true);
     });
 
-    it('should return false on invalid JSON', () => {
-      localStorage.setItem(STORAGE_KEY, 'invalid json');
-      expect(isMigrationComplete()).toBe(false);
+    it('should return true even when storage data exists if migration flag is set', () => {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(createMockStorageData()));
+      localStorage.setItem('workout-app-migration-complete', 'true');
+      expect(isMigrationComplete()).toBe(true);
     });
   });
 });

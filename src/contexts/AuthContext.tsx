@@ -9,6 +9,12 @@ import {
   getSession,
   onAuthStateChange,
 } from '../services/supabase/auth';
+import {
+  getCachedAuth,
+  setCachedAuth,
+  clearCachedAuth,
+  getInitialAuthState,
+} from '../services/authCache';
 
 export interface AuthContextType {
   user: User | null;
@@ -29,16 +35,44 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const initialState = getInitialAuthState();
+  const [user, setUser] = useState<User | null>(initialState.user);
+  const [session, setSession] = useState<Session | null>(initialState.session);
+  const [isLoading, setIsLoading] = useState(initialState.isLoading);
 
   // Initialize auth state
   useEffect(() => {
     const initAuth = async () => {
+      // First, check our local cache for a quick start
+      const cachedAuth = getCachedAuth();
+      if (cachedAuth) {
+        setSession(cachedAuth.session);
+        setUser(cachedAuth.user);
+        setIsLoading(false);
+        // Still fetch the real session in background to ensure it's fresh
+        // but user sees the app immediately
+        getSession().then(({ session: freshSession }) => {
+          if (freshSession) {
+            setSession(freshSession);
+            setUser(freshSession.user);
+            setCachedAuth(freshSession.user, freshSession);
+          } else {
+            // Session was invalid, clear everything
+            setSession(null);
+            setUser(null);
+            clearCachedAuth();
+          }
+        });
+        return;
+      }
+
+      // No cache, do the normal flow
       const { session: currentSession } = await getSession();
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
+      if (currentSession?.user) {
+        setCachedAuth(currentSession.user, currentSession);
+      }
       setIsLoading(false);
     };
 
@@ -48,6 +82,11 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
     const subscription = onAuthStateChange((_event, newSession) => {
       setSession(newSession);
       setUser(newSession?.user ?? null);
+      if (newSession?.user) {
+        setCachedAuth(newSession.user, newSession);
+      } else {
+        clearCachedAuth();
+      }
       setIsLoading(false);
     });
 
@@ -62,18 +101,20 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
     metadata?: { firstName?: string; lastName?: string }
   ) => {
     const { user: newUser, session: newSession, error } = await authSignUp(email, password, metadata);
-    if (!error && newUser) {
+    if (!error && newUser && newSession) {
       setUser(newUser);
       setSession(newSession);
+      setCachedAuth(newUser, newSession);
     }
     return { error };
   }, []);
 
   const signIn = useCallback(async (email: string, password: string) => {
     const { user: newUser, session: newSession, error } = await authSignIn(email, password);
-    if (!error && newUser) {
+    if (!error && newUser && newSession) {
       setUser(newUser);
       setSession(newSession);
+      setCachedAuth(newUser, newSession);
     }
     return { error };
   }, []);
@@ -83,6 +124,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
     if (!error) {
       setUser(null);
       setSession(null);
+      clearCachedAuth();
     }
     return { error };
   }, []);

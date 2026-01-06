@@ -9,6 +9,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { Link } from 'react-router-dom';
 import { Button, Card, Modal } from '../components/ui';
 import { TemplateEditor } from '../components/plans';
 import { WorkoutTemplate } from '../types';
@@ -329,6 +330,27 @@ export const WorkoutPlans: FC = () => {
           </p>
         </div>
       </Modal>
+
+      {/* Exercise Library Link */}
+      <div className="mt-8 pt-6 border-t border-border">
+        <Link
+          to="/exercises"
+          className="flex items-center justify-between p-4 bg-muted/50 rounded-lg hover:bg-muted transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <svg className="w-5 h-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+            <div>
+              <p className="font-medium">Exercise Library</p>
+              <p className="text-sm text-muted-foreground">Browse all exercises</p>
+            </div>
+          </div>
+          <svg className="w-5 h-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </Link>
+      </div>
       </div>
     </div>
   );

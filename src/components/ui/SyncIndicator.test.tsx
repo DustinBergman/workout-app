@@ -40,9 +40,11 @@ describe('SyncIndicator', () => {
       status: 'syncing',
     } as never);
 
-    render(<SyncIndicator />);
+    const { container } = render(<SyncIndicator />);
 
-    expect(screen.getByText('Syncing...')).toBeInTheDocument();
+    // Should have animated spinner
+    const spinner = container.querySelector('.animate-spin');
+    expect(spinner).toBeInTheDocument();
   });
 
   it('should render offline indicator when offline', () => {
@@ -71,7 +73,7 @@ describe('SyncIndicator', () => {
     expect(screen.getByText('Sync error')).toBeInTheDocument();
   });
 
-  it('should render cloud icon when synced', () => {
+  it('should not render anything when synced', () => {
     vi.mocked(useAuth).mockReturnValue({
       isAuthenticated: true,
     } as never);
@@ -81,8 +83,8 @@ describe('SyncIndicator', () => {
 
     const { container } = render(<SyncIndicator />);
 
-    // Should render SVG (cloud icon) but no text for synced state
-    expect(container.querySelector('svg')).toBeInTheDocument();
+    // Should not render anything for synced state
+    expect(container.firstChild).toBeNull();
   });
 
   it('should not render anything for idle status', () => {
@@ -108,9 +110,9 @@ describe('SyncIndicator', () => {
 
     const { container } = render(<SyncIndicator />);
 
-    // Should have animated pulse dot
-    const pulseElement = container.querySelector('.animate-pulse');
-    expect(pulseElement).toBeInTheDocument();
+    // Should have animated spinner
+    const spinnerElement = container.querySelector('.animate-spin');
+    expect(spinnerElement).toBeInTheDocument();
   });
 
   it('should have correct styling for error state', () => {

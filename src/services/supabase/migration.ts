@@ -10,6 +10,7 @@ import type {
 } from '../../types';
 
 const STORAGE_KEY = 'workout-app-storage';
+const MIGRATION_COMPLETE_KEY = 'workout-app-migration-complete';
 
 interface LocalStorageData {
   state: {
@@ -371,12 +372,12 @@ const migrateWeightEntries = async (
 };
 
 /**
- * Clear localStorage data after successful migration
- * This removes all migrated data so the import modal won't appear again
+ * Mark migration as complete
+ * Uses a separate key so it doesn't conflict with Zustand's persist storage
  */
 export const markMigrationComplete = (): void => {
   try {
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.setItem(MIGRATION_COMPLETE_KEY, 'true');
   } catch {
     // Ignore errors
   }
@@ -387,11 +388,7 @@ export const markMigrationComplete = (): void => {
  */
 export const isMigrationComplete = (): boolean => {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) return true; // No data = nothing to migrate
-
-    const data = JSON.parse(stored);
-    return data.migrated === true;
+    return localStorage.getItem(MIGRATION_COMPLETE_KEY) === 'true';
   } catch {
     return false;
   }

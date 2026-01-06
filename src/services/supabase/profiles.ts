@@ -5,6 +5,7 @@ export interface Profile {
   id: string;
   first_name: string | null;
   last_name: string | null;
+  username: string | null;
   weight_unit: 'lbs' | 'kg';
   distance_unit: 'mi' | 'km';
   default_rest_seconds: number;
@@ -88,4 +89,69 @@ export const preferencesToProfileUpdates = (
   if (prefs.openaiApiKey !== undefined) updates.openai_api_key = prefs.openaiApiKey || null;
 
   return updates;
+};
+
+/**
+ * Update the current user's username
+ */
+export const updateUsername = async (
+  username: string
+): Promise<{ error: Error | null }> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return { error: new Error('Not authenticated') };
+  }
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ username: username.trim().toLowerCase() })
+    .eq('id', user.id);
+
+  return { error };
+};
+
+/**
+ * Search users by email or username (for friend search)
+ */
+export const searchUsers = async (
+  query: string
+): Promise<{ users: Array<{ id: string; first_name: string | null; last_name: string | null; username: string | null; email?: string }>; error: Error | null }> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return { users: [], error: new Error('Not authenticated') };
+  }
+
+  const trimmedQuery = query.trim().toLowerCase();
+  if (trimmedQuery.length < 2) {
+    return { users: [], error: null };
+  }
+
+  // Search by username or email pattern
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, first_name, last_name, username')
+    .or(`username.ilike.%${trimmedQuery}%`)
+    .neq('id', user.id) // Exclude current user
+    .limit(10);
+
+  if (error) {
+    return { users: [], error };
+  }
+
+  return { users: data || [], error: null };
+};
+
+/**
+ * Get a user's profile by ID (for viewing friend profiles)
+ */
+export const getProfileById = async (
+  userId: string
+): Promise<{ profile: Pick<Profile, 'id' | 'first_name' | 'last_name' | 'username'> | null; error: Error | null }> => {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, first_name, last_name, username')
+    .eq('id', userId)
+    .single();
+
+  return { profile: data, error };
 };
