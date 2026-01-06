@@ -4,7 +4,7 @@ import {
   DragStartEvent,
   useSensor,
   useSensors,
-  PointerSensor,
+  MouseSensor,
   TouchSensor,
   KeyboardSensor,
 } from '@dnd-kit/core';
@@ -96,15 +96,17 @@ export const useActiveWorkoutPage = (): any => {
     }
   }, [createExercise, addExerciseToSession]);
 
-  // DND sensors - TouchSensor for mobile with delay, PointerSensor for mouse
+  // DND sensors - TouchSensor for mobile with delay, MouseSensor for desktop
+  // Using MouseSensor instead of PointerSensor because PointerSensor intercepts
+  // touch events on mobile, bypassing TouchSensor's delay constraint
   const sensors = useSensors(
     useSensor(TouchSensor, {
       activationConstraint: {
-        delay: 200, // Must hold for 200ms before drag starts
+        delay: 250, // Must hold for 250ms before drag starts
         tolerance: 5, // Allow 5px of movement during delay
       },
     }),
-    useSensor(PointerSensor, {
+    useSensor(MouseSensor, {
       activationConstraint: {
         distance: 8, // Require 8px movement before drag starts (mouse only)
       },
@@ -117,9 +119,12 @@ export const useActiveWorkoutPage = (): any => {
   // Haptic feedback when drag starts
   const handleDragStart = useCallback((_event: DragStartEvent) => {
     // Trigger haptic feedback on supported devices
+    // Android: Use Vibration API
     if (navigator.vibrate) {
-      navigator.vibrate(50); // Short 50ms vibration
+      navigator.vibrate(100); // 100ms vibration (more noticeable than 50ms)
     }
+    // Note: iOS doesn't support navigator.vibrate() - haptic feedback requires
+    // native app integration (via Capacitor/Cordova) or isn't available in PWAs
   }, []);
 
   // Drag end handler
