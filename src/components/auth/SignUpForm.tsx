@@ -1,4 +1,4 @@
-import { FC, useState, useCallback } from 'react';
+import { FC, useState, useCallback, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { Button, Input } from '../ui';
 import { useAuth } from '../../hooks/useAuth';
@@ -28,6 +28,9 @@ export const SignUpForm: FC<SignUpFormProps> = ({
   const [confirmedEmail, setConfirmedEmail] = useState('');
   const [resendStatus, setResendStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [isCheckingUsername, setIsCheckingUsername] = useState(false);
+
+  // Cache the last validated username to avoid redundant API calls
+  const usernameValidationCache = useRef<{ username: string; result: string | true } | null>(null);
 
   const {
     register,
@@ -67,17 +70,26 @@ export const SignUpForm: FC<SignUpFormProps> = ({
       return 'Username can only contain letters, numbers, and underscores';
     }
 
+    // Return cached result if username hasn't changed
+    if (usernameValidationCache.current?.username === trimmed) {
+      return usernameValidationCache.current.result;
+    }
+
     // Check availability
     setIsCheckingUsername(true);
     try {
       const { available, error: checkError } = await checkUsernameAvailability(trimmed);
+      let result: string | true;
       if (checkError) {
-        return checkError.message;
+        result = checkError.message;
+      } else if (!available) {
+        result = 'This username is already taken';
+      } else {
+        result = true;
       }
-      if (!available) {
-        return 'This username is already taken';
-      }
-      return true;
+      // Cache the result
+      usernameValidationCache.current = { username: trimmed, result };
+      return result;
     } finally {
       setIsCheckingUsername(false);
     }
