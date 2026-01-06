@@ -46,6 +46,8 @@ describe('CommentItem', () => {
     renderComponent();
 
     expect(screen.getByText('John Doe')).toBeInTheDocument();
+    // Username should also be shown alongside full name
+    expect(screen.getByText('@johnd')).toBeInTheDocument();
   });
 
   it('should display username when full name is not available', () => {
@@ -60,7 +62,8 @@ describe('CommentItem', () => {
     };
     renderComponent(commentWithUsernameOnly);
 
-    expect(screen.getByText('johnd')).toBeInTheDocument();
+    // Username is now shown with @ prefix
+    expect(screen.getByText('@johnd')).toBeInTheDocument();
   });
 
   it('should display Anonymous when no name or username', () => {

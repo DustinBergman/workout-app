@@ -52,10 +52,15 @@ export const ProfileModal: FC<ProfileModalProps> = ({
     cancelRequest,
   } = useProfile(userId);
 
-  const displayName =
+  // Username is the primary identifier
+  const usernameDisplay = profile?.username ? `@${profile.username}` : null;
+
+  const fullName =
     profile?.first_name && profile?.last_name
       ? `${profile.first_name} ${profile.last_name}`
-      : profile?.username || 'Anonymous';
+      : null;
+
+  const displayName = fullName || usernameDisplay || 'Anonymous';
 
   const handleFriendAction = async () => {
     if (friendshipStatus === 'none') {
@@ -78,12 +83,12 @@ export const ProfileModal: FC<ProfileModalProps> = ({
           {/* Profile Header */}
           <div className="flex items-center gap-4">
             <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center text-primary text-2xl font-bold">
-              {displayName.charAt(0).toUpperCase()}
+              {(profile.first_name?.charAt(0) || profile.username?.charAt(0) || 'A').toUpperCase()}
             </div>
             <div>
               <h2 className="text-xl font-semibold">{displayName}</h2>
-              {profile.username && (
-                <p className="text-muted-foreground">@{profile.username}</p>
+              {fullName && usernameDisplay && (
+                <p className="text-primary/70">{usernameDisplay}</p>
               )}
             </div>
           </div>

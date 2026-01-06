@@ -56,10 +56,16 @@ export const LikersModal: FC<LikersModalProps> = ({
       ) : (
         <div className="space-y-3">
           {likes.map((like) => {
-            const displayName =
+            const usernameDisplay = like.user.username
+              ? `@${like.user.username}`
+              : null;
+
+            const fullName =
               like.user.first_name && like.user.last_name
                 ? `${like.user.first_name} ${like.user.last_name}`
-                : like.user.username || 'Anonymous';
+                : null;
+
+            const displayName = fullName || usernameDisplay || 'Anonymous';
 
             return (
               <button
@@ -68,13 +74,13 @@ export const LikersModal: FC<LikersModalProps> = ({
                 className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-muted transition-colors text-left"
               >
                 <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold">
-                  {displayName.charAt(0).toUpperCase()}
+                  {(like.user.first_name?.charAt(0) || like.user.username?.charAt(0) || 'A').toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-medium truncate">{displayName}</p>
-                  {like.user.username && (
-                    <p className="text-sm text-muted-foreground truncate">
-                      @{like.user.username}
+                  {fullName && usernameDisplay && (
+                    <p className="text-sm text-primary/70 truncate">
+                      {usernameDisplay}
                     </p>
                   )}
                 </div>

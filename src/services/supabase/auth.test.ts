@@ -97,6 +97,7 @@ describe('Auth Service', () => {
       // Verify profile update is called with correct data
       expect(supabase.from).toHaveBeenCalledWith('profiles');
       expect(mockUpdate).toHaveBeenCalledWith({
+        username: null,
         first_name: 'John',
         last_name: 'Doe',
       });

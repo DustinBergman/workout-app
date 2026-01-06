@@ -40,9 +40,15 @@ export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
 
   const summary = calculateWorkoutSummary(workout);
 
-  const displayName = workout.user.first_name && workout.user.last_name
+  // Username is the primary identifier
+  const displayName = workout.user.username
+    ? `@${workout.user.username}`
+    : 'Anonymous';
+
+  // Full name shown as secondary info if available
+  const fullName = workout.user.first_name && workout.user.last_name
     ? `${workout.user.first_name} ${workout.user.last_name}`
-    : workout.user.username || 'Anonymous';
+    : null;
 
   const formatDuration = (minutes: number): string => {
     if (minutes < 60) {
@@ -84,19 +90,22 @@ export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
             onClick={() => handleUserClick(workout.user_id)}
             className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold hover:ring-2 hover:ring-primary/50 transition-all"
           >
-            {displayName.charAt(0).toUpperCase()}
+            {(workout.user.first_name?.charAt(0) || workout.user.username?.charAt(0) || 'A').toUpperCase()}
           </button>
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             {/* Name - clickable */}
             <button
               onClick={() => handleUserClick(workout.user_id)}
-              className="font-semibold hover:text-primary transition-colors text-left"
+              className="font-semibold hover:text-primary transition-colors text-left truncate block"
             >
-              {displayName}
+              {fullName || displayName}
             </button>
-            <p className="text-xs text-muted-foreground">
-              {formatDistanceToNow(new Date(workout.completed_at || workout.started_at), { addSuffix: true })}
-            </p>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              {fullName && (
+                <span className="text-primary/70">{displayName}</span>
+              )}
+              <span>{formatDistanceToNow(new Date(workout.completed_at || workout.started_at), { addSuffix: true })}</span>
+            </div>
           </div>
         </div>
       </div>

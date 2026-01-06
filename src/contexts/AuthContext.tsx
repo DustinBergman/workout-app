@@ -21,7 +21,7 @@ export interface AuthContextType {
   session: Session | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  signUp: (email: string, password: string, metadata?: { firstName?: string; lastName?: string }) => Promise<{ error: AuthError | null }>;
+  signUp: (email: string, password: string, metadata?: { username?: string; firstName?: string; lastName?: string }) => Promise<{ error: AuthError | null }>;
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<{ error: AuthError | null }>;
   resetPassword: (email: string) => Promise<{ error: AuthError | null }>;
@@ -98,7 +98,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
   const signUp = useCallback(async (
     email: string,
     password: string,
-    metadata?: { firstName?: string; lastName?: string }
+    metadata?: { username?: string; firstName?: string; lastName?: string }
   ) => {
     const { user: newUser, session: newSession, error } = await authSignUp(email, password, metadata);
     if (!error && newUser && newSession) {

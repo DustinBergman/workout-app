@@ -15,10 +15,17 @@ export const CommentItem: FC<CommentItemProps> = ({
   onDelete,
   onUserClick,
 }) => {
-  const displayName =
+  // Username is the primary identifier
+  const username = comment.user.username
+    ? `@${comment.user.username}`
+    : null;
+
+  const fullName =
     comment.user.first_name && comment.user.last_name
       ? `${comment.user.first_name} ${comment.user.last_name}`
-      : comment.user.username || 'Anonymous';
+      : null;
+
+  const displayName = fullName || username || 'Anonymous';
 
   return (
     <div className="flex gap-3">
@@ -27,7 +34,7 @@ export const CommentItem: FC<CommentItemProps> = ({
         onClick={onUserClick}
         className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary text-sm font-semibold flex-shrink-0 hover:ring-2 hover:ring-primary/50 transition-all"
       >
-        {displayName.charAt(0).toUpperCase()}
+        {(comment.user.first_name?.charAt(0) || comment.user.username?.charAt(0) || 'A').toUpperCase()}
       </button>
 
       <div className="flex-1 min-w-0">
@@ -39,6 +46,9 @@ export const CommentItem: FC<CommentItemProps> = ({
           >
             {displayName}
           </button>
+          {fullName && username && (
+            <span className="text-xs text-primary/70">{username}</span>
+          )}
           <span className="text-xs text-muted-foreground">
             {formatDistanceToNow(new Date(comment.created_at), {
               addSuffix: true,

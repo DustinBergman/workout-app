@@ -14,7 +14,8 @@
       "Bash(timeout 60 npm test:*)",
       "Bash(ls:*)",
       "mcp__ide__getDiagnostics",
-      "Bash(npx vitest:*)"
+      "Bash(npx vitest:*)",
+      "Bash(find:*)"
     ]
   }
 }

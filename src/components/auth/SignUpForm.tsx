@@ -1,14 +1,16 @@
-import { FC, useState } from 'react';
+import { FC, useState, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { Button, Input } from '../ui';
 import { useAuth } from '../../hooks/useAuth';
 import { resendConfirmation } from '../../services/supabase/auth';
+import { checkUsernameAvailability } from '../../services/supabase/profiles';
 
 interface SignUpFormProps {
   onSwitchToLogin: () => void;
 }
 
 interface SignUpFormData {
+  username: string;
   firstName: string;
   lastName: string;
   email: string;
@@ -25,6 +27,7 @@ export const SignUpForm: FC<SignUpFormProps> = ({
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [confirmedEmail, setConfirmedEmail] = useState('');
   const [resendStatus, setResendStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+  const [isCheckingUsername, setIsCheckingUsername] = useState(false);
 
   const {
     register,
@@ -34,6 +37,7 @@ export const SignUpForm: FC<SignUpFormProps> = ({
   } = useForm<SignUpFormData>({
     mode: 'onTouched', // Show errors after field is touched (blurred), then validate on change
     defaultValues: {
+      username: '',
       firstName: '',
       lastName: '',
       email: '',
@@ -44,11 +48,47 @@ export const SignUpForm: FC<SignUpFormProps> = ({
 
   const password = watch('password');
 
+  const validateUsername = useCallback(async (value: string): Promise<string | true> => {
+    const trimmed = value.trim().toLowerCase();
+
+    if (!trimmed) {
+      return 'Username is required';
+    }
+
+    if (trimmed.length < 3) {
+      return 'Username must be at least 3 characters';
+    }
+
+    if (trimmed.length > 20) {
+      return 'Username must be 20 characters or less';
+    }
+
+    if (!/^[a-z0-9_]+$/.test(trimmed)) {
+      return 'Username can only contain letters, numbers, and underscores';
+    }
+
+    // Check availability
+    setIsCheckingUsername(true);
+    try {
+      const { available, error: checkError } = await checkUsernameAvailability(trimmed);
+      if (checkError) {
+        return checkError.message;
+      }
+      if (!available) {
+        return 'This username is already taken';
+      }
+      return true;
+    } finally {
+      setIsCheckingUsername(false);
+    }
+  }, []);
+
   const onSubmit = async (data: SignUpFormData) => {
     setError(null);
     setIsLoading(true);
 
     const { error: authError } = await signUp(data.email, data.password, {
+      username: data.username,
       firstName: data.firstName || undefined,
       lastName: data.lastName || undefined,
     });
@@ -125,6 +165,22 @@ export const SignUpForm: FC<SignUpFormProps> = ({
           <p className="text-sm text-destructive">{error}</p>
         </div>
       )}
+
+      <div>
+        <Input
+          label="Username"
+          type="text"
+          placeholder="johndoe"
+          autoComplete="username"
+          error={errors.username?.message}
+          {...register('username', {
+            validate: validateUsername,
+          })}
+        />
+        {isCheckingUsername && (
+          <p className="text-xs text-muted-foreground mt-1">Checking availability...</p>
+        )}
+      </div>
 
       <div className="grid grid-cols-2 gap-3">
         <Input

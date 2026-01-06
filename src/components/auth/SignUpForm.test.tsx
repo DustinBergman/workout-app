@@ -13,8 +13,14 @@ vi.mock('../../services/supabase/auth', () => ({
   resendConfirmation: vi.fn(),
 }));
 
+// Mock checkUsernameAvailability
+vi.mock('../../services/supabase/profiles', () => ({
+  checkUsernameAvailability: vi.fn(),
+}));
+
 import { useAuth } from '../../hooks/useAuth';
 import { resendConfirmation } from '../../services/supabase/auth';
+import { checkUsernameAvailability } from '../../services/supabase/profiles';
 
 describe('SignUpForm', () => {
   const mockSignUp = vi.fn();
@@ -26,6 +32,7 @@ describe('SignUpForm', () => {
       signUp: mockSignUp,
     } as never);
     vi.mocked(resendConfirmation).mockResolvedValue({ error: null });
+    vi.mocked(checkUsernameAvailability).mockResolvedValue({ available: true, error: null });
   });
 
   const renderSignUpForm = () => {
@@ -41,6 +48,7 @@ describe('SignUpForm', () => {
 
     expect(screen.getByRole('heading', { name: 'Create Account' })).toBeInTheDocument();
     expect(screen.getByText('Start your fitness journey')).toBeInTheDocument();
+    expect(screen.getByLabelText(/username/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/first name/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/last name/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/^email$/i)).toBeInTheDocument();
@@ -59,6 +67,7 @@ describe('SignUpForm', () => {
     const user = userEvent.setup();
     renderSignUpForm();
 
+    await user.type(screen.getByLabelText(/username/i), 'johnd');
     await user.type(screen.getByLabelText(/^email$/i), 'john@example.com');
     await user.type(screen.getByLabelText(/^password$/i), 'password123');
     await user.type(screen.getByLabelText(/confirm password/i), 'password123');
@@ -124,6 +133,7 @@ describe('SignUpForm', () => {
 
     renderSignUpForm();
 
+    await user.type(screen.getByLabelText(/username/i), 'johnd');
     await user.type(screen.getByLabelText(/first name/i), 'John');
     await user.type(screen.getByLabelText(/last name/i), 'Doe');
     await user.type(screen.getByLabelText(/^email$/i), 'john@example.com');
@@ -138,6 +148,7 @@ describe('SignUpForm', () => {
 
     await waitFor(() => {
       expect(mockSignUp).toHaveBeenCalledWith('john@example.com', 'password123', {
+        username: 'johnd',
         firstName: 'John',
         lastName: 'Doe',
       });
@@ -150,6 +161,7 @@ describe('SignUpForm', () => {
 
     renderSignUpForm();
 
+    await user.type(screen.getByLabelText(/username/i), 'johnd');
     await user.type(screen.getByLabelText(/^email$/i), 'john@example.com');
     await user.type(screen.getByLabelText(/^password$/i), 'password123');
     await user.type(screen.getByLabelText(/confirm password/i), 'password123');
@@ -175,6 +187,7 @@ describe('SignUpForm', () => {
 
     renderSignUpForm();
 
+    await user.type(screen.getByLabelText(/username/i), 'johnd');
     await user.type(screen.getByLabelText(/^email$/i), 'john@example.com');
     await user.type(screen.getByLabelText(/^password$/i), 'password123');
     await user.type(screen.getByLabelText(/confirm password/i), 'password123');
@@ -198,6 +211,7 @@ describe('SignUpForm', () => {
 
     renderSignUpForm();
 
+    await user.type(screen.getByLabelText(/username/i), 'johnd');
     await user.type(screen.getByLabelText(/^email$/i), 'john@example.com');
     await user.type(screen.getByLabelText(/^password$/i), 'password123');
     await user.type(screen.getByLabelText(/confirm password/i), 'password123');
@@ -227,6 +241,7 @@ describe('SignUpForm', () => {
 
       renderSignUpForm();
 
+      await user.type(screen.getByLabelText(/username/i), 'johnd');
       await user.type(screen.getByLabelText(/^email$/i), 'john@example.com');
       await user.type(screen.getByLabelText(/^password$/i), 'password123');
       await user.type(screen.getByLabelText(/confirm password/i), 'password123');

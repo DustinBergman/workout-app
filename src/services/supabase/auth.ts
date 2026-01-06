@@ -14,12 +14,12 @@ export interface AuthStateChange {
 
 /**
  * Sign up a new user with email and password
- * Also saves first/last name to the profiles table
+ * Also saves username and first/last name to the profiles table
  */
 export const signUp = async (
   email: string,
   password: string,
-  metadata?: { firstName?: string; lastName?: string }
+  metadata?: { username?: string; firstName?: string; lastName?: string }
 ): Promise<AuthResponse> => {
   const { data, error } = await supabase.auth.signUp({
     email,
@@ -29,13 +29,14 @@ export const signUp = async (
     },
   });
 
-  // If signup successful and we have name data, update the profile
+  // If signup successful and we have profile data, update the profile
   // The profile is auto-created by a database trigger on auth.users insert
-  if (!error && data.user && (metadata?.firstName || metadata?.lastName)) {
-    // Update the profile with the name - the trigger creates the profile synchronously
+  if (!error && data.user && (metadata?.username || metadata?.firstName || metadata?.lastName)) {
+    // Update the profile with the name and username - the trigger creates the profile synchronously
     await supabase
       .from('profiles')
       .update({
+        username: metadata.username?.trim().toLowerCase() || null,
         first_name: metadata.firstName || null,
         last_name: metadata.lastName || null,
       })

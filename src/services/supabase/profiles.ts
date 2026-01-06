@@ -92,6 +92,39 @@ export const preferencesToProfileUpdates = (
 };
 
 /**
+ * Check if a username is available
+ */
+export const checkUsernameAvailability = async (
+  username: string
+): Promise<{ available: boolean; error: Error | null }> => {
+  const trimmed = username.trim().toLowerCase();
+
+  if (trimmed.length < 3) {
+    return { available: false, error: new Error('Username must be at least 3 characters') };
+  }
+
+  if (trimmed.length > 20) {
+    return { available: false, error: new Error('Username must be 20 characters or less') };
+  }
+
+  if (!/^[a-z0-9_]+$/.test(trimmed)) {
+    return { available: false, error: new Error('Username can only contain letters, numbers, and underscores') };
+  }
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('username', trimmed)
+    .maybeSingle();
+
+  if (error) {
+    return { available: false, error };
+  }
+
+  return { available: data === null, error: null };
+};
+
+/**
  * Update the current user's username
  */
 export const updateUsername = async (
