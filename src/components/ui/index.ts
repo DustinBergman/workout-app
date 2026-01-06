@@ -30,3 +30,5 @@ export {
 export { Navigation } from './Navigation';
 
 export { WeekBadge } from './WeekBadge';
+
+export { SyncIndicator } from './SyncIndicator';

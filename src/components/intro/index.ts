@@ -6,9 +6,6 @@ export type { ProgressIndicatorProps } from './ProgressIndicator';
 export { StepNavigation } from './StepNavigation';
 export type { StepNavigationProps } from './StepNavigation';
 
-export { WelcomeStep } from './WelcomeStep';
-export type { WelcomeStepProps } from './WelcomeStep';
-
 export { GoalSelectionStep } from './GoalSelectionStep';
 export type { GoalSelectionStepProps, GoalOption } from './GoalSelectionStep';
 

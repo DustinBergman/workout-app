@@ -14,6 +14,7 @@ export interface GoalSelectionStepProps {
   goalOptions: GoalOption[];
   onBack: () => void;
   onNext: () => void;
+  showBack?: boolean;
 }
 
 export const GoalSelectionStep: FC<GoalSelectionStepProps> = ({
@@ -22,6 +23,7 @@ export const GoalSelectionStep: FC<GoalSelectionStepProps> = ({
   goalOptions,
   onBack,
   onNext,
+  showBack = true,
 }) => {
   return (
     <div className="flex-1 flex flex-col max-w-md mx-auto w-full">
@@ -71,7 +73,7 @@ export const GoalSelectionStep: FC<GoalSelectionStepProps> = ({
         ))}
       </div>
 
-      <StepNavigation onBack={onBack} onNext={onNext} />
+      <StepNavigation onBack={onBack} onNext={onNext} showBack={showBack} />
     </div>
   );
 };

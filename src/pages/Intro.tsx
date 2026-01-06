@@ -4,7 +4,6 @@ import { useAppStore } from '../store/useAppStore';
 import {
   AnimatedBackground,
   ProgressIndicator,
-  WelcomeStep,
   GoalSelectionStep,
   ExperienceLevelStep,
   PreferencesStep,
@@ -44,11 +43,8 @@ export const Intro: FC = () => {
     handleSubmit,
     watch,
     setValue,
-    formState: { errors },
   } = useForm<IntroFormData>({
     defaultValues: {
-      firstName: '',
-      lastName: '',
       goal: 'build',
       experienceLevel: 'intermediate',
       weightUnit: 'lbs',
@@ -75,10 +71,8 @@ export const Intro: FC = () => {
   }, [darkMode]);
 
   const completeIntro = (data: IntroFormData) => {
-    // Update preferences
+    // Update preferences (names are now collected during signup)
     updatePreferences({
-      firstName: data.firstName.trim(),
-      lastName: data.lastName.trim(),
       experienceLevel: data.experienceLevel,
       weightUnit: data.weightUnit,
       distanceUnit: data.distanceUnit,
@@ -103,41 +97,29 @@ export const Intro: FC = () => {
     setHasCompletedIntro(true);
   };
 
-  const nextStep = () => setStep((s) => Math.min(s + 1, 6));
+  const nextStep = () => setStep((s) => Math.min(s + 1, 5));
   const prevStep = () => setStep((s) => Math.max(s - 1, 1));
-
-  const firstNameValue = watch('firstName');
-  const lastNameValue = watch('lastName');
-  const canProceedFromStep1 = firstNameValue.trim().length > 0 && lastNameValue.trim().length > 0;
 
   return (
     <div className="relative min-h-screen">
       <AnimatedBackground />
 
       <div className="relative z-10 flex flex-col min-h-screen p-6">
-        <ProgressIndicator currentStep={step} totalSteps={6} />
+        <ProgressIndicator currentStep={step} totalSteps={5} />
 
         <form onSubmit={handleSubmit(completeIntro)} className="flex-1 flex flex-col">
           {step === 1 && (
-            <WelcomeStep
-              register={register}
-              errors={errors}
-              canProceed={canProceedFromStep1}
-              onNext={nextStep}
-            />
-          )}
-
-          {step === 2 && (
             <GoalSelectionStep
               selectedGoal={selectedGoal}
               onSelectGoal={(goal) => setValue('goal', goal)}
               goalOptions={GOAL_OPTIONS}
               onBack={prevStep}
               onNext={nextStep}
+              showBack={false}
             />
           )}
 
-          {step === 3 && (
+          {step === 2 && (
             <ExperienceLevelStep
               selectedLevel={selectedExperienceLevel}
               onSelectLevel={(level) => setValue('experienceLevel', level)}
@@ -146,7 +128,7 @@ export const Intro: FC = () => {
             />
           )}
 
-          {step === 4 && (
+          {step === 3 && (
             <PreferencesStep
               selectedUnit={selectedUnit}
               onSelectUnit={(unit) => setValue('weightUnit', unit)}
@@ -161,7 +143,7 @@ export const Intro: FC = () => {
             />
           )}
 
-          {step === 5 && (
+          {step === 4 && (
             <WeightStep
               register={register}
               weightUnit={selectedUnit}
@@ -170,7 +152,7 @@ export const Intro: FC = () => {
             />
           )}
 
-          {step === 6 && (
+          {step === 5 && (
             <ApiKeyStep
               register={register}
               onBack={prevStep}

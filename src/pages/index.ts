@@ -7,3 +7,4 @@ export { History } from './History';
 export { You } from './You';
 export { Settings } from './Settings';
 export { Intro } from './Intro';
+export { Auth } from './Auth';

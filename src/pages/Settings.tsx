@@ -1,4 +1,5 @@
 import { useState, FC } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import {
   Card,
@@ -15,8 +16,11 @@ import {
 } from '../components/ui';
 import { exportAllData, importAllData, clearAllData } from '../services/storage';
 import { WorkoutGoal, WORKOUT_GOALS, ExperienceLevel, ProgressiveOverloadWeek } from '../types';
+import { useAuth } from '../hooks/useAuth';
 
 export const Settings: FC = () => {
+  const navigate = useNavigate();
+  const { user, isAuthenticated, signOut } = useAuth();
   const preferences = useAppStore((state) => state.preferences);
   const updatePreferences = useAppStore((state) => state.updatePreferences);
   const workoutGoal = useAppStore((state) => state.workoutGoal);
@@ -29,6 +33,13 @@ export const Settings: FC = () => {
   const [apiKeySaved, setApiKeySaved] = useState(false);
   const [showGoalConfirm, setShowGoalConfirm] = useState(false);
   const [pendingGoal, setPendingGoal] = useState<WorkoutGoal | null>(null);
+  const [isSigningOut, setIsSigningOut] = useState(false);
+
+  const handleSignOut = async () => {
+    setIsSigningOut(true);
+    await signOut();
+    setIsSigningOut(false);
+  };
 
   const handleExport = () => {
     const data = exportAllData();
@@ -104,6 +115,48 @@ export const Settings: FC = () => {
       <h1 className="text-2xl font-bold text-foreground mb-6">
         Settings
       </h1>
+
+      {/* Account */}
+      <section className="mb-8">
+        <h2 className="text-lg font-semibold text-foreground mb-4">
+          Account
+        </h2>
+
+        <Card>
+          {isAuthenticated ? (
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium text-foreground">{user?.email}</p>
+                <p className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Synced to cloud
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                onClick={handleSignOut}
+                disabled={isSigningOut}
+              >
+                {isSigningOut ? 'Signing out...' : 'Sign Out'}
+              </Button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium text-foreground">Not signed in</p>
+                <p className="text-sm text-muted-foreground">
+                  Sign in to sync your data across devices
+                </p>
+              </div>
+              <Button onClick={() => navigate('/auth')}>
+                Sign In
+              </Button>
+            </div>
+          )}
+        </Card>
+      </section>
 
       {/* Preferences */}
       <section className="mb-8">
@@ -387,11 +440,13 @@ export const Settings: FC = () => {
         </h2>
         <Card>
           <p className="text-muted-foreground text-sm">
-            Lift v1.0.0
+            overload.ai v1.0.0
           </p>
           <p className="text-muted-foreground text-sm mt-2">
             A simple, privacy-focused workout tracking app with AI-powered progressive overload recommendations.
-            All data is stored locally on your device.
+            {isAuthenticated
+              ? ' Your data is securely synced to the cloud and available on all your devices.'
+              : ' All data is stored locally on your device.'}
           </p>
           <p className="text-muted-foreground text-sm mt-4">
             Created by{' '}
