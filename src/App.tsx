@@ -12,7 +12,7 @@ import {
   Settings,
   Intro,
 } from './pages';
-import { useAppStore } from './store/useAppStore';
+import { useAppStore, migrateTemplates } from './store/useAppStore';
 import { GlobalTimerNotification } from './components/timer/GlobalTimerNotification';
 
 const HeaderContent: FC = () => {
@@ -119,6 +119,12 @@ const HeaderContent: FC = () => {
 
 const App: FC = () => {
   const hasCompletedIntro = useAppStore((state) => state.hasCompletedIntro);
+
+  // Run migration once on app startup
+  // TODO: Remove this after all users have migrated (added Jan 2026)
+  useEffect(() => {
+    migrateTemplates();
+  }, []);
 
   if (!hasCompletedIntro) {
     return <Intro />;

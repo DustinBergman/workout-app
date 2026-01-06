@@ -32,10 +32,10 @@ export const ExercisePickerModal: FC<ExercisePickerModalProps> = ({
       {isCreating ? (
         children
       ) : (
-        <>
+        <div className="flex flex-col h-full">
           <button
             onClick={onCreateExerciseClick}
-            className="w-full mb-4 p-3 border-2 border-dashed border-blue-300 dark:border-blue-700 rounded-lg text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors flex items-center justify-center gap-2"
+            className="w-full mb-4 p-3 border-2 border-dashed border-blue-300 dark:border-blue-700 rounded-lg text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors flex items-center justify-center gap-2 flex-shrink-0"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -47,9 +47,9 @@ export const ExercisePickerModal: FC<ExercisePickerModalProps> = ({
             placeholder="Search exercises..."
             value={exerciseSearch}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="mb-4"
+            className="mb-4 flex-shrink-0"
           />
-          <div className="max-h-80 overflow-y-auto space-y-2">
+          <div className="flex-1 overflow-y-auto space-y-2 min-h-0">
             {filteredExercises.map((exercise) => (
               <button
                 key={exercise.id}
@@ -79,7 +79,7 @@ export const ExercisePickerModal: FC<ExercisePickerModalProps> = ({
               </button>
             ))}
           </div>
-        </>
+        </div>
       )}
     </Modal>
   );

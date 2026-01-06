@@ -12,6 +12,7 @@ vi.mock('../services/openai', () => ({
 const createMockTemplate = (overrides: Partial<WorkoutTemplate> = {}): WorkoutTemplate => ({
   id: `template-${Date.now()}-${Math.random()}`,
   name: 'Test Template',
+  templateType: 'strength',
   exercises: [],
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),

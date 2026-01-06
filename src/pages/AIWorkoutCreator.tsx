@@ -198,7 +198,7 @@ export const AIWorkoutCreator: FC = () => {
     if (!generatedPlan) return;
 
     const template = isCardioWorkout
-      ? createCardioTemplateFromPlan(generatedPlan as GeneratedCardioPlan, planName || generatedPlan.name)
+      ? createCardioTemplateFromPlan(generatedPlan as GeneratedCardioPlan, planName || generatedPlan.name, customExercises)
       : createTemplateFromPlan(generatedPlan as GeneratedPlan, planName || generatedPlan.name);
     addTemplate(template);
     navigate('/plans');

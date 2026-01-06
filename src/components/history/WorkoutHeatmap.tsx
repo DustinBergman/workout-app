@@ -6,6 +6,29 @@ interface WorkoutHeatmapProps {
   onDayClick?: (date: Date, sessions: WorkoutSession[]) => void;
 }
 
+type WorkoutType = 'none' | 'strength' | 'cardio' | 'both';
+
+// Determine if a session is strength or cardio based on its exercises
+const getSessionType = (session: WorkoutSession): 'strength' | 'cardio' => {
+  const hasStrength = session.exercises.some(ex => ex.type === 'strength');
+  const hasCardio = session.exercises.some(ex => ex.type === 'cardio');
+  // If mixed or only strength, treat as strength; only cardio if all cardio
+  return hasCardio && !hasStrength ? 'cardio' : 'strength';
+};
+
+// Determine what types of workouts happened on a day
+const getDayWorkoutType = (sessions: WorkoutSession[]): WorkoutType => {
+  if (sessions.length === 0) return 'none';
+
+  const types = sessions.map(getSessionType);
+  const hasStrength = types.includes('strength');
+  const hasCardio = types.includes('cardio');
+
+  if (hasStrength && hasCardio) return 'both';
+  if (hasCardio) return 'cardio';
+  return 'strength';
+};
+
 export const WorkoutHeatmap: FC<WorkoutHeatmapProps> = ({ sessions, onDayClick }) => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -15,6 +38,7 @@ export const WorkoutHeatmap: FC<WorkoutHeatmapProps> = ({ sessions, onDayClick }
       scrollContainerRef.current.scrollLeft = scrollContainerRef.current.scrollWidth;
     }
   }, []);
+
   const { weeks, monthLabels } = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -30,7 +54,7 @@ export const WorkoutHeatmap: FC<WorkoutHeatmapProps> = ({ sessions, onDayClick }
     });
 
     // Generate 52 weeks of data (plus partial current week)
-    const weeksData: Array<Array<{ date: Date; count: number; sessions: WorkoutSession[] }>> = [];
+    const weeksData: Array<Array<{ date: Date; workoutType: WorkoutType; sessions: WorkoutSession[] }>> = [];
     const months: Array<{ label: string; weekIndex: number }> = [];
 
     // Start from 52 weeks ago, aligned to Sunday
@@ -44,7 +68,7 @@ export const WorkoutHeatmap: FC<WorkoutHeatmapProps> = ({ sessions, onDayClick }
 
     const currentDate = new Date(startDate);
     while (currentDate <= today) {
-      const week: Array<{ date: Date; count: number; sessions: WorkoutSession[] }> = [];
+      const week: Array<{ date: Date; workoutType: WorkoutType; sessions: WorkoutSession[] }> = [];
 
       for (let day = 0; day < 7; day++) {
         const dateKey = currentDate.toDateString();
@@ -61,7 +85,7 @@ export const WorkoutHeatmap: FC<WorkoutHeatmapProps> = ({ sessions, onDayClick }
 
         week.push({
           date: new Date(currentDate),
-          count: daySessions.length,
+          workoutType: getDayWorkoutType(daySessions),
           sessions: daySessions,
         });
 
@@ -78,14 +102,39 @@ export const WorkoutHeatmap: FC<WorkoutHeatmapProps> = ({ sessions, onDayClick }
     };
   }, [sessions]);
 
-  const getColorClass = (count: number): string => {
-    if (count === 0) return 'bg-gray-100 dark:bg-gray-800';
-    if (count === 1) return 'bg-green-200 dark:bg-green-900';
-    if (count === 2) return 'bg-green-400 dark:bg-green-700';
-    return 'bg-green-600 dark:bg-green-500';
+  const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  // Render the day cell based on workout type
+  const renderDayCell = (workoutType: WorkoutType, isToday: boolean, isFuture: boolean) => {
+    const baseClasses = `w-3 h-3 rounded-sm cursor-pointer transition-all hover:scale-125 hover:ring-1 hover:ring-gray-400 ${isToday ? 'ring-1 ring-blue-500' : ''}`;
+
+    if (isFuture) {
+      return <div className={`${baseClasses} bg-transparent`} />;
+    }
+
+    switch (workoutType) {
+      case 'none':
+        return <div className={`${baseClasses} bg-gray-100 dark:bg-gray-800`} />;
+      case 'strength':
+        return <div className={`${baseClasses} bg-blue-500 dark:bg-blue-600`} />;
+      case 'cardio':
+        return <div className={`${baseClasses} bg-green-500 dark:bg-green-600`} />;
+      case 'both':
+        // Split vertically: blue on left, green on right
+        return (
+          <div className={`${baseClasses} overflow-hidden flex`}>
+            <div className="w-1/2 h-full bg-blue-500 dark:bg-blue-600" />
+            <div className="w-1/2 h-full bg-green-500 dark:bg-green-600" />
+          </div>
+        );
+    }
   };
 
-  const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const getWorkoutLabel = (workoutType: WorkoutType, count: number): string => {
+    if (count === 0) return 'No workouts';
+    const typeLabel = workoutType === 'both' ? 'strength & cardio' : workoutType;
+    return `${count} ${typeLabel} workout${count !== 1 ? 's' : ''}`;
+  };
 
   return (
     <div ref={scrollContainerRef} className="overflow-x-auto pb-2">
@@ -140,21 +189,20 @@ export const WorkoutHeatmap: FC<WorkoutHeatmapProps> = ({ sessions, onDayClick }
                   return (
                     <div
                       key={dayIndex}
-                      className={`w-3 h-3 rounded-sm cursor-pointer transition-all hover:scale-125 hover:ring-1 hover:ring-gray-400 ${
-                        isFuture ? 'bg-transparent' : getColorClass(day.count)
-                      } ${isToday ? 'ring-1 ring-blue-500' : ''}`}
                       title={`${day.date.toLocaleDateString('en-US', {
                         weekday: 'short',
                         month: 'short',
                         day: 'numeric',
                         year: 'numeric'
-                      })} - ${day.count} workout${day.count !== 1 ? 's' : ''}`}
+                      })} - ${getWorkoutLabel(day.workoutType, day.sessions.length)}`}
                       onClick={() => {
                         if (!isFuture && onDayClick) {
                           onDayClick(day.date, day.sessions);
                         }
                       }}
-                    />
+                    >
+                      {renderDayCell(day.workoutType, isToday, isFuture)}
+                    </div>
                   );
                 })}
               </div>
@@ -163,13 +211,22 @@ export const WorkoutHeatmap: FC<WorkoutHeatmapProps> = ({ sessions, onDayClick }
         </div>
 
         {/* Legend */}
-        <div className="flex items-center justify-end mt-2 gap-1 text-xs text-gray-500 dark:text-gray-400">
-          <span>Less</span>
-          <div className={`w-3 h-3 rounded-sm ${getColorClass(0)}`} />
-          <div className={`w-3 h-3 rounded-sm ${getColorClass(1)}`} />
-          <div className={`w-3 h-3 rounded-sm ${getColorClass(2)}`} />
-          <div className={`w-3 h-3 rounded-sm ${getColorClass(3)}`} />
-          <span>More</span>
+        <div className="flex items-center justify-end mt-2 gap-2 text-xs text-gray-500 dark:text-gray-400">
+          <div className="flex items-center gap-1">
+            <div className="w-3 h-3 rounded-sm bg-blue-500 dark:bg-blue-600" />
+            <span>Strength</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="w-3 h-3 rounded-sm bg-green-500 dark:bg-green-600" />
+            <span>Cardio</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="w-3 h-3 rounded-sm overflow-hidden flex">
+              <div className="w-1/2 h-full bg-blue-500 dark:bg-blue-600" />
+              <div className="w-1/2 h-full bg-green-500 dark:bg-green-600" />
+            </div>
+            <span>Both</span>
+          </div>
         </div>
       </div>
     </div>

@@ -1,4 +1,4 @@
-import { StrengthExercise, CardioExercise, MuscleGroup, Equipment, CardioType, WorkoutTemplate, StrengthTemplateExercise, CardioTemplateExercise, Exercise } from '../../types';
+import { StrengthExercise, CardioExercise, MuscleGroup, Equipment, CardioType, WorkoutTemplate, StrengthTemplateExercise, CardioTemplateExercise, Exercise, CARDIO_TYPE_TO_CATEGORY } from '../../types';
 import { getAllExercises } from '../../data/exercises';
 import { callOpenAI, parseJSONResponse } from './client';
 
@@ -180,6 +180,7 @@ export const createTemplateFromPlan = (
   return {
     id: Math.random().toString(36).substring(2, 15),
     name: customName || plan.name,
+    templateType: 'strength',
     exercises,
     createdAt: now,
     updatedAt: now,
@@ -293,17 +294,42 @@ export const generateCardioPlan = async (
 // Helper to convert GeneratedCardioPlan to WorkoutTemplate
 export const createCardioTemplateFromPlan = (
   plan: GeneratedCardioPlan,
-  customName?: string
+  customName?: string,
+  customExercises: Exercise[] = []
 ): WorkoutTemplate => {
   const now = new Date().toISOString();
-  const exercises: CardioTemplateExercise[] = plan.exercises.map(ex => ({
-    type: 'cardio' as const,
-    exerciseId: ex.exerciseId,
-    restSeconds: ex.restSeconds,
-  }));
+  const allExercises = getAllExercises(customExercises);
+
+  const exercises: CardioTemplateExercise[] = plan.exercises.map(ex => {
+    // Look up the exercise to get its cardio type
+    const exerciseInfo = allExercises.find(e => e.id === ex.exerciseId);
+    const cardioType = exerciseInfo?.type === 'cardio' ? (exerciseInfo as CardioExercise).cardioType : 'other';
+    const category = CARDIO_TYPE_TO_CATEGORY[cardioType];
+
+    const base = {
+      type: 'cardio' as const,
+      exerciseId: ex.exerciseId,
+      restSeconds: ex.restSeconds ?? 60,
+    };
+
+    // Create bespoke exercise based on category
+    if (category === 'distance') {
+      return { ...base, cardioCategory: 'distance' as const, targetDurationMinutes: 30 };
+    } else if (category === 'interval') {
+      return { ...base, cardioCategory: 'interval' as const, rounds: 4, workSeconds: 30, restBetweenRoundsSeconds: 15 };
+    } else if (category === 'laps') {
+      return { ...base, cardioCategory: 'laps' as const, targetLaps: 20 };
+    } else if (category === 'duration') {
+      return { ...base, cardioCategory: 'duration' as const, targetDurationMinutes: 20, targetIntensity: 'moderate' as const };
+    } else {
+      return { ...base, cardioCategory: 'other' as const, targetDurationMinutes: 20 };
+    }
+  });
+
   return {
     id: Math.random().toString(36).substring(2, 15),
     name: customName || plan.name,
+    templateType: 'cardio',
     exercises,
     createdAt: now,
     updatedAt: now,

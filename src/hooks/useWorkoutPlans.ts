@@ -9,7 +9,16 @@ import {
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { useAppStore } from '../store/useAppStore';
 import { getAllExercises, searchExercises } from '../data/exercises';
-import { WorkoutTemplate, TemplateExercise, Exercise, MuscleGroup, Equipment } from '../types';
+import {
+  WorkoutTemplate,
+  TemplateExercise,
+  Exercise,
+  MuscleGroup,
+  Equipment,
+  TemplateType,
+  CardioExercise,
+  CARDIO_TYPE_TO_CATEGORY,
+} from '../types';
 
 const MUSCLE_GROUPS: MuscleGroup[] = [
   'chest', 'back', 'shoulders', 'biceps', 'triceps', 'forearms',
@@ -42,6 +51,7 @@ export const useWorkoutPlans = () => {
   const [editingTemplate, setEditingTemplate] = useState<WorkoutTemplate | null>(null);
   const [templateName, setTemplateName] = useState('');
   const [templateExercises, setTemplateExercises] = useState<TemplateExercise[]>([]);
+  const [templateType, setTemplateType] = useState<TemplateType>('strength');
 
   // Exercise picker state
   const [showExercisePicker, setShowExercisePicker] = useState(false);
@@ -105,6 +115,7 @@ export const useWorkoutPlans = () => {
   const resetForm = () => {
     setTemplateName('');
     setTemplateExercises([]);
+    setTemplateType('strength');
     setIsCreating(false);
     setEditingTemplate(null);
   };
@@ -118,21 +129,60 @@ export const useWorkoutPlans = () => {
     setEditingTemplate(template);
     setTemplateName(template.name);
     setTemplateExercises([...template.exercises]);
+    setTemplateType(template.templateType);
     setIsCreating(true);
   };
 
   // Exercise management
   const addExercise = (exercise: Exercise) => {
     if (exercise.type === 'cardio') {
-      setTemplateExercises([
-        ...templateExercises,
-        {
-          type: 'cardio',
-          exerciseId: exercise.id,
-          restSeconds: preferences.defaultRestSeconds,
-        },
-      ]);
+      const cardioExercise = exercise as CardioExercise;
+      const category = CARDIO_TYPE_TO_CATEGORY[cardioExercise.cardioType];
+
+      // Auto-set template type if first exercise
+      if (templateExercises.length === 0) {
+        setTemplateType('cardio');
+      }
+
+      // Create bespoke cardio template exercise based on category
+      const baseCardio = {
+        type: 'cardio' as const,
+        exerciseId: exercise.id,
+        restSeconds: preferences.defaultRestSeconds,
+      };
+
+      if (category === 'distance') {
+        setTemplateExercises([
+          ...templateExercises,
+          { ...baseCardio, cardioCategory: 'distance' as const, targetDurationMinutes: 30 },
+        ]);
+      } else if (category === 'interval') {
+        setTemplateExercises([
+          ...templateExercises,
+          { ...baseCardio, cardioCategory: 'interval' as const, rounds: 4, workSeconds: 30, restBetweenRoundsSeconds: 15 },
+        ]);
+      } else if (category === 'laps') {
+        setTemplateExercises([
+          ...templateExercises,
+          { ...baseCardio, cardioCategory: 'laps' as const, targetLaps: 20 },
+        ]);
+      } else if (category === 'duration') {
+        setTemplateExercises([
+          ...templateExercises,
+          { ...baseCardio, cardioCategory: 'duration' as const, targetDurationMinutes: 20, targetIntensity: 'moderate' },
+        ]);
+      } else {
+        setTemplateExercises([
+          ...templateExercises,
+          { ...baseCardio, cardioCategory: 'other' as const, targetDurationMinutes: 20 },
+        ]);
+      }
     } else {
+      // Auto-set template type if first exercise
+      if (templateExercises.length === 0) {
+        setTemplateType('strength');
+      }
+
       setTemplateExercises([
         ...templateExercises,
         {
@@ -177,6 +227,7 @@ export const useWorkoutPlans = () => {
       updateTemplate({
         ...editingTemplate,
         name: templateName,
+        templateType,
         exercises: templateExercises,
         updatedAt: now,
       });
@@ -184,6 +235,7 @@ export const useWorkoutPlans = () => {
       addTemplate({
         id: generateId(),
         name: templateName,
+        templateType,
         exercises: templateExercises,
         createdAt: now,
         updatedAt: now,
@@ -251,6 +303,7 @@ export const useWorkoutPlans = () => {
     editingTemplate,
     templateName,
     templateExercises,
+    templateType,
     showExercisePicker,
     exerciseSearch,
     isCreatingExercise,
@@ -263,6 +316,7 @@ export const useWorkoutPlans = () => {
 
     // Setters
     setTemplateName,
+    setTemplateType,
     setExerciseSearch,
     setShowExercisePicker,
     setIsCreatingExercise,

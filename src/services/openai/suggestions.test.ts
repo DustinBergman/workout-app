@@ -19,6 +19,7 @@ vi.mock('../../data/exercises', () => ({
 const createMockTemplate = (overrides: Partial<WorkoutTemplate> = {}): WorkoutTemplate => ({
   id: 'template-1',
   name: 'Test Template',
+  templateType: 'strength',
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
   exercises: [],

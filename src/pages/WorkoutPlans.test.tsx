@@ -27,6 +27,7 @@ vi.mock('react-router-dom', async () => {
 const createMockTemplate = (overrides: Partial<WorkoutTemplate> = {}): WorkoutTemplate => ({
   id: 'template-1',
   name: 'Push Day',
+  templateType: 'strength',
   exercises: [
     {
       type: 'strength',
@@ -278,7 +279,7 @@ describe('WorkoutPlans', () => {
     });
 
     it('shows search input', () => {
-      expect(screen.getByPlaceholderText('Search exercises...')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('Search strength exercises...')).toBeInTheDocument();
     });
 
     it('shows Create New Exercise button', () => {
@@ -294,7 +295,7 @@ describe('WorkoutPlans', () => {
       // Wait for exercises to load
       await screen.findByText('Barbell Bench Press');
 
-      const searchInput = screen.getByPlaceholderText('Search exercises...');
+      const searchInput = screen.getByPlaceholderText('Search strength exercises...');
       fireEvent.change(searchInput, { target: { value: 'squat' } });
 
       expect(await screen.findByText('Barbell Back Squat')).toBeInTheDocument();
@@ -322,18 +323,7 @@ describe('WorkoutPlans', () => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });
 
-    it('shows cardio badge for cardio exercises', async () => {
-      // Wait for exercises to load
-      await screen.findByText('Barbell Bench Press');
-
-      const searchInput = screen.getByPlaceholderText('Search exercises...');
-      fireEvent.change(searchInput, { target: { value: 'running' } });
-
-      const dialog = screen.getByRole('dialog');
-      // Multiple cardio exercises may appear, just check that at least one Cardio badge exists
-      const cardioBadges = within(dialog).getAllByText('Cardio');
-      expect(cardioBadges.length).toBeGreaterThan(0);
-    });
+    // Note: cardio badge test removed - cardio exercises are now only visible in cardio templates
   });
 
   describe('Exercise List Management', () => {
@@ -421,7 +411,7 @@ describe('WorkoutPlans', () => {
       // Wait for dialog to open and exercises to load
       const dialog = await screen.findByRole('dialog');
       await within(dialog).findByText('Barbell Bench Press'); // Wait for list to load
-      const searchInput = within(dialog).getByPlaceholderText('Search exercises...');
+      const searchInput = within(dialog).getByPlaceholderText('Search strength exercises...');
       fireEvent.change(searchInput, { target: { value: 'squat' } });
       const squat = await within(dialog).findByText('Barbell Back Squat');
       fireEvent.click(squat);
@@ -512,7 +502,7 @@ describe('WorkoutPlans', () => {
 
     it('Cancel button returns to exercise picker', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-      expect(screen.getByPlaceholderText('Search exercises...')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('Search strength exercises...')).toBeInTheDocument();
     });
 
     it('creates and adds custom exercise', async () => {
@@ -625,8 +615,9 @@ describe('WorkoutPlans', () => {
       useAppStore.setState({
         templates: [
           createMockTemplate({
+            templateType: 'cardio',
             exercises: [
-              { type: 'cardio', exerciseId: 'outdoor-run', restSeconds: 0 },
+              { type: 'cardio', exerciseId: 'outdoor-run', cardioCategory: 'distance', restSeconds: 0 },
             ],
           }),
         ],
@@ -636,13 +627,17 @@ describe('WorkoutPlans', () => {
       expect(screen.getByText(/Outdoor Run - Cardio/)).toBeInTheDocument();
     });
 
-    it('shows only rest input for cardio exercises in edit mode', async () => {
+    it('shows bespoke inputs for cardio exercises in edit mode', async () => {
       render(<WorkoutPlans />);
       fireEvent.click(screen.getByRole('button', { name: /New/ }));
 
+      // Select cardio template type (it's shown when creating new template with no exercises)
+      const cardioTypeButton = screen.getByRole('button', { name: /Cardio/i });
+      fireEvent.click(cardioTypeButton);
+
       // Add cardio exercise
       fireEvent.click(screen.getByRole('button', { name: /Add Exercise/ }));
-      // Wait for exercises to load
+      // Wait for cardio exercises to load
       const outdoorRun = await screen.findByText('Outdoor Run');
       fireEvent.click(outdoorRun);
 
@@ -650,10 +645,10 @@ describe('WorkoutPlans', () => {
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
       });
 
-      // Cardio should only have rest input, not sets/reps
+      // Cardio (distance type) should have Duration and Rest inputs
       const inputs = screen.getAllByRole('spinbutton');
-      // Should have only 1 input (rest) for cardio
-      expect(inputs.length).toBe(1);
+      // Should have 2 inputs (duration + rest) for distance-based cardio
+      expect(inputs.length).toBe(2);
     });
   });
 
@@ -675,7 +670,7 @@ describe('WorkoutPlans', () => {
       fireEvent.click(screen.getByRole('button', { name: /Add Exercise/ }));
 
       // Search for custom exercise
-      const searchInput = screen.getByPlaceholderText('Search exercises...');
+      const searchInput = screen.getByPlaceholderText('Search strength exercises...');
       fireEvent.change(searchInput, { target: { value: 'My Custom' } });
 
       expect(screen.getByText('Custom')).toBeInTheDocument();

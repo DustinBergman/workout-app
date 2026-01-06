@@ -8,6 +8,9 @@ import {
   ExerciseSuggestion,
   WorkoutScoreResult,
   Exercise,
+  CardioExercise,
+  CARDIO_TYPE_TO_CATEGORY,
+  CardioTemplateExercise,
 } from '../types';
 
 // Import sub-hooks used internally
@@ -138,11 +141,43 @@ export const useActiveWorkout = (): UseActiveWorkoutReturn => {
           ...existingTemplate,
           exercises: session.exercises.map(ex => {
             if (ex.type === 'cardio') {
-              return {
+              // Find existing template exercise to preserve cardioCategory
+              const existingExercise = existingTemplate.exercises.find(
+                e => e.exerciseId === ex.exerciseId && e.type === 'cardio'
+              ) as CardioTemplateExercise | undefined;
+
+              if (existingExercise) {
+                // Preserve the cardioCategory and other category-specific fields
+                return {
+                  ...existingExercise,
+                  restSeconds: ex.restSeconds,
+                };
+              }
+
+              // New cardio exercise - derive category from exercise definition
+              const allExercises = getAllExercises(customExercises);
+              const exerciseInfo = allExercises.find((e: Exercise) => e.id === ex.exerciseId);
+              const cardioType = exerciseInfo?.type === 'cardio' ? (exerciseInfo as CardioExercise).cardioType : 'other';
+              const category = CARDIO_TYPE_TO_CATEGORY[cardioType];
+
+              // Return with appropriate category
+              const base = {
                 type: 'cardio' as const,
                 exerciseId: ex.exerciseId,
                 restSeconds: ex.restSeconds,
               };
+
+              if (category === 'distance') {
+                return { ...base, cardioCategory: 'distance' as const, targetDurationMinutes: 30 };
+              } else if (category === 'interval') {
+                return { ...base, cardioCategory: 'interval' as const, rounds: 4, workSeconds: 30, restBetweenRoundsSeconds: 15 };
+              } else if (category === 'laps') {
+                return { ...base, cardioCategory: 'laps' as const, targetLaps: 20 };
+              } else if (category === 'duration') {
+                return { ...base, cardioCategory: 'duration' as const, targetDurationMinutes: 20, targetIntensity: 'moderate' as const };
+              } else {
+                return { ...base, cardioCategory: 'other' as const, targetDurationMinutes: 20 };
+              }
             }
             return {
               type: 'strength' as const,

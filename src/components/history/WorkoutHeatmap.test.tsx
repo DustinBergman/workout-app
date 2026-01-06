@@ -1,7 +1,16 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { WorkoutHeatmap } from './WorkoutHeatmap';
-import { createMockSession } from '../../test/fixtures/sessions';
+import { createMockSession, createMockSessionExercise } from '../../test/fixtures/sessions';
+import { CardioSessionExercise } from '../../types';
+
+// Helper to create a cardio session exercise
+const createCardioExercise = (): CardioSessionExercise => ({
+  type: 'cardio',
+  exerciseId: 'running',
+  restSeconds: 60,
+  sets: [],
+});
 
 describe('WorkoutHeatmap', () => {
   const mockDate = new Date('2024-06-15T12:00:00.000Z');
@@ -33,11 +42,12 @@ describe('WorkoutHeatmap', () => {
       expect(junLabels.length).toBeGreaterThan(0);
     });
 
-    it('should render legend', () => {
+    it('should render legend with workout types', () => {
       render(<WorkoutHeatmap sessions={[]} />);
 
-      expect(screen.getByText('Less')).toBeInTheDocument();
-      expect(screen.getByText('More')).toBeInTheDocument();
+      expect(screen.getByText('Strength')).toBeInTheDocument();
+      expect(screen.getByText('Cardio')).toBeInTheDocument();
+      expect(screen.getByText('Both')).toBeInTheDocument();
     });
 
     it('should render 52 weeks of data', () => {
@@ -51,94 +61,109 @@ describe('WorkoutHeatmap', () => {
   });
 
   describe('Workout Display', () => {
-    it('should highlight days with workouts', () => {
-      const todaySession = createMockSession({
+    it('should show blue for strength workouts', () => {
+      const strengthSession = createMockSession({
         startedAt: mockDate.toISOString(),
+        exercises: [createMockSessionExercise()],
       });
 
-      const { container } = render(<WorkoutHeatmap sessions={[todaySession]} />);
+      const { container } = render(<WorkoutHeatmap sessions={[strengthSession]} />);
 
-      // Should have at least one green cell
-      const greenCells = container.querySelectorAll('[class*="bg-green"]');
+      // Should have a blue cell for strength workout
+      const blueCells = container.querySelectorAll('[class*="bg-blue-500"]');
+      expect(blueCells.length).toBeGreaterThan(0);
+    });
+
+    it('should show green for cardio workouts', () => {
+      const cardioSession = createMockSession({
+        startedAt: mockDate.toISOString(),
+        exercises: [createCardioExercise()],
+      });
+
+      const { container } = render(<WorkoutHeatmap sessions={[cardioSession]} />);
+
+      // Should have a green cell for cardio workout
+      const greenCells = container.querySelectorAll('[class*="bg-green-500"]');
       expect(greenCells.length).toBeGreaterThan(0);
     });
 
-    it('should show different intensities based on workout count', () => {
-      const date = new Date(mockDate);
-      const sessions = [
-        createMockSession({ id: '1', startedAt: date.toISOString() }),
-        createMockSession({ id: '2', startedAt: date.toISOString() }),
-        createMockSession({ id: '3', startedAt: date.toISOString() }),
-      ];
+    it('should show split cell for both workout types on same day', () => {
+      const strengthSession = createMockSession({
+        id: 'strength-1',
+        startedAt: mockDate.toISOString(),
+        exercises: [createMockSessionExercise()],
+      });
+      const cardioSession = createMockSession({
+        id: 'cardio-1',
+        startedAt: mockDate.toISOString(),
+        exercises: [createCardioExercise()],
+      });
 
-      const { container } = render(<WorkoutHeatmap sessions={sessions} />);
+      const { container } = render(
+        <WorkoutHeatmap sessions={[strengthSession, cardioSession]} />
+      );
 
-      // Should have a dark green cell for 3+ workouts
-      const darkGreenCells = container.querySelectorAll('[class*="bg-green-600"]');
-      expect(darkGreenCells.length).toBeGreaterThan(0);
+      // Should have cells with both colors (split view has two child divs)
+      const splitCells = container.querySelectorAll('.overflow-hidden.flex');
+      // Filter to cells that have both blue and green children
+      const bothColorCells = Array.from(splitCells).filter((cell) => {
+        const hasBlue = cell.querySelector('[class*="bg-blue-500"]');
+        const hasGreen = cell.querySelector('[class*="bg-green-500"]');
+        return hasBlue && hasGreen;
+      });
+      expect(bothColorCells.length).toBeGreaterThan(0);
     });
 
-    it('should show light green for 1 workout', () => {
-      const yesterday = new Date(mockDate);
-      yesterday.setDate(yesterday.getDate() - 1);
+    it('should handle sessions without exercises as strength', () => {
+      // Sessions without exercises default to strength type
+      const emptySession = createMockSession({
+        startedAt: mockDate.toISOString(),
+        exercises: [],
+      });
 
-      const sessions = [
-        createMockSession({ id: '1', startedAt: yesterday.toISOString() }),
-      ];
+      const { container } = render(<WorkoutHeatmap sessions={[emptySession]} />);
 
-      const { container } = render(<WorkoutHeatmap sessions={sessions} />);
-
-      // Should have a light green cell
-      const lightGreenCells = container.querySelectorAll('[class*="bg-green-200"]');
-      expect(lightGreenCells.length).toBeGreaterThan(0);
-    });
-
-    it('should show medium green for 2 workouts', () => {
-      const yesterday = new Date(mockDate);
-      yesterday.setDate(yesterday.getDate() - 1);
-
-      const sessions = [
-        createMockSession({ id: '1', startedAt: yesterday.toISOString() }),
-        createMockSession({ id: '2', startedAt: yesterday.toISOString() }),
-      ];
-
-      const { container } = render(<WorkoutHeatmap sessions={sessions} />);
-
-      // Should have a medium green cell
-      const mediumGreenCells = container.querySelectorAll('[class*="bg-green-400"]');
-      expect(mediumGreenCells.length).toBeGreaterThan(0);
+      // Should have a blue cell (strength)
+      const blueCells = container.querySelectorAll('[class*="bg-blue-500"]');
+      expect(blueCells.length).toBeGreaterThan(0);
     });
   });
 
   describe('Interactivity', () => {
     it('should call onDayClick when a day with workouts is clicked', () => {
       const onDayClick = vi.fn();
-      const session = createMockSession({ startedAt: mockDate.toISOString() });
+      const session = createMockSession({
+        startedAt: mockDate.toISOString(),
+        exercises: [createMockSessionExercise()],
+      });
 
       const { container } = render(
         <WorkoutHeatmap sessions={[session]} onDayClick={onDayClick} />
       );
 
-      // Find a green cell (has workout)
-      const greenCells = container.querySelectorAll('[class*="bg-green"]');
-      if (greenCells.length > 0) {
-        fireEvent.click(greenCells[0]);
+      // Find the wrapper div with title attribute containing workout info
+      const cellWrappers = container.querySelectorAll('[title*="strength workout"]');
+      if (cellWrappers.length > 0) {
+        fireEvent.click(cellWrappers[0]);
         expect(onDayClick).toHaveBeenCalled();
       }
     });
 
     it('should pass correct date and sessions to onDayClick', () => {
       const onDayClick = vi.fn();
-      const session = createMockSession({ startedAt: mockDate.toISOString() });
+      const session = createMockSession({
+        startedAt: mockDate.toISOString(),
+        exercises: [createMockSessionExercise()],
+      });
 
       const { container } = render(
         <WorkoutHeatmap sessions={[session]} onDayClick={onDayClick} />
       );
 
-      // Find a green cell (has workout)
-      const greenCells = container.querySelectorAll('[class*="bg-green"]');
-      if (greenCells.length > 0) {
-        fireEvent.click(greenCells[0]);
+      // Find the wrapper div with title attribute
+      const cellWrappers = container.querySelectorAll('[title*="strength workout"]');
+      if (cellWrappers.length > 0) {
+        fireEvent.click(cellWrappers[0]);
 
         const callArgs = onDayClick.mock.calls[0];
         expect(callArgs[0]).toBeInstanceOf(Date);
@@ -147,14 +172,17 @@ describe('WorkoutHeatmap', () => {
     });
 
     it('should work without onDayClick handler', () => {
-      const session = createMockSession({ startedAt: mockDate.toISOString() });
+      const session = createMockSession({
+        startedAt: mockDate.toISOString(),
+        exercises: [createMockSessionExercise()],
+      });
 
       const { container } = render(<WorkoutHeatmap sessions={[session]} />);
 
       // Should not throw when clicking
-      const greenCells = container.querySelectorAll('[class*="bg-green"]');
-      if (greenCells.length > 0) {
-        expect(() => fireEvent.click(greenCells[0])).not.toThrow();
+      const cellWrappers = container.querySelectorAll('[title*="workout"]');
+      if (cellWrappers.length > 0) {
+        expect(() => fireEvent.click(cellWrappers[0])).not.toThrow();
       }
     });
   });
@@ -169,13 +197,16 @@ describe('WorkoutHeatmap', () => {
   });
 
   describe('Tooltips', () => {
-    it('should have title attribute with date and count', () => {
-      const session = createMockSession({ startedAt: mockDate.toISOString() });
+    it('should have title attribute with date and workout type', () => {
+      const session = createMockSession({
+        startedAt: mockDate.toISOString(),
+        exercises: [createMockSessionExercise()],
+      });
 
       const { container } = render(<WorkoutHeatmap sessions={[session]} />);
 
-      // Find cells with title attribute
-      const cells = container.querySelectorAll('[title*="workout"]');
+      // Find cells with title attribute mentioning workout type
+      const cells = container.querySelectorAll('[title*="strength workout"]');
       expect(cells.length).toBeGreaterThan(0);
     });
 
@@ -183,11 +214,15 @@ describe('WorkoutHeatmap', () => {
       const yesterday = new Date(mockDate);
       yesterday.setDate(yesterday.getDate() - 1);
 
-      const session = createMockSession({ startedAt: yesterday.toISOString() });
+      const session = createMockSession({
+        startedAt: yesterday.toISOString(),
+        exercises: [createMockSessionExercise()],
+      });
 
       const { container } = render(<WorkoutHeatmap sessions={[session]} />);
 
-      const cells = container.querySelectorAll('[title*="1 workout"]');
+      // Title should say "1 strength workout" (singular)
+      const cells = container.querySelectorAll('[title*="1 strength workout"]');
       expect(cells.length).toBeGreaterThan(0);
     });
 
@@ -196,13 +231,46 @@ describe('WorkoutHeatmap', () => {
       yesterday.setDate(yesterday.getDate() - 1);
 
       const sessions = [
-        createMockSession({ id: '1', startedAt: yesterday.toISOString() }),
-        createMockSession({ id: '2', startedAt: yesterday.toISOString() }),
+        createMockSession({
+          id: '1',
+          startedAt: yesterday.toISOString(),
+          exercises: [createMockSessionExercise()],
+        }),
+        createMockSession({
+          id: '2',
+          startedAt: yesterday.toISOString(),
+          exercises: [createMockSessionExercise()],
+        }),
       ];
 
       const { container } = render(<WorkoutHeatmap sessions={sessions} />);
 
-      const cells = container.querySelectorAll('[title*="2 workouts"]');
+      // Title should say "2 strength workouts" (plural)
+      const cells = container.querySelectorAll('[title*="2 strength workouts"]');
+      expect(cells.length).toBeGreaterThan(0);
+    });
+
+    it('should show "strength & cardio" for mixed workout days', () => {
+      const yesterday = new Date(mockDate);
+      yesterday.setDate(yesterday.getDate() - 1);
+
+      const sessions = [
+        createMockSession({
+          id: 'strength-1',
+          startedAt: yesterday.toISOString(),
+          exercises: [createMockSessionExercise()],
+        }),
+        createMockSession({
+          id: 'cardio-1',
+          startedAt: yesterday.toISOString(),
+          exercises: [createCardioExercise()],
+        }),
+      ];
+
+      const { container } = render(<WorkoutHeatmap sessions={sessions} />);
+
+      // Title should indicate both types
+      const cells = container.querySelectorAll('[title*="strength & cardio"]');
       expect(cells.length).toBeGreaterThan(0);
     });
   });
@@ -234,42 +302,54 @@ describe('WorkoutHeatmap', () => {
     it('should update when sessions prop changes', () => {
       const { rerender, container } = render(<WorkoutHeatmap sessions={[]} />);
 
-      // Initially no green cells in the heatmap grid (exclude legend)
-      // Look for cells with workout data (have title attribute with workout count > 0)
-      let workoutCells = container.querySelectorAll('[title*="1 workout"], [title*="2 workout"], [title*="3 workout"]');
+      // Initially no workout cells
+      let workoutCells = container.querySelectorAll('[title*="strength workout"], [title*="cardio workout"]');
       expect(workoutCells.length).toBe(0);
 
       // Add a session
-      const session = createMockSession({ startedAt: mockDate.toISOString() });
+      const session = createMockSession({
+        startedAt: mockDate.toISOString(),
+        exercises: [createMockSessionExercise()],
+      });
       rerender(<WorkoutHeatmap sessions={[session]} />);
 
       // Now should have cells with workout
-      workoutCells = container.querySelectorAll('[title*="1 workout"], [title*="2 workout"], [title*="3 workout"]');
+      workoutCells = container.querySelectorAll('[title*="strength workout"], [title*="cardio workout"]');
       expect(workoutCells.length).toBeGreaterThan(0);
     });
 
     it('should handle empty session array', () => {
       const { container } = render(<WorkoutHeatmap sessions={[]} />);
 
-      // Should have no cells showing workouts (all should be "0 workouts")
-      const workoutCells = container.querySelectorAll('[title*="1 workout"], [title*="2 workout"], [title*="3 workout"]');
+      // Should have no cells showing workouts
+      const workoutCells = container.querySelectorAll('[title*="strength workout"], [title*="cardio workout"]');
       expect(workoutCells.length).toBe(0);
     });
 
     it('should handle multiple sessions on same day', () => {
       const sessions = [
-        createMockSession({ id: '1', startedAt: mockDate.toISOString() }),
-        createMockSession({ id: '2', startedAt: mockDate.toISOString() }),
-        createMockSession({ id: '3', startedAt: mockDate.toISOString() }),
-        createMockSession({ id: '4', startedAt: mockDate.toISOString() }),
-        createMockSession({ id: '5', startedAt: mockDate.toISOString() }),
+        createMockSession({
+          id: '1',
+          startedAt: mockDate.toISOString(),
+          exercises: [createMockSessionExercise()],
+        }),
+        createMockSession({
+          id: '2',
+          startedAt: mockDate.toISOString(),
+          exercises: [createMockSessionExercise()],
+        }),
+        createMockSession({
+          id: '3',
+          startedAt: mockDate.toISOString(),
+          exercises: [createMockSessionExercise()],
+        }),
       ];
 
       const { container } = render(<WorkoutHeatmap sessions={sessions} />);
 
-      // Should have a dark green cell (3+ workouts)
-      const darkGreenCells = container.querySelectorAll('[class*="bg-green-600"]');
-      expect(darkGreenCells.length).toBeGreaterThan(0);
+      // Should have a blue cell (all strength)
+      const blueCells = container.querySelectorAll('[class*="bg-blue-500"]');
+      expect(blueCells.length).toBeGreaterThan(0);
     });
   });
 });

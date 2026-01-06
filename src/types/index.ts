@@ -57,6 +57,27 @@ export type CardioType =
   | 'boxing'
   | 'other';
 
+// Cardio Categories (for bespoke template fields)
+export type CardioCategory = 'distance' | 'interval' | 'laps' | 'duration' | 'other';
+
+// Map CardioType to CardioCategory
+export const CARDIO_TYPE_TO_CATEGORY: Record<CardioType, CardioCategory> = {
+  running: 'distance',
+  walking: 'distance',
+  cycling: 'distance',
+  hiking: 'distance',
+  hiit: 'interval',
+  boxing: 'interval',
+  swimming: 'laps',
+  rowing: 'duration',
+  elliptical: 'duration',
+  'stair-climber': 'duration',
+  other: 'other',
+};
+
+// Template Type (strength or cardio)
+export type TemplateType = 'strength' | 'cardio';
+
 // Progressive Overload Week (0-4)
 export type ProgressiveOverloadWeek = 0 | 1 | 2 | 3 | 4;
 
@@ -272,12 +293,62 @@ export interface StrengthTemplateExercise {
   restSeconds?: number;
 }
 
-// Cardio Template Exercise
-export interface CardioTemplateExercise {
+// Tracking mode for cardio exercises
+export type CardioTrackingMode = 'detailed' | 'simple';
+
+// Base Cardio Template Exercise fields
+interface BaseCardioTemplateExercise {
   type: 'cardio';
   exerciseId: string;
   restSeconds?: number;
+  trackingMode?: CardioTrackingMode; // 'detailed' = category-specific fields, 'simple' = duration/calories
+  targetCalories?: number;           // Available in simple mode for all types
 }
+
+// Distance-based cardio (Running, Walking, Cycling, Hiking)
+export interface DistanceCardioTemplateExercise extends BaseCardioTemplateExercise {
+  cardioCategory: 'distance';
+  targetDistance?: number;        // in user's preferred unit (mi/km)
+  targetDurationMinutes?: number; // e.g., 30 minutes
+}
+
+// Interval-based cardio (HIIT, Boxing)
+export interface IntervalCardioTemplateExercise extends BaseCardioTemplateExercise {
+  cardioCategory: 'interval';
+  rounds?: number;                    // e.g., 8 rounds
+  workSeconds?: number;               // e.g., 30 seconds work
+  restBetweenRoundsSeconds?: number;  // e.g., 15 seconds rest between rounds
+}
+
+// Lap-based cardio (Swimming)
+export interface LapCardioTemplateExercise extends BaseCardioTemplateExercise {
+  cardioCategory: 'laps';
+  targetLaps?: number;            // e.g., 20 laps
+  targetDistance?: number;        // alternative to laps
+  targetDurationMinutes?: number;
+}
+
+// Duration-based cardio (Rowing, Elliptical, Stair-climber)
+export interface DurationCardioTemplateExercise extends BaseCardioTemplateExercise {
+  cardioCategory: 'duration';
+  targetDurationMinutes?: number;
+  targetIntensity?: 'low' | 'moderate' | 'high';
+}
+
+// Other cardio (catch-all)
+export interface OtherCardioTemplateExercise extends BaseCardioTemplateExercise {
+  cardioCategory: 'other';
+  targetDurationMinutes?: number;
+  notes?: string;
+}
+
+// Cardio Template Exercise Union Type
+export type CardioTemplateExercise =
+  | DistanceCardioTemplateExercise
+  | IntervalCardioTemplateExercise
+  | LapCardioTemplateExercise
+  | DurationCardioTemplateExercise
+  | OtherCardioTemplateExercise;
 
 // Template Exercise Union Type
 export type TemplateExercise = StrengthTemplateExercise | CardioTemplateExercise;
@@ -286,6 +357,7 @@ export type TemplateExercise = StrengthTemplateExercise | CardioTemplateExercise
 export interface WorkoutTemplate {
   id: string;
   name: string;
+  templateType: TemplateType;  // 'strength' or 'cardio'
   exercises: TemplateExercise[];
   createdAt: string;
   updatedAt: string;

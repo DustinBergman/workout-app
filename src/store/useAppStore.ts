@@ -8,7 +8,10 @@ import {
   ProgressiveOverloadWeek,
   WorkoutGoal,
   WeightEntry,
+  CARDIO_TYPE_TO_CATEGORY,
+  CardioExercise,
 } from '../types';
+import { getAllExercises } from '../data/exercises';
 
 interface AppState {
   // State
@@ -181,10 +184,164 @@ export const useAppStore = create<AppState>()(
       }),
       {
         name: 'workout-app-storage',
+        version: 1,
+        migrate: (persistedState: unknown, version: number) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const state = persistedState as any;
+
+          // Migration from version 0 to 1: Add templateType and cardioCategory
+          if (version === 0) {
+            const allExercises = getAllExercises(state.customExercises || []);
+
+            const migratedTemplates = (state.templates || []).map((template: any) => {
+              // Skip if template already has templateType
+              if (template.templateType) {
+                return template;
+              }
+
+              // Determine template type from exercises
+              const hasCardio = template.exercises.some((ex: any) => ex.type === 'cardio');
+              const hasStrength = template.exercises.some((ex: any) => ex.type === 'strength');
+
+              // Default to strength, unless all exercises are cardio
+              const templateType = hasCardio && !hasStrength ? 'cardio' : 'strength';
+
+              // Filter exercises to match template type (in case of mixed)
+              const filteredExercises = template.exercises
+                .filter((ex: any) => {
+                  if (templateType === 'cardio') return ex.type === 'cardio';
+                  return ex.type === 'strength';
+                })
+                .map((ex: any) => {
+                  // Add cardioCategory to cardio exercises that don't have it
+                  if (ex.type === 'cardio' && !ex.cardioCategory) {
+                    const exercise = allExercises.find((e) => e.id === ex.exerciseId) as CardioExercise | undefined;
+                    const cardioType = exercise?.cardioType || 'other';
+                    const category = CARDIO_TYPE_TO_CATEGORY[cardioType];
+
+                    // Return with default fields based on category
+                    if (category === 'distance') {
+                      return { ...ex, cardioCategory: 'distance', targetDurationMinutes: 30 };
+                    } else if (category === 'interval') {
+                      return { ...ex, cardioCategory: 'interval', rounds: 4, workSeconds: 30, restBetweenRoundsSeconds: 15 };
+                    } else if (category === 'laps') {
+                      return { ...ex, cardioCategory: 'laps', targetLaps: 20 };
+                    } else if (category === 'duration') {
+                      return { ...ex, cardioCategory: 'duration', targetDurationMinutes: 20 };
+                    } else {
+                      return { ...ex, cardioCategory: 'other', targetDurationMinutes: 30 };
+                    }
+                  }
+                  return ex;
+                });
+
+              return {
+                ...template,
+                templateType,
+                exercises: filteredExercises,
+              };
+            });
+
+            return {
+              ...state,
+              templates: migratedTemplates,
+            };
+          }
+
+          return state;
+        },
       }
     )
   )
 );
+
+// One-time migration function - call this on app startup
+// Uses 'any' types since we're dealing with potentially malformed legacy data
+export const migrateTemplates = () => {
+  const state = useAppStore.getState();
+  const allExercises = getAllExercises(state.customExercises);
+  let needsUpdate = false;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const migratedTemplates = state.templates.map((template: any) => {
+    // Skip if template already has templateType
+    if (template.templateType) {
+      // Still check if cardio exercises need cardioCategory
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const updatedExercises = template.exercises.map((ex: any) => {
+        if (ex.type === 'cardio' && !ex.cardioCategory) {
+          needsUpdate = true;
+          const exercise = allExercises.find((e) => e.id === ex.exerciseId) as CardioExercise | undefined;
+          const cardioType = exercise?.cardioType || 'other';
+          const category = CARDIO_TYPE_TO_CATEGORY[cardioType];
+
+          if (category === 'distance') {
+            return { ...ex, cardioCategory: 'distance', targetDurationMinutes: 30 };
+          } else if (category === 'interval') {
+            return { ...ex, cardioCategory: 'interval', rounds: 4, workSeconds: 30, restBetweenRoundsSeconds: 15 };
+          } else if (category === 'laps') {
+            return { ...ex, cardioCategory: 'laps', targetLaps: 20 };
+          } else if (category === 'duration') {
+            return { ...ex, cardioCategory: 'duration', targetDurationMinutes: 20 };
+          } else {
+            return { ...ex, cardioCategory: 'other', targetDurationMinutes: 30 };
+          }
+        }
+        return ex;
+      });
+
+      return { ...template, exercises: updatedExercises };
+    }
+
+    needsUpdate = true;
+
+    // Determine template type from exercises
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const hasCardio = template.exercises.some((ex: any) => ex.type === 'cardio');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const hasStrength = template.exercises.some((ex: any) => ex.type === 'strength');
+    const templateType = hasCardio && !hasStrength ? 'cardio' : 'strength';
+
+    // Filter exercises to match template type and add cardioCategory
+    const filteredExercises = template.exercises
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .filter((ex: any) => {
+        if (templateType === 'cardio') return ex.type === 'cardio';
+        return ex.type === 'strength';
+      })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((ex: any) => {
+        if (ex.type === 'cardio' && !ex.cardioCategory) {
+          const exercise = allExercises.find((e) => e.id === ex.exerciseId) as CardioExercise | undefined;
+          const cardioType = exercise?.cardioType || 'other';
+          const category = CARDIO_TYPE_TO_CATEGORY[cardioType];
+
+          if (category === 'distance') {
+            return { ...ex, cardioCategory: 'distance', targetDurationMinutes: 30 };
+          } else if (category === 'interval') {
+            return { ...ex, cardioCategory: 'interval', rounds: 4, workSeconds: 30, restBetweenRoundsSeconds: 15 };
+          } else if (category === 'laps') {
+            return { ...ex, cardioCategory: 'laps', targetLaps: 20 };
+          } else if (category === 'duration') {
+            return { ...ex, cardioCategory: 'duration', targetDurationMinutes: 20 };
+          } else {
+            return { ...ex, cardioCategory: 'other', targetDurationMinutes: 30 };
+          }
+        }
+        return ex;
+      });
+
+    return {
+      ...template,
+      templateType,
+      exercises: filteredExercises,
+    };
+  });
+
+  if (needsUpdate) {
+    useAppStore.setState({ templates: migratedTemplates as WorkoutTemplate[] });
+  }
+};
 
 // Subscribe to dark mode changes and update document class
 useAppStore.subscribe(

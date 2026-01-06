@@ -48,9 +48,32 @@ const SortableTemplateCard: FC<SortableTemplateCardProps> = ({
     opacity: isDragging ? 0.5 : 1,
   };
 
+  const isCardio = template.templateType === 'cardio';
+  const borderColor = isCardio
+    ? 'border-l-4 border-l-green-500'
+    : 'border-l-4 border-l-blue-500';
+
+  // Format exercise description based on type
+  const getExerciseDescription = (exercise: typeof template.exercises[0]) => {
+    if (exercise.type === 'cardio') {
+      const cardio = exercise;
+      if ('rounds' in cardio && cardio.rounds) {
+        return `${cardio.rounds} rounds`;
+      }
+      if ('targetDurationMinutes' in cardio && cardio.targetDurationMinutes) {
+        return `${cardio.targetDurationMinutes} min`;
+      }
+      if ('targetLaps' in cardio && cardio.targetLaps) {
+        return `${cardio.targetLaps} laps`;
+      }
+      return 'Cardio';
+    }
+    return `${exercise.targetSets}x${exercise.targetReps}`;
+  };
+
   return (
     <div ref={setNodeRef} style={style}>
-      <Card className={`${isDragging ? 'ring-2 ring-primary' : ''} ${isNext ? 'border-primary/50' : ''}`}>
+      <Card className={`${borderColor} ${isDragging ? 'ring-2 ring-primary' : ''} ${isNext ? 'ring-2 ring-primary/50' : ''}`}>
         {/* Drag handle at top */}
         <div
           {...attributes}
@@ -66,6 +89,16 @@ const SortableTemplateCard: FC<SortableTemplateCardProps> = ({
         <div className="flex items-start justify-between mb-3">
           <div className="flex-1">
             <div className="flex items-center gap-2">
+              {/* Type icon */}
+              {isCardio ? (
+                <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h4v12H4V6zm12 0h4v12h-4V6zm-6 2h4v8h-4V8z" />
+                </svg>
+              )}
               <h3 className="font-semibold text-gray-900 dark:text-gray-100">
                 {template.name}
               </h3>
@@ -75,9 +108,18 @@ const SortableTemplateCard: FC<SortableTemplateCardProps> = ({
                 </span>
               )}
             </div>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              {template.exercises.length} exercises
-            </p>
+            <div className="flex items-center gap-2 mt-1">
+              <span className={`text-xs px-2 py-0.5 rounded ${
+                isCardio
+                  ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+                  : 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+              }`}>
+                {isCardio ? 'Cardio' : 'Strength'}
+              </span>
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                {template.exercises.length} exercises
+              </span>
+            </div>
           </div>
           <div className="flex gap-2">
             <Button size="sm" variant="ghost" onClick={onEdit}>
@@ -96,7 +138,7 @@ const SortableTemplateCard: FC<SortableTemplateCardProps> = ({
         <div className="space-y-1 mb-4">
           {template.exercises.slice(0, 4).map((exercise, index) => (
             <p key={index} className="text-sm text-gray-600 dark:text-gray-400">
-              {getExerciseName(exercise.exerciseId)} - {exercise.type === 'cardio' ? 'Cardio' : `${exercise.targetSets}x${exercise.targetReps}`}
+              {getExerciseName(exercise.exerciseId)} - {getExerciseDescription(exercise)}
             </p>
           ))}
           {template.exercises.length > 4 && (
@@ -124,6 +166,7 @@ export const WorkoutPlans: FC = () => {
     editingTemplate,
     templateName,
     templateExercises,
+    templateType,
     showExercisePicker,
     exerciseSearch,
     isCreatingExercise,
@@ -134,6 +177,7 @@ export const WorkoutPlans: FC = () => {
     filteredExercises,
     // Setters
     setTemplateName,
+    setTemplateType,
     setExerciseSearch,
     setShowExercisePicker,
     setIsCreatingExercise,
@@ -168,6 +212,7 @@ export const WorkoutPlans: FC = () => {
         editingTemplate={editingTemplate}
         templateName={templateName}
         templateExercises={templateExercises}
+        templateType={templateType}
         showExercisePicker={showExercisePicker}
         exerciseSearch={exerciseSearch}
         isCreatingExercise={isCreatingExercise}
@@ -179,6 +224,7 @@ export const WorkoutPlans: FC = () => {
         equipmentOptions={EQUIPMENT_OPTIONS}
         onBack={resetForm}
         onNameChange={setTemplateName}
+        onTemplateTypeChange={setTemplateType}
         onOpenPicker={() => setShowExercisePicker(true)}
         onClosePicker={() => {
           setShowExercisePicker(false);

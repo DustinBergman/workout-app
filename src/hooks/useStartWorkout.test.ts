@@ -31,6 +31,7 @@ const createStrengthTemplateExercise = (
 const createMockTemplate = (overrides: Partial<WorkoutTemplate> = {}): WorkoutTemplate => ({
   id: 'template-1',
   name: 'Test Template',
+  templateType: 'strength',
   exercises: [
     createStrengthTemplateExercise('bench-press'),
   ],

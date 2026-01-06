@@ -1,4 +1,4 @@
-import { WorkoutTemplate, StrengthTemplateExercise } from '../../types';
+import { WorkoutTemplate, StrengthTemplateExercise, TemplateType, TemplateExercise } from '../../types';
 
 export function createMockTemplateExercise(
   overrides: Partial<StrengthTemplateExercise> = {}
@@ -13,14 +13,23 @@ export function createMockTemplateExercise(
   };
 }
 
-export function createMockTemplate(overrides: Partial<WorkoutTemplate> = {}): WorkoutTemplate {
+interface MockTemplateOverrides {
+  id?: string;
+  name?: string;
+  templateType?: TemplateType;
+  exercises?: TemplateExercise[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export function createMockTemplate(overrides: MockTemplateOverrides = {}): WorkoutTemplate {
   const now = new Date().toISOString();
   return {
-    id: `template-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    name: 'Test Template',
-    exercises: [],
-    createdAt: now,
-    updatedAt: now,
-    ...overrides,
+    id: overrides.id ?? `template-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    name: overrides.name ?? 'Test Template',
+    templateType: overrides.templateType ?? 'strength',
+    exercises: overrides.exercises ?? [],
+    createdAt: overrides.createdAt ?? now,
+    updatedAt: overrides.updatedAt ?? now,
   };
 }
