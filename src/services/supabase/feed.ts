@@ -98,7 +98,7 @@ export const getFriendWorkouts = async (
       name,
       started_at,
       completed_at,
-      user:profiles!workout_sessions_user_id_fkey (
+      user:profiles!workout_sessions_user_id_profiles_fkey (
         id, first_name, last_name, username
       ),
       session_exercises (

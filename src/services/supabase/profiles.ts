@@ -144,7 +144,7 @@ export const updateUsername = async (
 };
 
 /**
- * Search users by email or username (for friend search)
+ * Search users by username, first name, or last name (for friend search)
  */
 export const searchUsers = async (
   query: string
@@ -159,11 +159,11 @@ export const searchUsers = async (
     return { users: [], error: null };
   }
 
-  // Search by username or email pattern
+  // Search by username, first name, or last name
   const { data, error } = await supabase
     .from('profiles')
     .select('id, first_name, last_name, username')
-    .or(`username.ilike.%${trimmedQuery}%`)
+    .or(`username.ilike.%${trimmedQuery}%,first_name.ilike.%${trimmedQuery}%,last_name.ilike.%${trimmedQuery}%`)
     .neq('id', user.id) // Exclude current user
     .limit(10);
 

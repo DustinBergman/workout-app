@@ -8,6 +8,7 @@ import {
   updatePassword as authUpdatePassword,
   getSession,
   onAuthStateChange,
+  syncUserMetadataToProfile,
 } from '../services/supabase/auth';
 import {
   getCachedAuth,
@@ -79,11 +80,16 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
     initAuth();
 
     // Subscribe to auth changes
-    const subscription = onAuthStateChange((_event, newSession) => {
+    const subscription = onAuthStateChange((event, newSession) => {
       setSession(newSession);
       setUser(newSession?.user ?? null);
       if (newSession?.user) {
         setCachedAuth(newSession.user, newSession);
+        // Sync user metadata to profile on sign in (handles email confirmation flow)
+        // Fire and forget - don't block auth state update
+        if (event === 'SIGNED_IN') {
+          syncUserMetadataToProfile(newSession.user);
+        }
       } else {
         clearCachedAuth();
       }

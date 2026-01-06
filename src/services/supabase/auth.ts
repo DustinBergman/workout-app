@@ -32,8 +32,11 @@ export const signUp = async (
   // If signup successful and we have profile data, update the profile
   // The profile is auto-created by a database trigger on auth.users insert
   if (!error && data.user && (metadata?.username || metadata?.firstName || metadata?.lastName)) {
-    // Update the profile with the name and username - the trigger creates the profile synchronously
-    await supabase
+    // Small delay to ensure the profile trigger has completed
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Update the profile with the name and username
+    const { error: profileError } = await supabase
       .from('profiles')
       .update({
         username: metadata.username?.trim().toLowerCase() || null,
@@ -41,6 +44,19 @@ export const signUp = async (
         last_name: metadata.lastName || null,
       })
       .eq('id', data.user.id);
+
+    // If update failed, try upsert as fallback (in case profile doesn't exist yet)
+    if (profileError) {
+      console.error('Profile update failed, trying upsert:', profileError);
+      await supabase
+        .from('profiles')
+        .upsert({
+          id: data.user.id,
+          username: metadata.username?.trim().toLowerCase() || null,
+          first_name: metadata.firstName || null,
+          last_name: metadata.lastName || null,
+        });
+    }
   }
 
   return {
@@ -135,4 +151,40 @@ export const resendConfirmation = async (email: string): Promise<{ error: AuthEr
     email,
   });
   return { error };
+};
+
+/**
+ * Sync user metadata (username, first/last name) to the profiles table
+ * Called when user signs in after email confirmation
+ */
+export const syncUserMetadataToProfile = async (user: User): Promise<void> => {
+  const metadata = user.user_metadata;
+  if (!metadata) return;
+
+  const { username, firstName, lastName } = metadata;
+
+  // Only sync if there's data to sync
+  if (!username && !firstName && !lastName) return;
+
+  const updates: Record<string, string | null> = {};
+
+  if (username) {
+    updates.username = username.trim().toLowerCase();
+  }
+  if (firstName) {
+    updates.first_name = firstName;
+  }
+  if (lastName) {
+    updates.last_name = lastName;
+  }
+
+  // Update the profile - user is now authenticated so RLS should allow this
+  const { error } = await supabase
+    .from('profiles')
+    .update(updates)
+    .eq('id', user.id);
+
+  if (error) {
+    console.error('Failed to sync user metadata to profile:', error);
+  }
 };
