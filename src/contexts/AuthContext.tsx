@@ -16,6 +16,10 @@ import {
   clearCachedAuth,
   getInitialAuthState,
 } from '../services/authCache';
+import {
+  setAuthUser,
+  clearAuthCache,
+} from '../services/supabase/authHelper';
 
 export interface AuthContextType {
   user: User | null;
@@ -49,6 +53,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
       if (cachedAuth) {
         setSession(cachedAuth.session);
         setUser(cachedAuth.user);
+        setAuthUser(cachedAuth.user); // Initialize in-memory auth cache
         setIsLoading(false);
         // Still fetch the real session in background to ensure it's fresh
         // but user sees the app immediately
@@ -57,11 +62,13 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
             setSession(freshSession);
             setUser(freshSession.user);
             setCachedAuth(freshSession.user, freshSession);
+            setAuthUser(freshSession.user); // Update in-memory auth cache
           } else {
             // Session was invalid, clear everything
             setSession(null);
             setUser(null);
             clearCachedAuth();
+            clearAuthCache(); // Clear in-memory auth cache
           }
         });
         return;
@@ -73,6 +80,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
       setUser(currentSession?.user ?? null);
       if (currentSession?.user) {
         setCachedAuth(currentSession.user, currentSession);
+        setAuthUser(currentSession.user); // Initialize in-memory auth cache
       }
       setIsLoading(false);
     };
@@ -85,6 +93,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
       setUser(newSession?.user ?? null);
       if (newSession?.user) {
         setCachedAuth(newSession.user, newSession);
+        setAuthUser(newSession.user); // Update in-memory auth cache
         // Sync user metadata to profile on sign in (handles email confirmation flow)
         // Fire and forget - don't block auth state update
         if (event === 'SIGNED_IN') {
@@ -92,6 +101,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
         }
       } else {
         clearCachedAuth();
+        clearAuthCache(); // Clear in-memory auth cache
       }
       setIsLoading(false);
     });
@@ -111,6 +121,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
       setUser(newUser);
       setSession(newSession);
       setCachedAuth(newUser, newSession);
+      setAuthUser(newUser); // Update in-memory auth cache
     }
     return { error };
   }, []);
@@ -121,6 +132,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
       setUser(newUser);
       setSession(newSession);
       setCachedAuth(newUser, newSession);
+      setAuthUser(newUser); // Update in-memory auth cache
     }
     return { error };
   }, []);
@@ -131,6 +143,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
       setUser(null);
       setSession(null);
       clearCachedAuth();
+      clearAuthCache(); // Clear in-memory auth cache
     }
     return { error };
   }, []);

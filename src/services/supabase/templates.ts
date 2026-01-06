@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase';
+import { getAuthUser } from './authHelper';
 import type { WorkoutTemplate, TemplateExercise, TemplateType } from '../../types';
 
 interface DbTemplateExercise {
@@ -36,7 +37,7 @@ interface DbWorkoutTemplate {
  * Get all templates for the current user
  */
 export const getTemplates = async (): Promise<{ templates: WorkoutTemplate[]; error: Error | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) {
     return { templates: [], error: new Error('Not authenticated') };
   }
@@ -64,7 +65,7 @@ export const getTemplates = async (): Promise<{ templates: WorkoutTemplate[]; er
 export const createTemplate = async (
   template: Omit<WorkoutTemplate, 'id' | 'createdAt' | 'updatedAt'>
 ): Promise<{ template: WorkoutTemplate | null; error: Error | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) {
     return { template: null, error: new Error('Not authenticated') };
   }
@@ -123,7 +124,7 @@ export const updateTemplate = async (
   id: string,
   updates: Partial<Omit<WorkoutTemplate, 'id' | 'createdAt' | 'updatedAt'>>
 ): Promise<{ error: Error | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) {
     return { error: new Error('Not authenticated') };
   }
@@ -180,7 +181,7 @@ export const updateTemplate = async (
  * Delete a template
  */
 export const deleteTemplate = async (id: string): Promise<{ error: Error | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) {
     return { error: new Error('Not authenticated') };
   }

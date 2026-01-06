@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase';
+import { getAuthUser } from './authHelper';
 import type { WeightEntry, WeightUnit } from '../../types';
 
 interface DbWeightEntry {
@@ -14,7 +15,7 @@ interface DbWeightEntry {
  * Get all weight entries for the current user
  */
 export const getWeightEntries = async (): Promise<{ entries: WeightEntry[]; error: Error | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) {
     return { entries: [], error: new Error('Not authenticated') };
   }
@@ -39,7 +40,7 @@ export const getWeightEntries = async (): Promise<{ entries: WeightEntry[]; erro
 export const upsertWeightEntry = async (
   entry: WeightEntry
 ): Promise<{ entry: WeightEntry | null; error: Error | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) {
     return { entry: null, error: new Error('Not authenticated') };
   }
@@ -69,7 +70,7 @@ export const upsertWeightEntry = async (
  * Delete a weight entry
  */
 export const deleteWeightEntry = async (date: string): Promise<{ error: Error | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) {
     return { error: new Error('Not authenticated') };
   }

@@ -10,11 +10,13 @@ import type {
 } from '../../types';
 import { preferencesToProfileUpdates } from './profiles';
 
+import { getAuthUser } from './authHelper';
+
 /**
- * Check if user is authenticated
+ * Check if user is authenticated (uses cached auth)
  */
 const getUserId = async (): Promise<string | null> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   return user?.id ?? null;
 };
 

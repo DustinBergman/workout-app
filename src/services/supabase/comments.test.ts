@@ -7,6 +7,12 @@ import {
   getBatchCommentCounts,
 } from './comments';
 
+// Mock the auth helper
+const mockGetAuthUser = vi.fn();
+vi.mock('./authHelper', () => ({
+  getAuthUser: () => mockGetAuthUser(),
+}));
+
 // Mock the supabase client
 const mockRpc = vi.fn();
 const mockDelete = vi.fn();
@@ -14,9 +20,6 @@ const mockSelect = vi.fn();
 
 vi.mock('../../lib/supabase', () => ({
   supabase: {
-    auth: {
-      getUser: vi.fn(),
-    },
     rpc: (...args: unknown[]) => mockRpc(...args),
     from: vi.fn(() => ({
       delete: vi.fn(() => ({
@@ -44,18 +47,12 @@ const mockUser = {
 describe('Comments Service', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(supabase.auth.getUser).mockResolvedValue({
-      data: { user: mockUser as never },
-      error: null,
-    });
+    mockGetAuthUser.mockResolvedValue(mockUser);
   });
 
   describe('addComment', () => {
     it('should return error when not authenticated', async () => {
-      vi.mocked(supabase.auth.getUser).mockResolvedValue({
-        data: { user: null },
-        error: null,
-      } as never);
+      mockGetAuthUser.mockResolvedValue(null);
 
       const result = await addComment('workout-123', 'Great workout!');
 
@@ -115,10 +112,7 @@ describe('Comments Service', () => {
 
   describe('deleteComment', () => {
     it('should return error when not authenticated', async () => {
-      vi.mocked(supabase.auth.getUser).mockResolvedValue({
-        data: { user: null },
-        error: null,
-      } as never);
+      mockGetAuthUser.mockResolvedValue(null);
 
       const result = await deleteComment('comment-123');
 

@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase';
+import { getAuthUser } from './authHelper';
 import type { Exercise, StrengthExercise, CardioExercise, MuscleGroup, Equipment, CardioType } from '../../types';
 
 interface DbCustomExercise {
@@ -17,7 +18,7 @@ interface DbCustomExercise {
  * Get all custom exercises for the current user
  */
 export const getCustomExercises = async (): Promise<{ exercises: Exercise[]; error: Error | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) {
     return { exercises: [], error: new Error('Not authenticated') };
   }
@@ -42,7 +43,7 @@ export const getCustomExercises = async (): Promise<{ exercises: Exercise[]; err
 export const createCustomExercise = async (
   exercise: Omit<Exercise, 'id'>
 ): Promise<{ exercise: Exercise | null; error: Error | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) {
     return { exercise: null, error: new Error('Not authenticated') };
   }
@@ -93,7 +94,7 @@ export const updateCustomExercise = async (
   id: string,
   updates: Partial<Omit<Exercise, 'id'>>
 ): Promise<{ error: Error | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) {
     return { error: new Error('Not authenticated') };
   }
@@ -126,7 +127,7 @@ export const updateCustomExercise = async (
  * Delete a custom exercise
  */
 export const deleteCustomExercise = async (id: string): Promise<{ error: Error | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) {
     return { error: new Error('Not authenticated') };
   }

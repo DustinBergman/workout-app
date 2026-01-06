@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase';
+import { getAuthUser } from './authHelper';
 
 // Types
 export interface FriendProfile {
@@ -85,7 +86,7 @@ export const getPendingRequests = async (): Promise<{
   requests: FriendRequest[];
   error: Error | null;
 }> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) {
     return { requests: [], error: new Error('Not authenticated') };
   }
@@ -116,7 +117,7 @@ export const getSentRequests = async (): Promise<{
   requests: FriendRequest[];
   error: Error | null;
 }> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) {
     return { requests: [], error: new Error('Not authenticated') };
   }
@@ -146,7 +147,7 @@ export const getSentRequests = async (): Promise<{
 export const cancelFriendRequest = async (
   requestId: string
 ): Promise<{ error: Error | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) {
     return { error: new Error('Not authenticated') };
   }
@@ -167,7 +168,7 @@ export const getFriends = async (): Promise<{
   friends: FriendProfile[];
   error: Error | null;
 }> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) {
     return { friends: [], error: new Error('Not authenticated') };
   }
@@ -199,7 +200,7 @@ export const getFriends = async (): Promise<{
 export const removeFriend = async (
   friendId: string
 ): Promise<{ error: Error | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) {
     return { error: new Error('Not authenticated') };
   }
@@ -230,7 +231,7 @@ export const removeFriend = async (
 export const isFriend = async (
   userId: string
 ): Promise<{ isFriend: boolean; error: Error | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) {
     return { isFriend: false, error: new Error('Not authenticated') };
   }
@@ -255,7 +256,7 @@ export const isFriend = async (
 export const hasPendingRequest = async (
   userId: string
 ): Promise<{ hasPending: boolean; direction: 'sent' | 'received' | null; requestId: string | null; error: Error | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) {
     return { hasPending: false, direction: null, requestId: null, error: new Error('Not authenticated') };
   }

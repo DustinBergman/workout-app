@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase';
+import { getAuthUser } from './authHelper';
 import type { WorkoutSession, SessionExercise, CompletedSet } from '../../types';
 
 interface DbCompletedSet {
@@ -42,7 +43,7 @@ interface DbWorkoutSession {
  * Get all completed sessions for the current user
  */
 export const getSessions = async (): Promise<{ sessions: WorkoutSession[]; error: Error | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) {
     return { sessions: [], error: new Error('Not authenticated') };
   }
@@ -72,7 +73,7 @@ export const getSessions = async (): Promise<{ sessions: WorkoutSession[]; error
  * Get the active session for the current user
  */
 export const getActiveSession = async (): Promise<{ session: WorkoutSession | null; error: Error | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) {
     return { session: null, error: new Error('Not authenticated') };
   }
@@ -103,7 +104,7 @@ export const getActiveSession = async (): Promise<{ session: WorkoutSession | nu
 export const createSession = async (
   session: Omit<WorkoutSession, 'id' | 'completedAt'>
 ): Promise<{ session: WorkoutSession | null; error: Error | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) {
     return { session: null, error: new Error('Not authenticated') };
   }
@@ -189,7 +190,7 @@ export const updateSession = async (
   id: string,
   updates: Partial<WorkoutSession>
 ): Promise<{ error: Error | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) {
     return { error: new Error('Not authenticated') };
   }
@@ -247,7 +248,7 @@ export const deleteCompletedSet = async (setId: string): Promise<{ error: Error 
  * Complete a workout session
  */
 export const completeSession = async (id: string): Promise<{ error: Error | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) {
     return { error: new Error('Not authenticated') };
   }
@@ -268,7 +269,7 @@ export const completeSession = async (id: string): Promise<{ error: Error | null
  * Cancel/delete an active session
  */
 export const cancelSession = async (id: string): Promise<{ error: Error | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) {
     return { error: new Error('Not authenticated') };
   }

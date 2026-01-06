@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase';
+import { getAuthUser } from './authHelper';
 
 // Types
 export interface CommentUser {
@@ -24,7 +25,7 @@ export const addComment = async (
   workoutId: string,
   content: string
 ): Promise<{ commentId: string | null; error: Error | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) {
     return { commentId: null, error: new Error('Not authenticated') };
   }
@@ -55,7 +56,7 @@ export const addComment = async (
 export const deleteComment = async (
   commentId: string
 ): Promise<{ error: Error | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) {
     return { error: new Error('Not authenticated') };
   }

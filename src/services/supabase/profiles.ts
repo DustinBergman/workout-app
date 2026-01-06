@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase';
+import { getAuthUser } from './authHelper';
 import type { UserPreferences, WorkoutGoal, ExperienceLevel, ProgressiveOverloadWeek } from '../../types';
 
 export interface Profile {
@@ -24,7 +25,7 @@ export interface Profile {
  * Get the current user's profile
  */
 export const getProfile = async (): Promise<{ profile: Profile | null; error: Error | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) {
     return { profile: null, error: new Error('Not authenticated') };
   }
@@ -44,7 +45,7 @@ export const getProfile = async (): Promise<{ profile: Profile | null; error: Er
 export const updateProfile = async (
   updates: Partial<Omit<Profile, 'id' | 'created_at' | 'updated_at'>>
 ): Promise<{ error: Error | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) {
     return { error: new Error('Not authenticated') };
   }
@@ -130,7 +131,7 @@ export const checkUsernameAvailability = async (
 export const updateUsername = async (
   username: string
 ): Promise<{ error: Error | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) {
     return { error: new Error('Not authenticated') };
   }
@@ -149,7 +150,7 @@ export const updateUsername = async (
 export const searchUsers = async (
   query: string
 ): Promise<{ users: Array<{ id: string; first_name: string | null; last_name: string | null; username: string | null; email?: string }>; error: Error | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) {
     return { users: [], error: new Error('Not authenticated') };
   }

@@ -7,6 +7,12 @@ import {
   getBatchLikeSummaries,
 } from './likes';
 
+// Mock the auth helper
+const mockGetAuthUser = vi.fn();
+vi.mock('./authHelper', () => ({
+  getAuthUser: () => mockGetAuthUser(),
+}));
+
 // Mock the supabase client
 const mockRpc = vi.fn();
 const mockDelete = vi.fn();
@@ -17,9 +23,6 @@ const mockMaybeSingle = vi.fn();
 
 vi.mock('../../lib/supabase', () => ({
   supabase: {
-    auth: {
-      getUser: vi.fn(),
-    },
     rpc: (...args: unknown[]) => mockRpc(...args),
     from: vi.fn(() => ({
       delete: vi.fn(() => ({
@@ -53,18 +56,12 @@ const mockUser = {
 describe('Likes Service', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(supabase.auth.getUser).mockResolvedValue({
-      data: { user: mockUser as never },
-      error: null,
-    });
+    mockGetAuthUser.mockResolvedValue(mockUser);
   });
 
   describe('likeWorkout', () => {
     it('should return error when not authenticated', async () => {
-      vi.mocked(supabase.auth.getUser).mockResolvedValue({
-        data: { user: null },
-        error: null,
-      } as never);
+      mockGetAuthUser.mockResolvedValue(null);
 
       const result = await likeWorkout('workout-123');
 
@@ -97,10 +94,7 @@ describe('Likes Service', () => {
 
   describe('unlikeWorkout', () => {
     it('should return error when not authenticated', async () => {
-      vi.mocked(supabase.auth.getUser).mockResolvedValue({
-        data: { user: null },
-        error: null,
-      } as never);
+      mockGetAuthUser.mockResolvedValue(null);
 
       const result = await unlikeWorkout('workout-123');
 
@@ -150,10 +144,7 @@ describe('Likes Service', () => {
 
   describe('getLikeSummary', () => {
     it('should return error when not authenticated', async () => {
-      vi.mocked(supabase.auth.getUser).mockResolvedValue({
-        data: { user: null },
-        error: null,
-      } as never);
+      mockGetAuthUser.mockResolvedValue(null);
 
       const result = await getLikeSummary('workout-123');
 
@@ -171,10 +162,7 @@ describe('Likes Service', () => {
     });
 
     it('should return error when not authenticated', async () => {
-      vi.mocked(supabase.auth.getUser).mockResolvedValue({
-        data: { user: null },
-        error: null,
-      } as never);
+      mockGetAuthUser.mockResolvedValue(null);
 
       const result = await getBatchLikeSummaries(['workout-123']);
 

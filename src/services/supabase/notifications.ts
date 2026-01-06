@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase';
+import { getAuthUser } from './authHelper';
 
 // Types
 export type NotificationType =
@@ -24,7 +25,7 @@ export interface Notification {
 export const getNotifications = async (
   limit = 50
 ): Promise<{ notifications: Notification[]; error: Error | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) {
     return { notifications: [], error: new Error('Not authenticated') };
   }
@@ -50,7 +51,7 @@ export const getUnreadCount = async (): Promise<{
   count: number;
   error: Error | null;
 }> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) {
     return { count: 0, error: new Error('Not authenticated') };
   }
@@ -74,7 +75,7 @@ export const getUnreadCount = async (): Promise<{
 export const markAsRead = async (
   notificationId: string
 ): Promise<{ error: Error | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) {
     return { error: new Error('Not authenticated') };
   }
@@ -92,7 +93,7 @@ export const markAsRead = async (
  * Mark all notifications as read
  */
 export const markAllAsRead = async (): Promise<{ error: Error | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) {
     return { error: new Error('Not authenticated') };
   }
@@ -112,7 +113,7 @@ export const markAllAsRead = async (): Promise<{ error: Error | null }> => {
 export const deleteNotification = async (
   notificationId: string
 ): Promise<{ error: Error | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) {
     return { error: new Error('Not authenticated') };
   }
@@ -130,7 +131,7 @@ export const deleteNotification = async (
  * Delete all read notifications
  */
 export const clearReadNotifications = async (): Promise<{ error: Error | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) {
     return { error: new Error('Not authenticated') };
   }

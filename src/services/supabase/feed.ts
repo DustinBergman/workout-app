@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase';
+import { getAuthUser } from './authHelper';
 import type { CompletedSet } from '../../types';
 
 // Types
@@ -68,7 +69,7 @@ export const getFriendWorkouts = async (
   limit = 20,
   offset = 0
 ): Promise<{ workouts: FeedWorkout[]; error: Error | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) {
     return { workouts: [], error: new Error('Not authenticated') };
   }

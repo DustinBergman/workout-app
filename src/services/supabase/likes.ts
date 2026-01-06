@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase';
+import { getAuthUser } from './authHelper';
 
 // Types
 export interface WorkoutLike {
@@ -31,7 +32,7 @@ export interface LikeSummary {
 export const likeWorkout = async (
   workoutId: string
 ): Promise<{ likeId: string | null; error: Error | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) {
     return { likeId: null, error: new Error('Not authenticated') };
   }
@@ -53,7 +54,7 @@ export const likeWorkout = async (
 export const unlikeWorkout = async (
   workoutId: string
 ): Promise<{ error: Error | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) {
     return { error: new Error('Not authenticated') };
   }
@@ -109,7 +110,7 @@ export const getWorkoutLikes = async (
 export const getLikeSummary = async (
   workoutId: string
 ): Promise<{ summary: LikeSummary | null; error: Error | null }> => {
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) {
     return { summary: null, error: new Error('Not authenticated') };
   }
@@ -179,7 +180,7 @@ export const getBatchLikeSummaries = async (
     return { summaries: {}, error: null };
   }
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) {
     return { summaries: {}, error: new Error('Not authenticated') };
   }
