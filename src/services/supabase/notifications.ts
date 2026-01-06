@@ -1,7 +1,11 @@
 import { supabase } from '../../lib/supabase';
 
 // Types
-export type NotificationType = 'friend_request_received' | 'friend_request_accepted';
+export type NotificationType =
+  | 'friend_request_received'
+  | 'friend_request_accepted'
+  | 'workout_liked'
+  | 'workout_commented';
 
 export interface Notification {
   id: string;

@@ -1,0 +1,162 @@
+import { useState, useEffect, useCallback } from 'react';
+import {
+  getPublicProfile,
+  PublicProfile,
+} from '../services/supabase/profiles';
+import {
+  isFriend,
+  hasPendingRequest,
+  sendFriendRequest,
+  acceptFriendRequest,
+  cancelFriendRequest,
+  getPendingRequests,
+} from '../services/supabase/friends';
+import { useAuth } from './useAuth';
+
+export type FriendshipStatus = 'friends' | 'pending_sent' | 'pending_received' | 'none' | 'self';
+
+interface UseProfileReturn {
+  profile: PublicProfile | null;
+  friendshipStatus: FriendshipStatus;
+  pendingRequestId: string | null;
+  isLoading: boolean;
+  isActionLoading: boolean;
+  error: string | null;
+  sendRequest: () => Promise<void>;
+  acceptRequest: () => Promise<void>;
+  cancelRequest: () => Promise<void>;
+  refresh: () => Promise<void>;
+}
+
+export const useProfile = (userId: string): UseProfileReturn => {
+  const { user } = useAuth();
+  const [profile, setProfile] = useState<PublicProfile | null>(null);
+  const [friendshipStatus, setFriendshipStatus] = useState<FriendshipStatus>('none');
+  const [pendingRequestId, setPendingRequestId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isActionLoading, setIsActionLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadProfile = useCallback(async () => {
+    if (!user) return;
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Check if viewing own profile
+      if (userId === user.id) {
+        const { profile: fetchedProfile, error: profileError } = await getPublicProfile(userId);
+        if (profileError) throw profileError;
+        setProfile(fetchedProfile);
+        setFriendshipStatus('self');
+        setIsLoading(false);
+        return;
+      }
+
+      // Load profile and friendship status in parallel
+      const [profileResult, friendResult, pendingResult] = await Promise.all([
+        getPublicProfile(userId),
+        isFriend(userId),
+        hasPendingRequest(userId),
+      ]);
+
+      if (profileResult.error) throw profileResult.error;
+      if (friendResult.error) throw friendResult.error;
+      if (pendingResult.error) throw pendingResult.error;
+
+      setProfile(profileResult.profile);
+
+      // Determine friendship status
+      if (friendResult.isFriend) {
+        setFriendshipStatus('friends');
+      } else if (pendingResult.direction === 'sent') {
+        setFriendshipStatus('pending_sent');
+        setPendingRequestId(pendingResult.requestId || null);
+      } else if (pendingResult.direction === 'received') {
+        setFriendshipStatus('pending_received');
+        // Need to find the request ID for accepting
+        const { requests } = await getPendingRequests();
+        const request = requests.find((r) => r.from_user_id === userId);
+        setPendingRequestId(request?.id || null);
+      } else {
+        setFriendshipStatus('none');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load profile');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [userId, user]);
+
+  useEffect(() => {
+    loadProfile();
+  }, [loadProfile]);
+
+  const sendRequest = useCallback(async () => {
+    setIsActionLoading(true);
+    setError(null);
+
+    try {
+      const { error: sendError } = await sendFriendRequest(userId);
+      if (sendError) throw sendError;
+
+      setFriendshipStatus('pending_sent');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to send request');
+    } finally {
+      setIsActionLoading(false);
+    }
+  }, [userId]);
+
+  const acceptRequest = useCallback(async () => {
+    if (!pendingRequestId) return;
+
+    setIsActionLoading(true);
+    setError(null);
+
+    try {
+      const { error: acceptError } = await acceptFriendRequest(pendingRequestId);
+      if (acceptError) throw acceptError;
+
+      setFriendshipStatus('friends');
+      setPendingRequestId(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to accept request');
+    } finally {
+      setIsActionLoading(false);
+    }
+  }, [pendingRequestId]);
+
+  const cancelRequestFn = useCallback(async () => {
+    if (!pendingRequestId) return;
+
+    setIsActionLoading(true);
+    setError(null);
+
+    try {
+      const { error: cancelError } = await cancelFriendRequest(pendingRequestId);
+      if (cancelError) throw cancelError;
+
+      setFriendshipStatus('none');
+      setPendingRequestId(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to cancel request');
+    } finally {
+      setIsActionLoading(false);
+    }
+  }, [pendingRequestId]);
+
+  return {
+    profile,
+    friendshipStatus,
+    pendingRequestId,
+    isLoading,
+    isActionLoading,
+    error,
+    sendRequest,
+    acceptRequest,
+    cancelRequest: cancelRequestFn,
+    refresh: loadProfile,
+  };
+};

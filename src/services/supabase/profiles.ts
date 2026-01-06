@@ -155,3 +155,30 @@ export const getProfileById = async (
 
   return { profile: data, error };
 };
+
+/**
+ * Public profile type for profile modal
+ */
+export interface PublicProfile {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  username: string | null;
+  experience_level: ExperienceLevel;
+  workout_goal: WorkoutGoal;
+}
+
+/**
+ * Get a user's public profile (for profile modal display)
+ */
+export const getPublicProfile = async (
+  userId: string
+): Promise<{ profile: PublicProfile | null; error: Error | null }> => {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, first_name, last_name, username, experience_level, workout_goal')
+    .eq('id', userId)
+    .single();
+
+  return { profile: data, error };
+};

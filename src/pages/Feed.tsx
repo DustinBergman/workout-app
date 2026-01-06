@@ -7,12 +7,16 @@ import { Card } from '../components/ui';
 export const Feed: FC = () => {
   const {
     workouts,
+    likeSummaries,
+    commentCounts,
     isLoading,
     isLoadingMore,
     error,
     hasMore,
     loadMore,
     refresh,
+    updateLikeSummary,
+    updateCommentCount,
   } = useFeed();
 
   const loadMoreRef = useRef<HTMLDivElement>(null);
@@ -96,7 +100,14 @@ export const Feed: FC = () => {
       ) : (
         <div className="space-y-4">
           {workouts.map((workout) => (
-            <FeedWorkoutCard key={workout.id} workout={workout} />
+            <FeedWorkoutCard
+              key={workout.id}
+              workout={workout}
+              initialLikeSummary={likeSummaries[workout.id]}
+              initialCommentCount={commentCounts[workout.id] || 0}
+              onLikeSummaryChange={updateLikeSummary}
+              onCommentCountChange={updateCommentCount}
+            />
           ))}
 
           {/* Load more trigger */}
