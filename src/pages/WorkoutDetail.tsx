@@ -108,6 +108,7 @@ export const WorkoutDetail: FC = () => {
         workout={workout}
         initialLikeSummary={likeSummary}
         initialCommentCount={commentCount}
+        defaultCommentsExpanded
       />
     </div>
   );

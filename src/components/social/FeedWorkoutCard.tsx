@@ -16,6 +16,7 @@ interface FeedWorkoutCardProps {
   initialLikeSummary?: LikeSummary;
   initialCommentCount?: number;
   initialPreviewComments?: WorkoutComment[];
+  defaultCommentsExpanded?: boolean;
   onLikeSummaryChange?: (workoutId: string, summary: LikeSummary) => void;
   onCommentCountChange?: (workoutId: string, count: number) => void;
   onPreviewCommentsChange?: (workoutId: string, comments: WorkoutComment[]) => void;
@@ -26,12 +27,13 @@ export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
   initialLikeSummary,
   initialCommentCount = 0,
   initialPreviewComments = [],
+  defaultCommentsExpanded = false,
   onLikeSummaryChange,
   onCommentCountChange,
   onPreviewCommentsChange,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [showComments, setShowComments] = useState(false);
+  const [showComments, setShowComments] = useState(defaultCommentsExpanded);
   const [showLikersModal, setShowLikersModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
