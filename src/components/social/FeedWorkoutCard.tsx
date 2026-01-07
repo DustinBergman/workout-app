@@ -4,6 +4,7 @@ import { Card } from '../ui';
 import { FeedWorkout, calculateWorkoutSummary } from '../../services/supabase/feed';
 import { getExerciseById } from '../../data/exercises';
 import { LikeSummary } from '../../services/supabase/likes';
+import { WorkoutComment, likeComment, unlikeComment } from '../../services/supabase/comments';
 import { LikeButton } from './LikeButton';
 import { CommentsSection } from './CommentsSection';
 import { LikersModal } from './LikersModal';
@@ -14,16 +15,20 @@ interface FeedWorkoutCardProps {
   workout: FeedWorkout;
   initialLikeSummary?: LikeSummary;
   initialCommentCount?: number;
+  initialPreviewComments?: WorkoutComment[];
   onLikeSummaryChange?: (workoutId: string, summary: LikeSummary) => void;
   onCommentCountChange?: (workoutId: string, count: number) => void;
+  onPreviewCommentsChange?: (workoutId: string, comments: WorkoutComment[]) => void;
 }
 
 export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
   workout,
   initialLikeSummary,
   initialCommentCount = 0,
+  initialPreviewComments = [],
   onLikeSummaryChange,
   onCommentCountChange,
+  onPreviewCommentsChange,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showComments, setShowComments] = useState(false);
@@ -31,6 +36,7 @@ export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [commentCount, setCommentCount] = useState(initialCommentCount);
+  const [previewComments, setPreviewComments] = useState<WorkoutComment[]>(initialPreviewComments);
 
   const {
     likeSummary,
@@ -80,15 +86,45 @@ export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
     onCommentCountChange?.(workout.id, count);
   }, [onCommentCountChange, workout.id]);
 
+  const handlePreviewCommentLike = useCallback(async (commentId: string) => {
+    const comment = previewComments.find((c) => c.id === commentId);
+    if (!comment) return;
+
+    // Optimistic update
+    const updatedComments = previewComments.map((c) =>
+      c.id === commentId
+        ? {
+            ...c,
+            has_liked: !c.has_liked,
+            like_count: c.has_liked ? c.like_count - 1 : c.like_count + 1,
+          }
+        : c
+    );
+    setPreviewComments(updatedComments);
+    onPreviewCommentsChange?.(workout.id, updatedComments);
+
+    try {
+      if (comment.has_liked) {
+        await unlikeComment(commentId);
+      } else {
+        await likeComment(commentId);
+      }
+    } catch {
+      // Revert on error
+      setPreviewComments(previewComments);
+      onPreviewCommentsChange?.(workout.id, previewComments);
+    }
+  }, [previewComments, workout.id, onPreviewCommentsChange]);
+
   return (
-    <Card className="overflow-hidden">
+    <Card className="overflow-hidden" padding="none">
       {/* Header */}
-      <div className="p-4 border-b border-border">
-        <div className="flex items-center gap-3">
+      <div className="px-3 py-2.5 border-b border-border">
+        <div className="flex items-center gap-2.5">
           {/* Avatar - clickable */}
           <button
             onClick={() => handleUserClick(workout.user_id)}
-            className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold hover:ring-2 hover:ring-primary/50 transition-all"
+            className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary text-sm font-semibold hover:ring-2 hover:ring-primary/50 transition-all flex-shrink-0"
           >
             {(workout.user.first_name?.charAt(0) || workout.user.username?.charAt(0) || 'A').toUpperCase()}
           </button>
@@ -96,11 +132,11 @@ export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
             {/* Name - clickable */}
             <button
               onClick={() => handleUserClick(workout.user_id)}
-              className="font-semibold hover:text-primary transition-colors text-left truncate block"
+              className="font-semibold text-sm hover:text-primary transition-colors text-left truncate block"
             >
               {fullName || displayName}
             </button>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
               {fullName && (
                 <span className="text-primary/70">{displayName}</span>
               )}
@@ -113,32 +149,32 @@ export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
       {/* Summary */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full p-4 text-left hover:bg-muted/30 transition-colors"
+        className="w-full px-3 py-2.5 text-left hover:bg-muted/30 transition-colors"
       >
-        <h3 className="font-semibold text-lg mb-2">{workout.name}</h3>
-        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+        <h3 className="font-semibold text-base mb-1.5">{workout.name}</h3>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
           <div className="flex items-center gap-1">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
             </svg>
             <span>{summary.exerciseCount} exercises</span>
           </div>
           <div className="flex items-center gap-1">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
             </svg>
             <span>{summary.totalSets} sets</span>
           </div>
           <div className="flex items-center gap-1">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <span>{formatDuration(summary.durationMinutes)}</span>
           </div>
         </div>
-        <div className="flex items-center justify-center mt-2">
+        <div className="flex items-center justify-center mt-1.5">
           <svg
-            className={`w-5 h-5 text-muted-foreground transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+            className={`w-4 h-4 text-muted-foreground transition-transform ${isExpanded ? 'rotate-180' : ''}`}
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -150,26 +186,26 @@ export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
 
       {/* Expanded Details */}
       {isExpanded && (
-        <div className="border-t border-border p-4 space-y-4">
+        <div className="border-t border-border px-3 py-2.5 space-y-3">
           {workout.session_exercises.map((exercise) => {
             const exerciseData = getExerciseById(exercise.exercise_id);
             const exerciseName = exerciseData?.name || 'Unknown Exercise';
 
             return (
-              <div key={exercise.id} className="space-y-2">
-                <h4 className="font-medium">{exerciseName}</h4>
-                <div className="space-y-1">
+              <div key={exercise.id} className="space-y-1">
+                <h4 className="font-medium text-sm">{exerciseName}</h4>
+                <div className="space-y-0.5">
                   {exercise.completed_sets.map((set, idx) => (
                     <div
                       key={set.id}
-                      className="text-sm text-muted-foreground flex items-center gap-2"
+                      className="text-xs text-muted-foreground flex items-center gap-1.5"
                     >
-                      <span className="w-6 text-center text-xs bg-muted rounded">
+                      <span className="w-5 text-center text-xs bg-muted rounded">
                         {idx + 1}
                       </span>
                       {set.type === 'strength' ? (
                         <span>
-                          {set.weight} {set.weight_unit} x {set.reps} reps
+                          {set.weight} {set.weight_unit} × {set.reps} reps
                         </span>
                       ) : (
                         <span>
@@ -186,8 +222,8 @@ export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
       )}
 
       {/* Engagement Section (Likes & Comments) */}
-      <div className="px-4 py-3 border-t border-border flex items-center justify-between">
-        <div className="flex items-center gap-4">
+      <div className="px-3 py-2 border-t border-border flex items-center justify-between">
+        <div className="flex items-center gap-3">
           {/* Like Button */}
           <LikeButton
             likeSummary={likeSummary}
@@ -224,20 +260,22 @@ export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
         {commentCount > 0 && !showComments && (
           <button
             onClick={() => setShowComments(true)}
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
             View {commentCount === 1 ? 'comment' : `all ${commentCount} comments`}
           </button>
         )}
       </div>
 
-      {/* Comments Section (Expandable Inline) */}
+      {/* Comments Section (Always shows preview + input, expands for full list) */}
       <CommentsSection
         workoutId={workout.id}
         initialCount={commentCount}
         isExpanded={showComments}
         onUserClick={handleUserClick}
         onCommentCountChange={handleCommentCountChange}
+        previewComments={previewComments}
+        onPreviewCommentLike={handlePreviewCommentLike}
       />
 
       {/* Likers Modal */}

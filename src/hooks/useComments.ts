@@ -3,6 +3,8 @@ import {
   addComment as addCommentService,
   deleteComment as deleteCommentService,
   getWorkoutComments,
+  likeComment as likeCommentService,
+  unlikeComment as unlikeCommentService,
   WorkoutComment,
 } from '../services/supabase/comments';
 import { useAuth } from './useAuth';
@@ -15,6 +17,7 @@ interface UseCommentsReturn {
   error: string | null;
   addComment: (content: string) => Promise<void>;
   deleteComment: (commentId: string) => Promise<void>;
+  toggleCommentLike: (commentId: string) => Promise<void>;
   refresh: () => Promise<void>;
 }
 
@@ -102,6 +105,8 @@ export const useComments = (
               last_name: user.user_metadata?.lastName || null,
               username: user.user_metadata?.username || null,
             },
+            like_count: 0,
+            has_liked: false,
           };
           setComments((prev) => [...prev, newComment]);
           setCommentCount((prev) => prev + 1);
@@ -140,6 +145,53 @@ export const useComments = (
     [comments]
   );
 
+  const toggleCommentLike = useCallback(
+    async (commentId: string) => {
+      const comment = comments.find((c) => c.id === commentId);
+      if (!comment) return;
+
+      // Optimistic update
+      setComments((prev) =>
+        prev.map((c) =>
+          c.id === commentId
+            ? {
+                ...c,
+                has_liked: !c.has_liked,
+                like_count: c.has_liked ? c.like_count - 1 : c.like_count + 1,
+              }
+            : c
+        )
+      );
+
+      try {
+        if (comment.has_liked) {
+          const { error } = await unlikeCommentService(commentId);
+          if (error) throw error;
+        } else {
+          const { error } = await likeCommentService(commentId);
+          if (error) throw error;
+        }
+      } catch (err) {
+        // Revert on error
+        setComments((prev) =>
+          prev.map((c) =>
+            c.id === commentId
+              ? {
+                  ...c,
+                  has_liked: comment.has_liked,
+                  like_count: comment.like_count,
+                }
+              : c
+          )
+        );
+        setError(
+          err instanceof Error ? err.message : 'Failed to update like'
+        );
+      }
+    },
+    [comments]
+  );
+
   // Load comments when first accessed
   useEffect(() => {
     if (!hasLoaded) {
@@ -155,6 +207,7 @@ export const useComments = (
     error,
     addComment,
     deleteComment,
+    toggleCommentLike,
     refresh,
   };
 };

@@ -10,3 +10,4 @@ export { Intro } from './Intro';
 export { Auth } from './Auth';
 export { Feed } from './Feed';
 export { Friends } from './Friends';
+export { WorkoutDetail } from './WorkoutDetail';

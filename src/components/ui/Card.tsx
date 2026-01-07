@@ -18,7 +18,7 @@ const Card = forwardRef<HTMLDivElement, CardProps>(
       <div
         ref={ref}
         className={cn(
-          'rounded-xl border border-border/50 bg-card/60 backdrop-blur-lg text-card-foreground shadow-sm',
+          'rounded-xl border border-border/50 bg-card/90 backdrop-blur-lg text-card-foreground shadow-sm',
           paddings[padding],
           className
         )}

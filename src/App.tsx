@@ -14,6 +14,7 @@ import {
   Auth,
   Feed,
   Friends,
+  WorkoutDetail,
 } from './pages';
 import { useAppStore, migrateTemplates } from './store/useAppStore';
 import { GlobalTimerNotification } from './components/timer/GlobalTimerNotification';
@@ -211,6 +212,7 @@ const AppContent: FC = () => {
             <Route path="/history" element={<History />} />
             <Route path="/you" element={<You />} />
             <Route path="/feed" element={<Feed />} />
+            <Route path="/feed/workout/:workoutId" element={<WorkoutDetail />} />
             <Route path="/friends" element={<Friends />} />
             <Route path="/settings" element={<Settings />} />
           </Routes>

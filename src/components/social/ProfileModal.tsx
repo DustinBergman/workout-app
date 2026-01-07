@@ -1,6 +1,8 @@
 import { FC } from 'react';
+import { formatDistanceToNow } from 'date-fns';
 import { Modal, Button } from '../ui';
 import { useProfile, FriendshipStatus } from '../../hooks/useProfile';
+import { MuscleGroup } from '../../types';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -19,6 +21,35 @@ const workoutGoalLabels: Record<string, string> = {
   hypertrophy: 'Build Muscle',
   endurance: 'Improve Endurance',
   general_fitness: 'General Fitness',
+};
+
+const MUSCLE_GROUP_COLORS: Record<MuscleGroup, string> = {
+  chest: '#ef4444',
+  back: '#3b82f6',
+  shoulders: '#f97316',
+  biceps: '#8b5cf6',
+  triceps: '#a855f7',
+  forearms: '#ec4899',
+  core: '#eab308',
+  quadriceps: '#22c55e',
+  hamstrings: '#14b8a6',
+  glutes: '#06b6d4',
+  calves: '#84cc16',
+  traps: '#6366f1',
+  lats: '#0ea5e9',
+};
+
+const formatMuscleGroup = (mg: MuscleGroup): string => {
+  return mg.charAt(0).toUpperCase() + mg.slice(1);
+};
+
+const formatDuration = (minutes: number): string => {
+  if (minutes < 60) {
+    return `${Math.round(minutes)}m`;
+  }
+  const hours = Math.floor(minutes / 60);
+  const mins = Math.round(minutes % 60);
+  return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
 };
 
 const getFriendshipButtonText = (status: FriendshipStatus): string => {
@@ -43,6 +74,7 @@ export const ProfileModal: FC<ProfileModalProps> = ({
 }) => {
   const {
     profile,
+    stats,
     friendshipStatus,
     isLoading,
     isActionLoading,
@@ -75,94 +107,128 @@ export const ProfileModal: FC<ProfileModalProps> = ({
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Profile">
       {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+        <div className="flex items-center justify-center py-8">
+          <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
         </div>
       ) : profile ? (
-        <div className="space-y-6">
+        <div className="space-y-4">
           {/* Profile Header */}
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center text-primary text-2xl font-bold">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center text-primary text-xl font-bold flex-shrink-0">
               {(profile.first_name?.charAt(0) || profile.username?.charAt(0) || 'A').toUpperCase()}
             </div>
-            <div>
-              <h2 className="text-xl font-semibold">{displayName}</h2>
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold truncate">{displayName}</h2>
               {fullName && usernameDisplay && (
-                <p className="text-primary/70">{usernameDisplay}</p>
+                <p className="text-sm text-primary/70">{usernameDisplay}</p>
               )}
             </div>
           </div>
 
-          {/* Profile Info */}
-          <div className="space-y-3">
+          {/* Profile Info Tags */}
+          <div className="flex flex-wrap gap-2">
             {profile.experience_level && (
-              <div className="flex items-center gap-2">
-                <svg
-                  className="w-5 h-5 text-muted-foreground"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                  />
-                </svg>
-                <span className="text-sm">
-                  {experienceLevelLabels[profile.experience_level] ||
-                    profile.experience_level}
-                </span>
-              </div>
+              <span className="px-2 py-1 text-xs bg-muted rounded-full">
+                {experienceLevelLabels[profile.experience_level] || profile.experience_level}
+              </span>
             )}
             {profile.workout_goal && (
-              <div className="flex items-center gap-2">
-                <svg
-                  className="w-5 h-5 text-muted-foreground"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                <span className="text-sm">
-                  {workoutGoalLabels[profile.workout_goal] ||
-                    profile.workout_goal}
-                </span>
-              </div>
+              <span className="px-2 py-1 text-xs bg-muted rounded-full">
+                {workoutGoalLabels[profile.workout_goal] || profile.workout_goal}
+              </span>
+            )}
+            {stats?.memberSince && (
+              <span className="px-2 py-1 text-xs bg-muted rounded-full text-muted-foreground">
+                Joined {formatDistanceToNow(new Date(stats.memberSince), { addSuffix: true })}
+              </span>
             )}
           </div>
 
+          {/* Stats Section */}
+          {stats && stats.totalWorkouts > 0 && (
+            <>
+              {/* Stats Grid */}
+              <div className="grid grid-cols-3 gap-2">
+                <div className="bg-muted/50 rounded-lg p-2 text-center">
+                  <p className="text-lg font-bold">{stats.totalWorkouts}</p>
+                  <p className="text-xs text-muted-foreground">Workouts</p>
+                </div>
+                <div className="bg-muted/50 rounded-lg p-2 text-center">
+                  <p className="text-lg font-bold">{stats.workoutsPerWeek.toFixed(1)}</p>
+                  <p className="text-xs text-muted-foreground">Per Week</p>
+                </div>
+                <div className="bg-muted/50 rounded-lg p-2 text-center">
+                  <p className="text-lg font-bold">{formatDuration(stats.averageDurationMinutes)}</p>
+                  <p className="text-xs text-muted-foreground">Avg Duration</p>
+                </div>
+              </div>
+
+              {/* Total Sets */}
+              <div className="bg-muted/50 rounded-lg p-2 flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">Total Sets Completed</span>
+                <span className="font-semibold">{stats.totalSets.toLocaleString()}</span>
+              </div>
+
+              {/* Muscle Group Breakdown */}
+              {stats.muscleGroupBreakdown.length > 0 && (
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium">Muscle Focus</h3>
+                  <div className="space-y-1.5">
+                    {stats.muscleGroupBreakdown.slice(0, 5).map((item) => (
+                      <div key={item.muscleGroup} className="flex items-center gap-2">
+                        <div
+                          className="w-2 h-2 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: MUSCLE_GROUP_COLORS[item.muscleGroup] }}
+                        />
+                        <span className="text-xs flex-1">{formatMuscleGroup(item.muscleGroup)}</span>
+                        <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden max-w-[100px]">
+                          <div
+                            className="h-full rounded-full"
+                            style={{
+                              width: `${item.percentage}%`,
+                              backgroundColor: MUSCLE_GROUP_COLORS[item.muscleGroup],
+                            }}
+                          />
+                        </div>
+                        <span className="text-xs text-muted-foreground w-10 text-right">
+                          {item.percentage.toFixed(0)}%
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* No Stats Message for non-friends */}
+          {stats && stats.totalWorkouts === 0 && friendshipStatus !== 'friends' && friendshipStatus !== 'self' && (
+            <div className="text-center py-4 text-sm text-muted-foreground">
+              <p>Add as a friend to see their workout stats</p>
+            </div>
+          )}
+
+          {/* No workouts yet */}
+          {stats && stats.totalWorkouts === 0 && (friendshipStatus === 'friends' || friendshipStatus === 'self') && (
+            <div className="text-center py-4 text-sm text-muted-foreground">
+              <p>No workouts completed yet</p>
+            </div>
+          )}
+
           {/* Error Message */}
           {error && (
-            <div className="p-3 bg-destructive/10 text-destructive rounded-lg text-sm">
+            <div className="p-2 bg-destructive/10 text-destructive rounded-lg text-xs">
               {error}
             </div>
           )}
 
           {/* Friendship Action Button */}
           {friendshipStatus !== 'self' && (
-            <div className="pt-2">
+            <div className="pt-1">
               {friendshipStatus === 'friends' ? (
-                <div className="flex items-center justify-center gap-2 py-2 text-green-500">
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 13l4 4L19 7"
-                    />
+                <div className="flex items-center justify-center gap-1.5 py-1.5 text-green-500 text-sm">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                   <span className="font-medium">Friends</span>
                 </div>
@@ -172,9 +238,10 @@ export const ProfileModal: FC<ProfileModalProps> = ({
                   disabled={isActionLoading}
                   variant={friendshipStatus === 'pending_sent' ? 'outline' : 'primary'}
                   className="w-full"
+                  size="sm"
                 >
                   {isActionLoading ? (
-                    <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
                   ) : (
                     getFriendshipButtonText(friendshipStatus)
                   )}
@@ -184,7 +251,7 @@ export const ProfileModal: FC<ProfileModalProps> = ({
           )}
         </div>
       ) : (
-        <div className="text-center py-8 text-muted-foreground">
+        <div className="text-center py-6 text-sm text-muted-foreground">
           Profile not found
         </div>
       )}

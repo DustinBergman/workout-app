@@ -38,6 +38,8 @@ describe('useComments', () => {
       content: 'Great workout!',
       created_at: '2024-01-01T00:00:00Z',
       user: { id: 'user-1', first_name: 'John', last_name: 'Doe', username: 'johnd' },
+      like_count: 0,
+      has_liked: false,
     },
   ];
 
@@ -128,7 +130,7 @@ describe('useComments', () => {
     });
 
     vi.mocked(getWorkoutComments).mockResolvedValue({
-      comments: [...mockComments, { ...mockComments[0], id: 'comment-2' }],
+      comments: [...mockComments, { ...mockComments[0], id: 'comment-2', like_count: 0, has_liked: false }],
       error: null,
     });
 

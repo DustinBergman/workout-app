@@ -16,6 +16,8 @@ export interface WorkoutComment {
   content: string;
   created_at: string;
   user: CommentUser;
+  like_count: number;
+  has_liked: boolean;
 }
 
 /**
@@ -71,11 +73,13 @@ export const deleteComment = async (
 };
 
 /**
- * Get all comments for a workout
+ * Get all comments for a workout with like counts
  */
 export const getWorkoutComments = async (
   workoutId: string
 ): Promise<{ comments: WorkoutComment[]; error: Error | null }> => {
+  const user = await getAuthUser();
+
   const { data, error } = await supabase
     .from('workout_comments')
     .select(`
@@ -89,6 +93,10 @@ export const getWorkoutComments = async (
         first_name,
         last_name,
         username
+      ),
+      comment_likes (
+        id,
+        user_id
       )
     `)
     .eq('workout_id', workoutId)
@@ -100,8 +108,14 @@ export const getWorkoutComments = async (
 
   // Transform the data to match our type
   const comments = (data || []).map((comment) => ({
-    ...comment,
+    id: comment.id,
+    workout_id: comment.workout_id,
+    user_id: comment.user_id,
+    content: comment.content,
+    created_at: comment.created_at,
     user: comment.user as unknown as CommentUser,
+    like_count: (comment.comment_likes || []).length,
+    has_liked: user ? (comment.comment_likes || []).some((like: { user_id: string }) => like.user_id === user.id) : false,
   }));
 
   return { comments, error: null };
@@ -159,4 +173,114 @@ export const getBatchCommentCounts = async (
   }
 
   return { counts, error: null };
+};
+
+/**
+ * Get preview comments for multiple workouts (latest 2 per workout)
+ */
+export const getBatchPreviewComments = async (
+  workoutIds: string[]
+): Promise<{ previews: Record<string, WorkoutComment[]>; error: Error | null }> => {
+  if (workoutIds.length === 0) {
+    return { previews: {}, error: null };
+  }
+
+  const user = await getAuthUser();
+
+  const { data, error } = await supabase
+    .from('workout_comments')
+    .select(`
+      id,
+      workout_id,
+      user_id,
+      content,
+      created_at,
+      user:profiles!workout_comments_user_id_fkey (
+        id,
+        first_name,
+        last_name,
+        username
+      ),
+      comment_likes (
+        id,
+        user_id
+      )
+    `)
+    .in('workout_id', workoutIds)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    return { previews: {}, error };
+  }
+
+  // Group by workout and take latest 2
+  const previews: Record<string, WorkoutComment[]> = {};
+
+  // Initialize all requested workouts to empty array
+  for (const workoutId of workoutIds) {
+    previews[workoutId] = [];
+  }
+
+  // Group comments by workout
+  for (const comment of data || []) {
+    if (previews[comment.workout_id].length < 2) {
+      previews[comment.workout_id].push({
+        id: comment.id,
+        workout_id: comment.workout_id,
+        user_id: comment.user_id,
+        content: comment.content,
+        created_at: comment.created_at,
+        user: comment.user as unknown as CommentUser,
+        like_count: (comment.comment_likes || []).length,
+        has_liked: user ? (comment.comment_likes || []).some((like: { user_id: string }) => like.user_id === user.id) : false,
+      });
+    }
+  }
+
+  // Reverse to show oldest first (chronological order)
+  for (const workoutId of workoutIds) {
+    previews[workoutId].reverse();
+  }
+
+  return { previews, error: null };
+};
+
+/**
+ * Like a comment
+ */
+export const likeComment = async (
+  commentId: string
+): Promise<{ likeId: string | null; error: Error | null }> => {
+  const user = await getAuthUser();
+  if (!user) {
+    return { likeId: null, error: new Error('Not authenticated') };
+  }
+
+  const { data, error } = await supabase.rpc('like_comment', {
+    p_comment_id: commentId,
+  });
+
+  if (error) {
+    return { likeId: null, error };
+  }
+
+  return { likeId: data, error: null };
+};
+
+/**
+ * Unlike a comment
+ */
+export const unlikeComment = async (
+  commentId: string
+): Promise<{ error: Error | null }> => {
+  const user = await getAuthUser();
+  if (!user) {
+    return { error: new Error('Not authenticated') };
+  }
+
+  const { error } = await supabase.rpc('unlike_comment', {
+    p_comment_id: commentId,
+  });
+
+  return { error };
 };

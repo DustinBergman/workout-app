@@ -11,12 +11,14 @@ import {
   cancelFriendRequest,
   getPendingRequests,
 } from '../services/supabase/friends';
+import { getUserStats, PublicUserStats } from '../services/supabase/userStats';
 import { useAuth } from './useAuth';
 
 export type FriendshipStatus = 'friends' | 'pending_sent' | 'pending_received' | 'none' | 'self';
 
 interface UseProfileReturn {
   profile: PublicProfile | null;
+  stats: PublicUserStats | null;
   friendshipStatus: FriendshipStatus;
   pendingRequestId: string | null;
   isLoading: boolean;
@@ -31,6 +33,7 @@ interface UseProfileReturn {
 export const useProfile = (userId: string): UseProfileReturn => {
   const { user } = useAuth();
   const [profile, setProfile] = useState<PublicProfile | null>(null);
+  const [stats, setStats] = useState<PublicUserStats | null>(null);
   const [friendshipStatus, setFriendshipStatus] = useState<FriendshipStatus>('none');
   const [pendingRequestId, setPendingRequestId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -46,19 +49,24 @@ export const useProfile = (userId: string): UseProfileReturn => {
     try {
       // Check if viewing own profile
       if (userId === user.id) {
-        const { profile: fetchedProfile, error: profileError } = await getPublicProfile(userId);
-        if (profileError) throw profileError;
-        setProfile(fetchedProfile);
+        const [profileResult, statsResult] = await Promise.all([
+          getPublicProfile(userId),
+          getUserStats(userId),
+        ]);
+        if (profileResult.error) throw profileResult.error;
+        setProfile(profileResult.profile);
+        setStats(statsResult.stats);
         setFriendshipStatus('self');
         setIsLoading(false);
         return;
       }
 
-      // Load profile and friendship status in parallel
-      const [profileResult, friendResult, pendingResult] = await Promise.all([
+      // Load profile, friendship status, and stats in parallel
+      const [profileResult, friendResult, pendingResult, statsResult] = await Promise.all([
         getPublicProfile(userId),
         isFriend(userId),
         hasPendingRequest(userId),
+        getUserStats(userId),
       ]);
 
       if (profileResult.error) throw profileResult.error;
@@ -66,6 +74,7 @@ export const useProfile = (userId: string): UseProfileReturn => {
       if (pendingResult.error) throw pendingResult.error;
 
       setProfile(profileResult.profile);
+      setStats(statsResult.stats);
 
       // Determine friendship status
       if (friendResult.isFriend) {
@@ -149,6 +158,7 @@ export const useProfile = (userId: string): UseProfileReturn => {
 
   return {
     profile,
+    stats,
     friendshipStatus,
     pendingRequestId,
     isLoading,

@@ -24,6 +24,8 @@ describe('CommentsSection', () => {
       content: 'Great workout!',
       created_at: '2024-01-01T00:00:00Z',
       user: { id: 'user-1', first_name: 'John', last_name: 'Doe', username: 'johnd' },
+      like_count: 0,
+      has_liked: false,
     },
     {
       id: 'comment-2',
@@ -32,11 +34,14 @@ describe('CommentsSection', () => {
       content: 'Thanks!',
       created_at: '2024-01-01T01:00:00Z',
       user: { id: 'current-user-123', first_name: 'Test', last_name: 'User', username: 'testuser' },
+      like_count: 0,
+      has_liked: false,
     },
   ];
 
   const mockAddComment = vi.fn();
   const mockDeleteComment = vi.fn();
+  const mockToggleCommentLike = vi.fn();
   const mockRefresh = vi.fn();
   const mockOnUserClick = vi.fn();
   const mockOnCommentCountChange = vi.fn();
@@ -49,6 +54,7 @@ describe('CommentsSection', () => {
     error: null,
     addComment: mockAddComment,
     deleteComment: mockDeleteComment,
+    toggleCommentLike: mockToggleCommentLike,
     refresh: mockRefresh,
   };
 
@@ -69,9 +75,12 @@ describe('CommentsSection', () => {
     vi.mocked(useComments).mockReturnValue(defaultHookReturn);
   });
 
-  it('should not render when not expanded', () => {
+  it('should show input but not full comments when not expanded', () => {
     renderComponent(false);
 
+    // Input should always be visible
+    expect(screen.getByPlaceholderText('Add a comment...')).toBeInTheDocument();
+    // Full comments list is not shown when not expanded (unless preview comments are passed)
     expect(screen.queryByText('Great workout!')).not.toBeInTheDocument();
   });
 
@@ -110,13 +119,14 @@ describe('CommentsSection', () => {
   it('should disable post button when submitting', () => {
     vi.mocked(useComments).mockReturnValue({
       ...defaultHookReturn,
+      comments: [], // No comments to avoid extra buttons
       isSubmitting: true,
     });
 
-    renderComponent();
+    const { container } = renderComponent();
 
-    // When submitting, the button shows a spinner but is still the submit button
-    const submitButton = screen.getByRole('button', { name: '' }); // Spinner has no text
+    // When submitting, the post button shows a spinner and is disabled
+    const submitButton = container.querySelector('button[type="submit"]');
     expect(submitButton).toBeDisabled();
   });
 
@@ -133,7 +143,7 @@ describe('CommentsSection', () => {
     expect(screen.queryByText('Great workout!')).not.toBeInTheDocument();
   });
 
-  it('should show empty message when no comments', () => {
+  it('should show only input form when no comments and expanded', () => {
     vi.mocked(useComments).mockReturnValue({
       ...defaultHookReturn,
       comments: [],
@@ -142,7 +152,10 @@ describe('CommentsSection', () => {
 
     renderComponent();
 
-    expect(screen.getByText(/no comments yet/i)).toBeInTheDocument();
+    // Should still show the input form
+    expect(screen.getByPlaceholderText('Add a comment...')).toBeInTheDocument();
+    // But no comments displayed
+    expect(screen.queryByText('Great workout!')).not.toBeInTheDocument();
   });
 
   it('should show error message', () => {

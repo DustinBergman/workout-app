@@ -16,6 +16,8 @@ describe('CommentItem', () => {
       last_name: 'Doe',
       username: 'johnd',
     },
+    like_count: 0,
+    has_liked: false,
   };
 
   const mockOnDelete = vi.fn();

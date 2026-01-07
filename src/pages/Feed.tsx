@@ -9,6 +9,7 @@ export const Feed: FC = () => {
     workouts,
     likeSummaries,
     commentCounts,
+    previewComments,
     isLoading,
     isLoadingMore,
     error,
@@ -17,6 +18,7 @@ export const Feed: FC = () => {
     refresh,
     updateLikeSummary,
     updateCommentCount,
+    updatePreviewComments,
   } = useFeed();
 
   const loadMoreRef = useRef<HTMLDivElement>(null);
@@ -105,8 +107,10 @@ export const Feed: FC = () => {
               workout={workout}
               initialLikeSummary={likeSummaries[workout.id]}
               initialCommentCount={commentCounts[workout.id] || 0}
+              initialPreviewComments={previewComments[workout.id] || []}
               onLikeSummaryChange={updateLikeSummary}
               onCommentCountChange={updateCommentCount}
+              onPreviewCommentsChange={updatePreviewComments}
             />
           ))}
 

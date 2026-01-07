@@ -31,8 +31,13 @@ export const NotificationItem: FC<NotificationItemProps> = ({
       navigate('/friends');
       onClose();
     } else if (notification.type === 'workout_liked' || notification.type === 'workout_commented') {
-      // Navigate to feed for workout engagement notifications
-      navigate('/feed');
+      // Navigate to the specific workout if workout_id is available
+      const workoutId = notification.data?.workout_id as string | undefined;
+      if (workoutId) {
+        navigate(`/feed/workout/${workoutId}`);
+      } else {
+        navigate('/feed');
+      }
       onClose();
     }
   };

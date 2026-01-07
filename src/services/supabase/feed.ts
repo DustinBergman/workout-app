@@ -63,7 +63,7 @@ const dbSetToCompletedSet = (dbSet: FeedSessionExercise['completed_sets'][0]): C
 };
 
 /**
- * Get completed workouts from friends for the feed
+ * Get completed workouts from friends AND self for the feed
  */
 export const getFriendWorkouts = async (
   limit = 20,
@@ -86,11 +86,10 @@ export const getFriendWorkouts = async (
 
   const friendIds = (friendships || []).map((f) => f.friend_id);
 
-  if (friendIds.length === 0) {
-    return { workouts: [], error: null };
-  }
+  // Include self AND friends in the feed
+  const userIds = [user.id, ...friendIds];
 
-  // Get completed workouts from friends
+  // Get completed workouts from self and friends
   const { data, error } = await supabase
     .from('workout_sessions')
     .select(`
@@ -116,7 +115,7 @@ export const getFriendWorkouts = async (
         )
       )
     `)
-    .in('user_id', friendIds)
+    .in('user_id', userIds)
     .not('completed_at', 'is', null)
     .order('completed_at', { ascending: false })
     .range(offset, offset + limit - 1);
@@ -140,6 +139,70 @@ export const getFriendWorkouts = async (
   })) as FeedWorkout[];
 
   return { workouts, error: null };
+};
+
+/**
+ * Get a single workout by ID (for workout detail page)
+ */
+export const getWorkoutById = async (
+  workoutId: string
+): Promise<{ workout: FeedWorkout | null; error: Error | null }> => {
+  const user = await getAuthUser();
+  if (!user) {
+    return { workout: null, error: new Error('Not authenticated') };
+  }
+
+  const { data, error } = await supabase
+    .from('workout_sessions')
+    .select(`
+      id,
+      user_id,
+      name,
+      started_at,
+      completed_at,
+      user:profiles!workout_sessions_user_id_profiles_fkey (
+        id, first_name, last_name, username
+      ),
+      session_exercises (
+        id,
+        exercise_id,
+        type,
+        sort_order,
+        target_sets,
+        target_reps,
+        rest_seconds,
+        completed_sets (
+          id, type, reps, weight, weight_unit,
+          distance, distance_unit, duration_seconds, completed_at
+        )
+      )
+    `)
+    .eq('id', workoutId)
+    .single();
+
+  if (error) {
+    return { workout: null, error };
+  }
+
+  if (!data) {
+    return { workout: null, error: new Error('Workout not found') };
+  }
+
+  // Transform the data
+  const workout: FeedWorkout = {
+    ...data,
+    user: data.user as unknown as FeedUser,
+    session_exercises: (data.session_exercises || [])
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map((ex) => ({
+        ...ex,
+        completed_sets: (ex.completed_sets || []).sort(
+          (a, b) => new Date(a.completed_at).getTime() - new Date(b.completed_at).getTime()
+        ),
+      })),
+  };
+
+  return { workout, error: null };
 };
 
 /**

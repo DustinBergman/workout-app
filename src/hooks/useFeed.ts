@@ -7,12 +7,13 @@ import {
   getBatchLikeSummaries,
   LikeSummary,
 } from '../services/supabase/likes';
-import { getBatchCommentCounts } from '../services/supabase/comments';
+import { getBatchCommentCounts, getBatchPreviewComments, WorkoutComment } from '../services/supabase/comments';
 
 interface UseFeedReturn {
   workouts: FeedWorkout[];
   likeSummaries: Record<string, LikeSummary>;
   commentCounts: Record<string, number>;
+  previewComments: Record<string, WorkoutComment[]>;
   isLoading: boolean;
   isLoadingMore: boolean;
   error: string | null;
@@ -21,6 +22,7 @@ interface UseFeedReturn {
   refresh: () => Promise<void>;
   updateLikeSummary: (workoutId: string, summary: LikeSummary) => void;
   updateCommentCount: (workoutId: string, count: number) => void;
+  updatePreviewComments: (workoutId: string, comments: WorkoutComment[]) => void;
 }
 
 const PAGE_SIZE = 20;
@@ -29,6 +31,7 @@ export const useFeed = (): UseFeedReturn => {
   const [workouts, setWorkouts] = useState<FeedWorkout[]>([]);
   const [likeSummaries, setLikeSummaries] = useState<Record<string, LikeSummary>>({});
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
+  const [previewComments, setPreviewComments] = useState<Record<string, WorkoutComment[]>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,10 +41,11 @@ export const useFeed = (): UseFeedReturn => {
   const loadEngagementData = useCallback(async (workoutIds: string[]) => {
     if (workoutIds.length === 0) return;
 
-    // Load likes and comments in parallel
-    const [likesResult, commentsResult] = await Promise.all([
+    // Load likes, comment counts, and preview comments in parallel
+    const [likesResult, commentsResult, previewsResult] = await Promise.all([
       getBatchLikeSummaries(workoutIds),
       getBatchCommentCounts(workoutIds),
+      getBatchPreviewComments(workoutIds),
     ]);
 
     if (!likesResult.error) {
@@ -50,6 +54,10 @@ export const useFeed = (): UseFeedReturn => {
 
     if (!commentsResult.error) {
       setCommentCounts((prev) => ({ ...prev, ...commentsResult.counts }));
+    }
+
+    if (!previewsResult.error) {
+      setPreviewComments((prev) => ({ ...prev, ...previewsResult.previews }));
     }
   }, []);
 
@@ -111,6 +119,10 @@ export const useFeed = (): UseFeedReturn => {
     setCommentCounts((prev) => ({ ...prev, [workoutId]: count }));
   }, []);
 
+  const updatePreviewComments = useCallback((workoutId: string, comments: WorkoutComment[]) => {
+    setPreviewComments((prev) => ({ ...prev, [workoutId]: comments }));
+  }, []);
+
   // Initial load
   useEffect(() => {
     loadInitial();
@@ -120,6 +132,7 @@ export const useFeed = (): UseFeedReturn => {
     workouts,
     likeSummaries,
     commentCounts,
+    previewComments,
     isLoading,
     isLoadingMore,
     error,
@@ -128,5 +141,6 @@ export const useFeed = (): UseFeedReturn => {
     refresh: loadInitial,
     updateLikeSummary,
     updateCommentCount,
+    updatePreviewComments,
   };
 };

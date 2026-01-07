@@ -25,8 +25,22 @@ describe('ProfileModal', () => {
   const mockCancelRequest = vi.fn();
   const mockRefresh = vi.fn();
 
+  const mockStats = {
+    totalWorkouts: 25,
+    workoutsPerWeek: 3.5,
+    averageDurationMinutes: 45,
+    totalSets: 500,
+    muscleGroupBreakdown: [
+      { muscleGroup: 'chest' as const, setCount: 100, percentage: 20 },
+      { muscleGroup: 'back' as const, setCount: 90, percentage: 18 },
+      { muscleGroup: 'shoulders' as const, setCount: 80, percentage: 16 },
+    ],
+    memberSince: '2024-01-01T00:00:00Z',
+  };
+
   const defaultHookReturn = {
     profile: mockProfile,
+    stats: mockStats,
     friendshipStatus: 'none' as const,
     pendingRequestId: null,
     isLoading: false,
