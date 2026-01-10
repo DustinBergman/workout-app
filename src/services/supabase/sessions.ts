@@ -89,9 +89,9 @@ export const getActiveSession = async (): Promise<{ session: WorkoutSession | nu
     `)
     .eq('user_id', user.id)
     .eq('is_active', true)
-    .single();
+    .maybeSingle();
 
-  if (error && error.code !== 'PGRST116') { // Not found is ok
+  if (error) {
     return { session: null, error };
   }
 

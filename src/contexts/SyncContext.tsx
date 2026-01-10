@@ -14,6 +14,16 @@ import {
   isMigrationComplete,
 } from '../services/supabase';
 import { setupSyncSubscriptions, setSyncEnabled } from '../store/syncSubscriptions';
+import {
+  syncAddSession,
+  syncAddTemplate,
+  syncAddCustomExercise,
+  syncAddWeightEntry,
+} from '../services/supabase/sync';
+
+// UUID validation regex
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const isValidUUID = (id: string): boolean => UUID_REGEX.test(id);
 
 export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'error' | 'offline';
 
@@ -119,15 +129,26 @@ export const SyncProvider: FC<SyncProviderProps> = ({ children }) => {
         }
       }
 
-      // Update templates - replace entirely with cloud data
+      // Update templates - merge cloud with local (cloud wins for conflicts, local-only preserved)
       if (templatesResult.templates.length > 0) {
-        // Clear existing and add all from cloud
-        useAppStore.setState({ templates: templatesResult.templates });
+        const localTemplates = useAppStore.getState().templates;
+        const cloudTemplateIds = new Set(templatesResult.templates.map(t => t.id));
+        // Keep local-only templates (not in cloud yet) + all cloud templates
+        const localOnlyTemplates = localTemplates.filter(t => !cloudTemplateIds.has(t.id));
+        const mergedTemplates = [...templatesResult.templates, ...localOnlyTemplates];
+        useAppStore.setState({ templates: mergedTemplates });
       }
 
-      // Update sessions
+      // Update sessions - merge cloud with local (cloud wins for conflicts, local-only preserved)
       if (sessionsResult.sessions.length > 0) {
-        useAppStore.setState({ sessions: sessionsResult.sessions });
+        const localSessions = useAppStore.getState().sessions;
+        const cloudSessionIds = new Set(sessionsResult.sessions.map(s => s.id));
+        // Keep local-only sessions (not in cloud yet) + all cloud sessions
+        const localOnlySessions = localSessions.filter(s => !cloudSessionIds.has(s.id));
+        const mergedSessions = [...sessionsResult.sessions, ...localOnlySessions];
+        useAppStore.setState({ sessions: mergedSessions });
+      } else {
+        // No cloud sessions - keep local sessions as-is (don't clear them)
       }
 
       // Update active session
@@ -135,14 +156,62 @@ export const SyncProvider: FC<SyncProviderProps> = ({ children }) => {
         store.setActiveSession(activeSessionResult.session);
       }
 
-      // Update custom exercises
+      // Update custom exercises - merge cloud with local
       if (exercisesResult.exercises.length > 0) {
-        useAppStore.setState({ customExercises: exercisesResult.exercises });
+        const localExercises = useAppStore.getState().customExercises;
+        const cloudExerciseIds = new Set(exercisesResult.exercises.map(e => e.id));
+        const localOnlyExercises = localExercises.filter(e => !cloudExerciseIds.has(e.id));
+        const mergedExercises = [...exercisesResult.exercises, ...localOnlyExercises];
+        useAppStore.setState({ customExercises: mergedExercises });
       }
 
-      // Update weight entries
+      // Update weight entries - merge cloud with local (by date)
       if (weightEntriesResult.entries.length > 0) {
-        useAppStore.setState({ weightEntries: weightEntriesResult.entries });
+        const localEntries = useAppStore.getState().weightEntries;
+        const cloudDates = new Set(weightEntriesResult.entries.map(e => e.date));
+        const localOnlyEntries = localEntries.filter(e => !cloudDates.has(e.date));
+        const mergedEntries = [...weightEntriesResult.entries, ...localOnlyEntries];
+        useAppStore.setState({ weightEntries: mergedEntries });
+      }
+
+      // After merge, sync any local-only data TO the cloud (fire and forget)
+      // This ensures data that failed to sync previously eventually makes it to the cloud
+      const currentState = useAppStore.getState();
+
+      // Sync local-only sessions (skip invalid UUIDs from legacy data)
+      {
+        const cloudIds = new Set(sessionsResult.sessions.map(s => s.id));
+        const localOnly = currentState.sessions.filter(s => !cloudIds.has(s.id) && isValidUUID(s.id));
+        for (const session of localOnly) {
+          syncAddSession(session).catch(console.error);
+        }
+      }
+
+      // Sync local-only templates (skip invalid UUIDs from legacy data)
+      {
+        const cloudIds = new Set(templatesResult.templates.map(t => t.id));
+        const localOnly = currentState.templates.filter(t => !cloudIds.has(t.id) && isValidUUID(t.id));
+        for (const template of localOnly) {
+          syncAddTemplate(template).catch(console.error);
+        }
+      }
+
+      // Sync local-only custom exercises (skip invalid UUIDs from legacy data)
+      {
+        const cloudIds = new Set(exercisesResult.exercises.map(e => e.id));
+        const localOnly = currentState.customExercises.filter(e => !cloudIds.has(e.id) && isValidUUID(e.id));
+        for (const exercise of localOnly) {
+          syncAddCustomExercise(exercise).catch(console.error);
+        }
+      }
+
+      // Sync local-only weight entries
+      {
+        const cloudIds = new Set(weightEntriesResult.entries.map(e => e.date));
+        const localOnly = currentState.weightEntries.filter(e => !cloudIds.has(e.date));
+        for (const entry of localOnly) {
+          syncAddWeightEntry(entry).catch(console.error);
+        }
       }
 
       setStatus('synced');

@@ -74,7 +74,7 @@ export const useCustomExercise = (): UseCustomExerciseReturn => {
     if (!customExerciseState.name.trim()) return null;
 
     const newExercise: StrengthExercise = {
-      id: `custom-${Date.now()}`,
+      id: crypto.randomUUID(),
       type: 'strength',
       name: customExerciseState.name.trim(),
       muscleGroups: customExerciseState.muscles.length > 0 ? customExerciseState.muscles : ['core'],

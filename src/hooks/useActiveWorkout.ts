@@ -1,9 +1,12 @@
-import { useMemo, useCallback, useEffect } from 'react';
+import { useMemo, useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { useCurrentWorkoutStore } from '../store/currentWorkoutStore';
 import { getAllExercises, searchExercises } from '../data/exercises';
 import { hasSessionDeviatedFromTemplate } from '../utils/workoutUtils';
+import { syncAddSession } from '../services/supabase/sync';
+import { markSessionAsSynced } from '../store/syncSubscriptions';
+import { clearFeedCache } from './useFeed';
 import {
   ExerciseSuggestion,
   WorkoutScoreResult,
@@ -45,6 +48,10 @@ export interface UseActiveWorkoutReturn {
   scoreError: string | null;
   clearScoreResult: () => void;
 
+  // Finish state
+  isFinishing: boolean;
+  finishError: string | null;
+
   // Orchestrated actions
   finishWorkout: () => Promise<void>;
   cancelWorkout: () => void;
@@ -52,6 +59,8 @@ export interface UseActiveWorkoutReturn {
 
 export const useActiveWorkout = (): UseActiveWorkoutReturn => {
   const navigate = useNavigate();
+  const [isFinishing, setIsFinishing] = useState(false);
+  const [finishError, setFinishError] = useState<string | null>(null);
 
   // App store selectors (granular)
   const session = useAppStore((state) => state.activeSession);
@@ -128,6 +137,9 @@ export const useActiveWorkout = (): UseActiveWorkoutReturn => {
   const finishWorkout = useCallback(async () => {
     if (!session) return;
 
+    setIsFinishing(true);
+    setFinishError(null);
+
     const completedSession = {
       ...session,
       completedAt: new Date().toISOString(),
@@ -192,9 +204,24 @@ export const useActiveWorkout = (): UseActiveWorkoutReturn => {
       }
     }
 
-    // Save to history immediately
+    // Try to upload to Supabase first
+    try {
+      await syncAddSession(completedSession);
+      // Success - mark as synced so subscription doesn't re-sync
+      markSessionAsSynced(completedSession.id);
+      clearFeedCache();
+    } catch (err) {
+      // Failed to upload - will save to localStorage as fallback
+      console.error('[Workout] Failed to upload to Supabase, saving locally:', err);
+      setFinishError('Failed to save to cloud. Saved locally.');
+    }
+
+    // Save to local history (localStorage via Zustand)
+    // If uploaded to Supabase, this is just for local cache/offline access
+    // If upload failed, this is the fallback and will be synced later
     addSession(completedSession);
     setActiveSession(null);
+    setIsFinishing(false);
 
     // Score if API key exists
     if (scoring.hasApiKey) {
@@ -208,7 +235,7 @@ export const useActiveWorkout = (): UseActiveWorkoutReturn => {
       // No API key, go directly to history
       navigate('/history');
     }
-  }, [session, updatePlan, hasDeviated, templates, addSession, setActiveSession, updateTemplate, scoring, navigate, setShowFinishConfirm]);
+  }, [session, updatePlan, hasDeviated, templates, addSession, setActiveSession, updateTemplate, scoring, navigate, setShowFinishConfirm, customExercises]);
 
   // Cancel workout
   const cancelWorkout = useCallback(() => {
@@ -231,6 +258,10 @@ export const useActiveWorkout = (): UseActiveWorkoutReturn => {
     scoreResult: scoring.scoreResult,
     scoreError: scoring.scoreError,
     clearScoreResult: scoring.clearScoreResult,
+
+    // Finish state
+    isFinishing,
+    finishError,
 
     // Actions
     finishWorkout,

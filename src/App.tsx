@@ -16,7 +16,7 @@ import {
   Friends,
   WorkoutDetail,
 } from './pages';
-import { useAppStore, migrateTemplates } from './store/useAppStore';
+import { useAppStore, migrateTemplates, migrateToUUIDs } from './store/useAppStore';
 import { GlobalTimerNotification } from './components/timer/GlobalTimerNotification';
 import { AuthProvider } from './contexts/AuthContext';
 import { SyncProvider } from './contexts/SyncContext';
@@ -234,10 +234,10 @@ const AppContent: FC = () => {
 };
 
 const App: FC = () => {
-  // Run migration once on app startup
-  // TODO: Remove this after all users have migrated (added Jan 2026)
+  // Run migrations once on app startup
   useEffect(() => {
     migrateTemplates();
+    migrateToUUIDs();
   }, []);
 
   return (

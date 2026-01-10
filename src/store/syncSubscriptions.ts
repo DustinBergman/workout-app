@@ -42,6 +42,15 @@ export const setSyncEnabled = (enabled: boolean) => {
 };
 
 /**
+ * Mark a session as already synced so the subscription won't try to sync it again
+ */
+export const markSessionAsSynced = (sessionId: string) => {
+  if (!previousSessionIds.includes(sessionId)) {
+    previousSessionIds.push(sessionId);
+  }
+};
+
+/**
  * Check if user is authenticated
  */
 const isAuthenticated = async (): Promise<boolean> => {
@@ -162,9 +171,10 @@ export const setupSyncSubscriptions = () => {
       // Check for added sessions
       for (const session of sessions) {
         if (!prevIds.includes(session.id) && !previousSessionIds.includes(session.id)) {
-          syncAddSession(session).catch(console.error);
-          // Clear feed cache so newly completed workouts show up immediately
-          clearFeedCache();
+          // Sync session, then clear feed cache so newly completed workouts show up
+          syncAddSession(session)
+            .then(() => clearFeedCache())
+            .catch(console.error);
         }
       }
 
@@ -172,7 +182,13 @@ export const setupSyncSubscriptions = () => {
       for (const session of sessions) {
         const prevSession = prevSessions.find((s) => s.id === session.id);
         if (prevSession && JSON.stringify(session) !== JSON.stringify(prevSession)) {
-          syncUpdateSession(session).catch(console.error);
+          // If session was just completed, clear feed cache after sync
+          const wasJustCompleted = !prevSession.completedAt && session.completedAt;
+          syncUpdateSession(session)
+            .then(() => {
+              if (wasJustCompleted) clearFeedCache();
+            })
+            .catch(console.error);
         }
       }
 

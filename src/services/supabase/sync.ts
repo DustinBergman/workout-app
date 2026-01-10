@@ -78,7 +78,11 @@ export const syncAddTemplate = async (template: WorkoutTemplate): Promise<void> 
     .select()
     .single();
 
-  if (templateError || !templateData) return;
+  if (templateError) {
+    console.error('[Sync] Failed to sync template:', templateError.message, templateError.code);
+    throw templateError;
+  }
+  if (!templateData) return;
 
   // Insert exercises
   if (template.exercises.length > 0) {
@@ -221,7 +225,11 @@ export const syncAddSession = async (session: WorkoutSession): Promise<void> => 
     .select()
     .single();
 
-  if (sessionError || !sessionData) return;
+  if (sessionError) {
+    console.error('[Sync] Failed to sync session:', sessionError.message, sessionError.code);
+    throw sessionError;
+  }
+  if (!sessionData) return;
 
   // Insert session exercises
   if (session.exercises.length > 0) {
@@ -274,7 +282,7 @@ export const syncUpdateSession = async (session: WorkoutSession): Promise<void> 
   // For active session updates, we need to sync the full state
   // This includes updating exercises and sets
 
-  await supabase
+  const { error: updateError } = await supabase
     .from('workout_sessions')
     .update({
       name: session.name,
@@ -283,6 +291,11 @@ export const syncUpdateSession = async (session: WorkoutSession): Promise<void> 
     })
     .eq('id', session.id)
     .eq('user_id', userId);
+
+  if (updateError) {
+    console.error('[Sync] Failed to update session:', updateError.message, updateError.code);
+    throw updateError;
+  }
 
   // For completed sessions, also ensure all sets are synced
   // Delete and re-insert exercises + sets for simplicity
@@ -366,7 +379,11 @@ export const syncAddCustomExercise = async (exercise: Exercise): Promise<void> =
     instructions: exercise.instructions ?? null,
   };
 
-  await supabase.from('custom_exercises').insert(insertData);
+  const { error } = await supabase.from('custom_exercises').insert(insertData);
+  if (error) {
+    console.error('[Sync] Failed to sync custom exercise:', error.message, error.code);
+    throw error;
+  }
 };
 
 // ============================================
@@ -377,12 +394,17 @@ export const syncAddWeightEntry = async (entry: WeightEntry): Promise<void> => {
   const userId = await getUserId();
   if (!userId) return;
 
-  await supabase.from('weight_entries').upsert({
+  const { error } = await supabase.from('weight_entries').upsert({
     user_id: userId,
     date: entry.date,
     weight: entry.weight,
     unit: entry.unit,
   }, { onConflict: 'user_id,date' });
+
+  if (error) {
+    console.error('[Sync] Failed to sync weight entry:', error.message, error.code);
+    throw error;
+  }
 };
 
 export const syncDeleteWeightEntry = async (date: string): Promise<void> => {

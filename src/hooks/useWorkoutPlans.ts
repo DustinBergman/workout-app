@@ -31,7 +31,7 @@ const EQUIPMENT_OPTIONS: Equipment[] = [
 ];
 
 const generateId = (): string => {
-  return Math.random().toString(36).substring(2, 15);
+  return crypto.randomUUID();
 };
 
 export const useWorkoutPlans = () => {
@@ -258,7 +258,7 @@ export const useWorkoutPlans = () => {
 
     const newExercise: Exercise = {
       type: 'strength',
-      id: `custom-${Date.now()}`,
+      id: crypto.randomUUID(),
       name: newExerciseName.trim(),
       muscleGroups: newExerciseMuscles.length > 0 ? newExerciseMuscles : ['core'],
       equipment: newExerciseEquipment,

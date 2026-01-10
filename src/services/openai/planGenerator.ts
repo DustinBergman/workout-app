@@ -178,7 +178,7 @@ export const createTemplateFromPlan = (
     restSeconds: ex.restSeconds,
   }));
   return {
-    id: Math.random().toString(36).substring(2, 15),
+    id: crypto.randomUUID(),
     name: customName || plan.name,
     templateType: 'strength',
     exercises,
@@ -327,7 +327,7 @@ export const createCardioTemplateFromPlan = (
   });
 
   return {
-    id: Math.random().toString(36).substring(2, 15),
+    id: crypto.randomUUID(),
     name: customName || plan.name,
     templateType: 'cardio',
     exercises,

@@ -6,7 +6,7 @@ import { WorkoutSession, WorkoutTemplate } from '../types';
 import { getPreWorkoutSuggestions } from '../services/openai';
 
 const generateId = (): string => {
-  return Math.random().toString(36).substring(2, 15);
+  return crypto.randomUUID();
 };
 
 interface UseStartWorkoutReturn {

@@ -343,6 +343,84 @@ export const migrateTemplates = () => {
   }
 };
 
+// UUID validation and migration
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const isValidUUID = (id: string): boolean => UUID_REGEX.test(id);
+
+/**
+ * Migrate invalid IDs to valid UUIDs
+ * This fixes legacy data that used short random strings instead of UUIDs
+ */
+export const migrateToUUIDs = () => {
+  const state = useAppStore.getState();
+  let sessionsUpdated = false;
+  let templatesUpdated = false;
+  let exercisesUpdated = false;
+
+  // Migrate sessions
+  const migratedSessions = state.sessions.map((session) => {
+    let needsUpdate = false;
+    let newSession = { ...session };
+
+    // Fix session ID
+    if (!isValidUUID(session.id)) {
+      newSession.id = crypto.randomUUID();
+      needsUpdate = true;
+    }
+
+    // Fix exercise IDs within session
+    const migratedExercises = session.exercises.map((ex) => {
+      if (!ex.id || !isValidUUID(ex.id)) {
+        return { ...ex, id: crypto.randomUUID() };
+      }
+      return ex;
+    });
+
+    if (migratedExercises.some((ex, i) => ex.id !== session.exercises[i].id)) {
+      newSession = { ...newSession, exercises: migratedExercises };
+      needsUpdate = true;
+    }
+
+    if (needsUpdate) {
+      sessionsUpdated = true;
+      return newSession;
+    }
+    return session;
+  });
+
+  // Migrate templates
+  const migratedTemplates = state.templates.map((template) => {
+    if (!isValidUUID(template.id)) {
+      templatesUpdated = true;
+      return { ...template, id: crypto.randomUUID() };
+    }
+    return template;
+  });
+
+  // Migrate custom exercises
+  const migratedExercises = state.customExercises.map((exercise) => {
+    if (!isValidUUID(exercise.id)) {
+      exercisesUpdated = true;
+      return { ...exercise, id: crypto.randomUUID() };
+    }
+    return exercise;
+  });
+
+  // Apply updates
+  if (sessionsUpdated || templatesUpdated || exercisesUpdated) {
+    const updates: Partial<typeof state> = {};
+    if (sessionsUpdated) updates.sessions = migratedSessions;
+    if (templatesUpdated) updates.templates = migratedTemplates;
+    if (exercisesUpdated) updates.customExercises = migratedExercises;
+    useAppStore.setState(updates);
+    console.log('[Migration] Fixed invalid UUIDs:', {
+      sessions: sessionsUpdated,
+      templates: templatesUpdated,
+      exercises: exercisesUpdated,
+    });
+  }
+};
+
 // Subscribe to dark mode changes and update document class
 useAppStore.subscribe(
   (state) => state.preferences.darkMode,

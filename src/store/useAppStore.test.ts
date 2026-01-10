@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { useAppStore } from './useAppStore';
+import { useAppStore, migrateToUUIDs } from './useAppStore';
 import { createMockTemplate } from '../test/fixtures/templates';
 import { createMockSession } from '../test/fixtures/sessions';
 import { createMockExercise } from '../test/fixtures/exercises';
+import { WorkoutSession, StrengthSessionExercise, StrengthCompletedSet } from '../types';
 
 // Helper to reset store between tests
 const resetStore = () => {
@@ -314,6 +315,224 @@ describe('useAppStore', () => {
       // This mimics how components use the store
       const templates = useAppStore.getState().templates;
       expect(templates).toHaveLength(1);
+    });
+  });
+
+  describe('migrateToUUIDs', () => {
+    // Valid UUID for testing
+    const VALID_UUID = '550e8400-e29b-41d4-a716-446655440000';
+    const VALID_UUID_2 = '550e8400-e29b-41d4-a716-446655440001';
+
+    // Invalid IDs (legacy format - short random strings)
+    const INVALID_ID = 'legacy123ab';
+    const INVALID_ID_2 = 'old456xyz';
+
+    beforeEach(() => {
+      resetStore();
+    });
+
+    it('should not modify sessions with valid UUIDs', () => {
+      const session = createMockSession({ id: VALID_UUID });
+      useAppStore.setState({ sessions: [session] });
+
+      migrateToUUIDs();
+
+      const state = useAppStore.getState();
+      expect(state.sessions[0].id).toBe(VALID_UUID);
+    });
+
+    it('should migrate sessions with invalid IDs to valid UUIDs', () => {
+      const session = createMockSession({ id: INVALID_ID });
+      useAppStore.setState({ sessions: [session] });
+
+      migrateToUUIDs();
+
+      const state = useAppStore.getState();
+      // Should be a valid UUID now (36 chars with dashes)
+      expect(state.sessions[0].id).not.toBe(INVALID_ID);
+      expect(state.sessions[0].id).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+      );
+    });
+
+    it('should migrate exercise IDs within sessions', () => {
+      const exercise: StrengthSessionExercise = {
+        id: INVALID_ID,
+        type: 'strength',
+        exerciseId: 'bench-press',
+        targetSets: 3,
+        targetReps: 10,
+        restSeconds: 90,
+        sets: [],
+      };
+      const session: WorkoutSession = {
+        id: VALID_UUID,
+        name: 'Test',
+        startedAt: new Date().toISOString(),
+        exercises: [exercise],
+      };
+      useAppStore.setState({ sessions: [session] });
+
+      migrateToUUIDs();
+
+      const state = useAppStore.getState();
+      const migratedExercise = state.sessions[0].exercises[0];
+      expect(migratedExercise.id).not.toBe(INVALID_ID);
+      expect(migratedExercise.id).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+      );
+    });
+
+    it('should handle exercises with undefined IDs', () => {
+      const exercise: StrengthSessionExercise = {
+        id: undefined as unknown as string, // Legacy data might have undefined
+        type: 'strength',
+        exerciseId: 'bench-press',
+        targetSets: 3,
+        targetReps: 10,
+        restSeconds: 90,
+        sets: [],
+      };
+      const session: WorkoutSession = {
+        id: VALID_UUID,
+        name: 'Test',
+        startedAt: new Date().toISOString(),
+        exercises: [exercise],
+      };
+      useAppStore.setState({ sessions: [session] });
+
+      migrateToUUIDs();
+
+      const state = useAppStore.getState();
+      const migratedExercise = state.sessions[0].exercises[0];
+      expect(migratedExercise.id).toBeDefined();
+      expect(migratedExercise.id).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+      );
+    });
+
+    it('should migrate templates with invalid IDs', () => {
+      const template = createMockTemplate({ id: INVALID_ID });
+      useAppStore.setState({ templates: [template] });
+
+      migrateToUUIDs();
+
+      const state = useAppStore.getState();
+      expect(state.templates[0].id).not.toBe(INVALID_ID);
+      expect(state.templates[0].id).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+      );
+    });
+
+    it('should not modify templates with valid UUIDs', () => {
+      const template = createMockTemplate({ id: VALID_UUID });
+      useAppStore.setState({ templates: [template] });
+
+      migrateToUUIDs();
+
+      const state = useAppStore.getState();
+      expect(state.templates[0].id).toBe(VALID_UUID);
+    });
+
+    it('should migrate custom exercises with invalid IDs', () => {
+      const exercise = createMockExercise({ id: INVALID_ID });
+      useAppStore.setState({ customExercises: [exercise] });
+
+      migrateToUUIDs();
+
+      const state = useAppStore.getState();
+      expect(state.customExercises[0].id).not.toBe(INVALID_ID);
+      expect(state.customExercises[0].id).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+      );
+    });
+
+    it('should not modify custom exercises with valid UUIDs', () => {
+      const exercise = createMockExercise({ id: VALID_UUID });
+      useAppStore.setState({ customExercises: [exercise] });
+
+      migrateToUUIDs();
+
+      const state = useAppStore.getState();
+      expect(state.customExercises[0].id).toBe(VALID_UUID);
+    });
+
+    it('should handle mixed valid and invalid IDs', () => {
+      const validSession = createMockSession({ id: VALID_UUID });
+      const invalidSession = createMockSession({ id: INVALID_ID });
+      useAppStore.setState({ sessions: [validSession, invalidSession] });
+
+      migrateToUUIDs();
+
+      const state = useAppStore.getState();
+      expect(state.sessions[0].id).toBe(VALID_UUID);
+      expect(state.sessions[1].id).not.toBe(INVALID_ID);
+      expect(state.sessions[1].id).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+      );
+    });
+
+    it('should not update store if no changes needed', () => {
+      const session = createMockSession({ id: VALID_UUID });
+      const template = createMockTemplate({ id: VALID_UUID_2 });
+      useAppStore.setState({ sessions: [session], templates: [template] });
+
+      // Capture original state reference
+      const originalSessions = useAppStore.getState().sessions;
+      const originalTemplates = useAppStore.getState().templates;
+
+      migrateToUUIDs();
+
+      // Should be same reference if no updates needed
+      expect(useAppStore.getState().sessions).toBe(originalSessions);
+      expect(useAppStore.getState().templates).toBe(originalTemplates);
+    });
+
+    it('should preserve all session data after migration', () => {
+      const exercise: StrengthSessionExercise = {
+        id: INVALID_ID,
+        type: 'strength',
+        exerciseId: 'bench-press',
+        targetSets: 5,
+        targetReps: 8,
+        restSeconds: 120,
+        sets: [
+          { type: 'strength', reps: 8, weight: 200, unit: 'lbs', completedAt: '2024-01-01' },
+        ],
+      };
+      const session: WorkoutSession = {
+        id: INVALID_ID_2,
+        name: 'Heavy Day',
+        templateId: 'template-123',
+        startedAt: '2024-01-01T10:00:00Z',
+        completedAt: '2024-01-01T11:00:00Z',
+        exercises: [exercise],
+      };
+      useAppStore.setState({ sessions: [session] });
+
+      migrateToUUIDs();
+
+      const state = useAppStore.getState();
+      const migrated = state.sessions[0];
+
+      // ID should be different
+      expect(migrated.id).not.toBe(INVALID_ID_2);
+
+      // All other data should be preserved
+      expect(migrated.name).toBe('Heavy Day');
+      expect(migrated.templateId).toBe('template-123');
+      expect(migrated.startedAt).toBe('2024-01-01T10:00:00Z');
+      expect(migrated.completedAt).toBe('2024-01-01T11:00:00Z');
+
+      // Exercise data should be preserved
+      const migratedEx = migrated.exercises[0] as StrengthSessionExercise;
+      expect(migratedEx.exerciseId).toBe('bench-press');
+      expect(migratedEx.targetSets).toBe(5);
+      expect(migratedEx.targetReps).toBe(8);
+      expect(migratedEx.sets).toHaveLength(1);
+      const strengthSet = migratedEx.sets[0] as StrengthCompletedSet;
+      expect(strengthSet.reps).toBe(8);
+      expect(strengthSet.weight).toBe(200);
     });
   });
 });
