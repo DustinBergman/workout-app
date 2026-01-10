@@ -4,7 +4,7 @@ import { MoodSelector } from './MoodSelector';
 import { TitleInput } from './TitleInput';
 import { WorkoutMood, WeightUnit, DistanceUnit } from '../../types';
 
-type PostWorkoutStep = 'summary' | 'mood' | 'title';
+type PostWorkoutStep = 'summary' | 'mood' | 'title' | 'saving';
 
 export interface PostWorkoutFlowProps {
   isOpen: boolean;
@@ -21,7 +21,7 @@ export interface PostWorkoutFlowProps {
   onUpdatePlanChange: (value: boolean) => void;
   onKeepGoing: () => void;
   onDiscard: () => void;
-  onComplete: (mood: WorkoutMood, customTitle: string | null) => void;
+  onComplete: (mood: WorkoutMood, customTitle: string | null) => Promise<void>;
 }
 
 export const PostWorkoutFlow: FC<PostWorkoutFlowProps> = ({
@@ -53,13 +53,14 @@ export const PostWorkoutFlow: FC<PostWorkoutFlowProps> = ({
     setStep('title');
   };
 
-  const handleTitleSubmit = (customTitle: string | null) => {
+  const handleTitleSubmit = async (customTitle: string | null) => {
     if (selectedMood) {
-      onComplete(selectedMood, customTitle);
+      setStep('saving');
+      await onComplete(selectedMood, customTitle);
+      // Reset state for next time (modal will close after onComplete)
+      setStep('summary');
+      setSelectedMood(null);
     }
-    // Reset state for next time
-    setStep('summary');
-    setSelectedMood(null);
   };
 
   const handleClose = () => {
@@ -82,6 +83,8 @@ export const PostWorkoutFlow: FC<PostWorkoutFlowProps> = ({
         return 'Rate Your Workout';
       case 'title':
         return 'Add a Title';
+      case 'saving':
+        return 'Saving...';
       default:
         return 'Finish Workout?';
     }
@@ -165,6 +168,12 @@ export const PostWorkoutFlow: FC<PostWorkoutFlowProps> = ({
           defaultName={workoutName}
           onSubmit={handleTitleSubmit}
         />
+      )}
+      {step === 'saving' && (
+        <div className="flex flex-col items-center justify-center py-8 gap-4">
+          <div className="w-10 h-10 border-3 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-muted-foreground">Saving your workout...</p>
+        </div>
       )}
     </Modal>
   );

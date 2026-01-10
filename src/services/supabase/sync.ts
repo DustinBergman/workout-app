@@ -218,6 +218,12 @@ export const syncAddSession = async (session: WorkoutSession): Promise<void> => 
       user_id: userId,
       template_id: session.templateId || null,
       name: session.name,
+      custom_title: session.customTitle || null,
+      mood: session.mood || null,
+      progressive_overload_week: session.progressiveOverloadWeek ?? null,
+      workout_goal: session.workoutGoal || null,
+      personal_bests: session.personalBests || null,
+      streak_count: session.streakCount || null,
       started_at: session.startedAt,
       completed_at: session.completedAt ?? null,
       is_active: !session.completedAt,
@@ -286,6 +292,12 @@ export const syncUpdateSession = async (session: WorkoutSession): Promise<void> 
     .from('workout_sessions')
     .update({
       name: session.name,
+      custom_title: session.customTitle || null,
+      mood: session.mood || null,
+      progressive_overload_week: session.progressiveOverloadWeek ?? null,
+      workout_goal: session.workoutGoal || null,
+      personal_bests: session.personalBests || null,
+      streak_count: session.streakCount || null,
       completed_at: session.completedAt ?? null,
       is_active: !session.completedAt,
     })

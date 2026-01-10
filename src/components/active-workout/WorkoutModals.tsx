@@ -41,7 +41,7 @@ interface WorkoutModalsProps {
   updatePlan: boolean;
   onSetUpdatePlan: (updatePlan: boolean) => void;
   onCancelWorkout: () => void;
-  onFinishWorkout: (mood: WorkoutMood, customTitle: string | null) => void;
+  onFinishWorkout: (mood: WorkoutMood, customTitle: string | null) => Promise<void>;
 
   // Scoring
   isScoring: boolean;

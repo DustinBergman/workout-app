@@ -268,9 +268,10 @@ export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
 
           // 1. Mood chip (always show if set)
           if (workout.mood) {
+            const moodConfig = WORKOUT_MOOD_CONFIG[workout.mood];
             chips.push(
               <span key="mood" className="px-2 py-0.5 rounded-full bg-muted text-xs">
-                {WORKOUT_MOOD_CONFIG[workout.mood].emoji}
+                {moodConfig.emoji} {moodConfig.label}
               </span>
             );
           }

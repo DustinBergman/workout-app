@@ -9,6 +9,7 @@ import { calculateStreak } from '../utils/streakUtils';
 import { syncAddSession } from '../services/supabase/sync';
 import { markSessionAsSynced } from '../store/syncSubscriptions';
 import { clearFeedCache } from './useFeed';
+import { toast } from '../store/toastStore';
 import {
   ExerciseSuggestion,
   WorkoutScoreResult,
@@ -259,10 +260,12 @@ export const useActiveWorkout = (): UseActiveWorkoutReturn => {
       // Success - mark as synced so subscription doesn't re-sync
       markSessionAsSynced(completedSession.id);
       clearFeedCache();
+      toast.success('Workout saved!');
     } catch (err) {
       // Failed to upload - will save to localStorage as fallback
       console.error('[Workout] Failed to upload to Supabase, saving locally:', err);
       setFinishError('Failed to save to cloud. Saved locally.');
+      toast.error('Failed to upload workout. Saved locally.');
     }
 
     // Save to local history (localStorage via Zustand)

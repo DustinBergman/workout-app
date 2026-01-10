@@ -126,7 +126,7 @@ interface ActiveWorkoutContentProps {
   scoreResult: WorkoutScoreResult | null;
   scoreError: string | null;
   clearScoreResult: () => void;
-  finishWorkout: (mood: WorkoutMood, customTitle: string | null) => void;
+  finishWorkout: (mood: WorkoutMood, customTitle: string | null) => Promise<void>;
   cancelWorkout: () => void;
   handleCreateExercise: () => void;
   handleDragStart: (event: DragStartEvent) => void;
