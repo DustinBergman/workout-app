@@ -121,19 +121,22 @@ export const migrateLocalStorageToSupabase = async (): Promise<MigrationResult> 
     // 1. Migrate profile/preferences
     await migrateProfile(user.id, state);
 
-    // 2. Migrate custom exercises
+    // 2. Migrate custom exercises and get the ID mapping
+    let exerciseIdMap = new Map<string, string>();
     if (state.customExercises?.length > 0) {
-      migratedCounts.customExercises = await migrateCustomExercises(user.id, state.customExercises);
+      const result = await migrateCustomExercises(user.id, state.customExercises);
+      migratedCounts.customExercises = result.count;
+      exerciseIdMap = result.idMap;
     }
 
-    // 3. Migrate templates (need to map exercise IDs for custom exercises)
+    // 3. Migrate templates (using the exercise ID mapping for custom exercises)
     if (state.templates?.length > 0) {
-      migratedCounts.templates = await migrateTemplates(user.id, state.templates);
+      migratedCounts.templates = await migrateTemplates(user.id, state.templates, exerciseIdMap);
     }
 
-    // 4. Migrate sessions
+    // 4. Migrate sessions (using the exercise ID mapping for custom exercises)
     if (state.sessions?.length > 0) {
-      migratedCounts.sessions = await migrateSessions(user.id, state.sessions);
+      migratedCounts.sessions = await migrateSessions(user.id, state.sessions, exerciseIdMap);
     }
 
     // 5. Migrate weight entries
@@ -178,34 +181,44 @@ const migrateProfile = async (
 };
 
 // Helper: Migrate custom exercises
+// Returns a map of old localStorage IDs to new Supabase UUIDs
 const migrateCustomExercises = async (
   userId: string,
   exercises: Exercise[]
-): Promise<number> => {
-  // Don't include id - let Supabase generate new UUIDs
-  // localStorage IDs are not valid UUIDs
-  const exercisesToInsert = exercises.map((ex) => ({
-    user_id: userId,
-    name: ex.name,
-    type: ex.type,
-    muscle_groups: ex.type === 'strength' ? ex.muscleGroups : null,
-    equipment: ex.type === 'strength' ? ex.equipment : null,
-    cardio_type: ex.type === 'cardio' ? ex.cardioType : null,
-    instructions: ex.instructions ?? null,
-  }));
+): Promise<{ count: number; idMap: Map<string, string> }> => {
+  const idMap = new Map<string, string>();
 
-  const { error } = await supabase
-    .from('custom_exercises')
-    .insert(exercisesToInsert);
+  // Insert exercises one by one to get the new UUIDs
+  for (const ex of exercises) {
+    const { data, error } = await supabase
+      .from('custom_exercises')
+      .insert({
+        user_id: userId,
+        name: ex.name,
+        type: ex.type,
+        muscle_groups: ex.type === 'strength' ? ex.muscleGroups : null,
+        equipment: ex.type === 'strength' ? ex.equipment : null,
+        cardio_type: ex.type === 'cardio' ? ex.cardioType : null,
+        instructions: ex.instructions ?? null,
+      })
+      .select('id')
+      .single();
 
-  if (error) throw error;
-  return exercises.length;
+    if (error) throw error;
+    if (data) {
+      // Map old localStorage ID to new Supabase UUID
+      idMap.set(ex.id, data.id);
+    }
+  }
+
+  return { count: exercises.length, idMap };
 };
 
 // Helper: Migrate templates
 const migrateTemplates = async (
   userId: string,
-  templates: WorkoutTemplate[]
+  templates: WorkoutTemplate[],
+  exerciseIdMap: Map<string, string>
 ): Promise<number> => {
   let count = 0;
 
@@ -231,9 +244,11 @@ const migrateTemplates = async (
     // Insert template exercises
     if (template.exercises.length > 0) {
       const exercisesToInsert = template.exercises.map((ex, idx) => {
+        // Map old custom exercise IDs to new Supabase UUIDs
+        const mappedExerciseId = exerciseIdMap.get(ex.exerciseId) || ex.exerciseId;
         const base = {
           template_id: templateData.id,
-          exercise_id: ex.exerciseId,
+          exercise_id: mappedExerciseId,
           type: ex.type,
           sort_order: idx,
           rest_seconds: ex.restSeconds ?? null,
@@ -275,7 +290,8 @@ const migrateTemplates = async (
 // Helper: Migrate sessions
 const migrateSessions = async (
   userId: string,
-  sessions: WorkoutSession[]
+  sessions: WorkoutSession[],
+  exerciseIdMap: Map<string, string>
 ): Promise<number> => {
   let count = 0;
 
@@ -305,7 +321,8 @@ const migrateSessions = async (
     if (session.exercises.length > 0) {
       const exercisesToInsert = session.exercises.map((ex, idx) => ({
         session_id: sessionData.id,
-        exercise_id: ex.exerciseId,
+        // Map old custom exercise IDs to new Supabase UUIDs
+        exercise_id: exerciseIdMap.get(ex.exerciseId) || ex.exerciseId,
         type: ex.type,
         sort_order: idx,
         target_sets: ex.type === 'strength' ? ex.targetSets : null,
@@ -393,3 +410,4 @@ export const isMigrationComplete = (): boolean => {
     return false;
   }
 };
+

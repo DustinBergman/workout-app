@@ -10,6 +10,7 @@ import { CommentsSection } from './CommentsSection';
 import { LikersModal } from './LikersModal';
 import { ProfileModal } from './ProfileModal';
 import { useLikes } from '../../hooks/useLikes';
+import { useAppStore } from '../../store/useAppStore';
 
 interface FeedWorkoutCardProps {
   workout: FeedWorkout;
@@ -39,6 +40,8 @@ export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [commentCount, setCommentCount] = useState(initialCommentCount);
   const [previewComments, setPreviewComments] = useState<WorkoutComment[]>(initialPreviewComments);
+
+  const customExercises = useAppStore((state) => state.customExercises);
 
   const {
     likeSummary,
@@ -190,7 +193,7 @@ export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
       {isExpanded && (
         <div className="border-t border-border px-3 py-2.5 space-y-3">
           {workout.session_exercises.map((exercise) => {
-            const exerciseData = getExerciseById(exercise.exercise_id);
+            const exerciseData = getExerciseById(exercise.exercise_id, customExercises);
             const exerciseName = exerciseData?.name || 'Unknown Exercise';
 
             return (

@@ -13,6 +13,7 @@ import {
 } from '../services/supabase/friends';
 import { getUserStats, PublicUserStats } from '../services/supabase/userStats';
 import { useAuth } from './useAuth';
+import { useAppStore } from '../store/useAppStore';
 
 export type FriendshipStatus = 'friends' | 'pending_sent' | 'pending_received' | 'none' | 'self';
 
@@ -32,6 +33,7 @@ interface UseProfileReturn {
 
 export const useProfile = (userId: string): UseProfileReturn => {
   const { user } = useAuth();
+  const customExercises = useAppStore((state) => state.customExercises);
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [stats, setStats] = useState<PublicUserStats | null>(null);
   const [friendshipStatus, setFriendshipStatus] = useState<FriendshipStatus>('none');
@@ -51,7 +53,7 @@ export const useProfile = (userId: string): UseProfileReturn => {
       if (userId === user.id) {
         const [profileResult, statsResult] = await Promise.all([
           getPublicProfile(userId),
-          getUserStats(userId),
+          getUserStats(userId, customExercises),
         ]);
         if (profileResult.error) throw profileResult.error;
         setProfile(profileResult.profile);
@@ -66,7 +68,7 @@ export const useProfile = (userId: string): UseProfileReturn => {
         getPublicProfile(userId),
         isFriend(userId),
         hasPendingRequest(userId),
-        getUserStats(userId),
+        getUserStats(userId, customExercises),
       ]);
 
       if (profileResult.error) throw profileResult.error;
@@ -96,7 +98,7 @@ export const useProfile = (userId: string): UseProfileReturn => {
     } finally {
       setIsLoading(false);
     }
-  }, [userId, user]);
+  }, [userId, user, customExercises]);
 
   useEffect(() => {
     loadProfile();

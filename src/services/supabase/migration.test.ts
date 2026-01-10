@@ -261,4 +261,312 @@ describe('Migration Service', () => {
       expect(isMigrationComplete()).toBe(true);
     });
   });
+
+  describe('Custom exercise ID mapping during migration', () => {
+    const mockSession = {
+      user: { id: 'user-123' },
+      access_token: 'token',
+    };
+
+    it('should map old custom exercise IDs to new UUIDs in templates', async () => {
+      vi.mocked(supabase.auth.getSession).mockResolvedValue({
+        data: { session: mockSession },
+        error: null,
+      } as never);
+
+      // Track the exercise IDs that get inserted into template_exercises
+      const insertedTemplateExercises: { exercise_id: string }[] = [];
+
+      // Track insert count outside the mock to persist across calls
+      let customExerciseInsertCount = 0;
+
+      // Create comprehensive mock for all Supabase operations
+      const mockFrom = vi.fn().mockImplementation((table: string) => {
+        if (table === 'profiles') {
+          return {
+            update: vi.fn().mockReturnValue({
+              eq: vi.fn().mockResolvedValue({ error: null }),
+            }),
+          };
+        }
+        if (table === 'custom_exercises') {
+          // Return new UUID for each custom exercise insert
+          return {
+            insert: vi.fn().mockImplementation(() => ({
+              select: vi.fn().mockReturnValue({
+                single: vi.fn().mockImplementation(() => {
+                  customExerciseInsertCount++;
+                  return Promise.resolve({
+                    data: { id: `new-uuid-${customExerciseInsertCount}` },
+                    error: null,
+                  });
+                }),
+              }),
+            })),
+          };
+        }
+        if (table === 'workout_templates') {
+          return {
+            insert: vi.fn().mockReturnValue({
+              select: vi.fn().mockReturnValue({
+                single: vi.fn().mockResolvedValue({
+                  data: { id: 'template-uuid-1' },
+                  error: null,
+                }),
+              }),
+            }),
+          };
+        }
+        if (table === 'template_exercises') {
+          return {
+            insert: vi.fn().mockImplementation((exercises: { exercise_id: string }[]) => {
+              insertedTemplateExercises.push(...exercises);
+              return Promise.resolve({ error: null });
+            }),
+          };
+        }
+        if (table === 'weight_entries') {
+          return {
+            upsert: vi.fn().mockResolvedValue({ error: null }),
+          };
+        }
+        return {};
+      });
+
+      vi.mocked(supabase.from).mockImplementation(mockFrom);
+
+      // Set up localStorage with custom exercises and a template that uses them
+      const data = createMockStorageData({
+        customExercises: [
+          { id: 'custom-1234567890', name: 'My Custom Exercise', type: 'strength', muscleGroups: ['chest'], equipment: 'dumbbell' },
+          { id: 'custom-9876543210', name: 'Another Custom', type: 'strength', muscleGroups: ['back'], equipment: 'barbell' },
+        ],
+        templates: [
+          {
+            id: 'template-1',
+            name: 'Test Template',
+            templateType: 'strength',
+            exercises: [
+              { type: 'strength', exerciseId: 'bench-press', targetSets: 3, targetReps: 10 },
+              { type: 'strength', exerciseId: 'custom-1234567890', targetSets: 3, targetReps: 10 }, // Custom exercise
+              { type: 'strength', exerciseId: 'custom-9876543210', targetSets: 3, targetReps: 8 }, // Another custom
+            ],
+          },
+        ],
+      });
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+
+      const result = await migrateLocalStorageToSupabase();
+
+      expect(result.success).toBe(true);
+      expect(result.migratedCounts.customExercises).toBe(2);
+      expect(result.migratedCounts.templates).toBe(1);
+
+      // Verify template exercises were inserted with mapped UUIDs, not old IDs
+      expect(insertedTemplateExercises).toHaveLength(3);
+
+      // The built-in exercise should keep its ID
+      expect(insertedTemplateExercises[0].exercise_id).toBe('bench-press');
+
+      // Custom exercises should be mapped to new UUIDs
+      expect(insertedTemplateExercises[1].exercise_id).toBe('new-uuid-1');
+      expect(insertedTemplateExercises[2].exercise_id).toBe('new-uuid-2');
+
+      // Verify old IDs are NOT present
+      expect(insertedTemplateExercises.some(e => e.exercise_id === 'custom-1234567890')).toBe(false);
+      expect(insertedTemplateExercises.some(e => e.exercise_id === 'custom-9876543210')).toBe(false);
+    });
+
+    it('should map old custom exercise IDs to new UUIDs in sessions', async () => {
+      vi.mocked(supabase.auth.getSession).mockResolvedValue({
+        data: { session: mockSession },
+        error: null,
+      } as never);
+
+      // Track the exercise IDs that get inserted into session_exercises
+      const insertedSessionExercises: { exercise_id: string }[] = [];
+
+      const mockFrom = vi.fn().mockImplementation((table: string) => {
+        if (table === 'profiles') {
+          return {
+            update: vi.fn().mockReturnValue({
+              eq: vi.fn().mockResolvedValue({ error: null }),
+            }),
+          };
+        }
+        if (table === 'custom_exercises') {
+          return {
+            insert: vi.fn().mockImplementation(() => ({
+              select: vi.fn().mockReturnValue({
+                single: vi.fn().mockResolvedValue({
+                  data: { id: 'new-uuid-1' },
+                  error: null,
+                }),
+              }),
+            })),
+          };
+        }
+        if (table === 'workout_sessions') {
+          return {
+            insert: vi.fn().mockReturnValue({
+              select: vi.fn().mockReturnValue({
+                single: vi.fn().mockResolvedValue({
+                  data: { id: 'session-uuid-1' },
+                  error: null,
+                }),
+              }),
+            }),
+          };
+        }
+        if (table === 'session_exercises') {
+          return {
+            insert: vi.fn().mockImplementation((exercises: { exercise_id: string }[]) => {
+              insertedSessionExercises.push(...exercises);
+              return {
+                select: vi.fn().mockResolvedValue({
+                  data: exercises.map((_, i) => ({ id: `session-ex-${i}` })),
+                  error: null,
+                }),
+              };
+            }),
+          };
+        }
+        if (table === 'completed_sets') {
+          return {
+            insert: vi.fn().mockResolvedValue({ error: null }),
+          };
+        }
+        if (table === 'weight_entries') {
+          return {
+            upsert: vi.fn().mockResolvedValue({ error: null }),
+          };
+        }
+        return {};
+      });
+
+      vi.mocked(supabase.from).mockImplementation(mockFrom);
+
+      const data = createMockStorageData({
+        customExercises: [
+          { id: 'custom-1111111111', name: 'Custom Curl', type: 'strength', muscleGroups: ['biceps'], equipment: 'dumbbell' },
+        ],
+        sessions: [
+          {
+            id: 'session-1',
+            name: 'Workout Session',
+            startedAt: '2024-01-01T10:00:00Z',
+            completedAt: '2024-01-01T11:00:00Z',
+            exercises: [
+              { type: 'strength', exerciseId: 'squat', targetSets: 3, targetReps: 10, sets: [], restSeconds: 90 },
+              { type: 'strength', exerciseId: 'custom-1111111111', targetSets: 3, targetReps: 12, sets: [], restSeconds: 90 },
+            ],
+          },
+        ],
+      });
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+
+      const result = await migrateLocalStorageToSupabase();
+
+      expect(result.success).toBe(true);
+      expect(result.migratedCounts.customExercises).toBe(1);
+      expect(result.migratedCounts.sessions).toBe(1);
+
+      // Verify session exercises were inserted with mapped UUIDs
+      expect(insertedSessionExercises).toHaveLength(2);
+      expect(insertedSessionExercises[0].exercise_id).toBe('squat');
+      expect(insertedSessionExercises[1].exercise_id).toBe('new-uuid-1');
+
+      // Verify old ID is NOT present
+      expect(insertedSessionExercises.some(e => e.exercise_id === 'custom-1111111111')).toBe(false);
+    });
+
+    it('should preserve built-in exercise IDs while mapping custom ones', async () => {
+      vi.mocked(supabase.auth.getSession).mockResolvedValue({
+        data: { session: mockSession },
+        error: null,
+      } as never);
+
+      const insertedTemplateExercises: { exercise_id: string }[] = [];
+
+      const mockFrom = vi.fn().mockImplementation((table: string) => {
+        if (table === 'profiles') {
+          return {
+            update: vi.fn().mockReturnValue({
+              eq: vi.fn().mockResolvedValue({ error: null }),
+            }),
+          };
+        }
+        if (table === 'custom_exercises') {
+          return {
+            insert: vi.fn().mockImplementation(() => ({
+              select: vi.fn().mockReturnValue({
+                single: vi.fn().mockResolvedValue({
+                  data: { id: 'mapped-uuid' },
+                  error: null,
+                }),
+              }),
+            })),
+          };
+        }
+        if (table === 'workout_templates') {
+          return {
+            insert: vi.fn().mockReturnValue({
+              select: vi.fn().mockReturnValue({
+                single: vi.fn().mockResolvedValue({
+                  data: { id: 'template-uuid' },
+                  error: null,
+                }),
+              }),
+            }),
+          };
+        }
+        if (table === 'template_exercises') {
+          return {
+            insert: vi.fn().mockImplementation((exercises: { exercise_id: string }[]) => {
+              insertedTemplateExercises.push(...exercises);
+              return Promise.resolve({ error: null });
+            }),
+          };
+        }
+        if (table === 'weight_entries') {
+          return {
+            upsert: vi.fn().mockResolvedValue({ error: null }),
+          };
+        }
+        return {};
+      });
+
+      vi.mocked(supabase.from).mockImplementation(mockFrom);
+
+      const data = createMockStorageData({
+        customExercises: [
+          { id: 'custom-999', name: 'My Exercise', type: 'strength', muscleGroups: ['chest'], equipment: 'other' },
+        ],
+        templates: [
+          {
+            id: 'tpl-1',
+            name: 'Mixed Template',
+            templateType: 'strength',
+            exercises: [
+              { type: 'strength', exerciseId: 'bench-press', targetSets: 3, targetReps: 10 },
+              { type: 'strength', exerciseId: 'deadlift', targetSets: 3, targetReps: 5 },
+              { type: 'strength', exerciseId: 'custom-999', targetSets: 4, targetReps: 8 },
+              { type: 'strength', exerciseId: 'lat-pulldown', targetSets: 3, targetReps: 12 },
+            ],
+          },
+        ],
+      });
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+
+      await migrateLocalStorageToSupabase();
+
+      // Built-in exercises keep their IDs
+      expect(insertedTemplateExercises[0].exercise_id).toBe('bench-press');
+      expect(insertedTemplateExercises[1].exercise_id).toBe('deadlift');
+      expect(insertedTemplateExercises[3].exercise_id).toBe('lat-pulldown');
+
+      // Custom exercise gets mapped to new UUID
+      expect(insertedTemplateExercises[2].exercise_id).toBe('mapped-uuid');
+    });
+  });
 });

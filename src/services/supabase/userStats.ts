@@ -1,6 +1,6 @@
 import { supabase } from '../../lib/supabase';
 import { getAuthUser } from './authHelper';
-import { MuscleGroup } from '../../types';
+import { MuscleGroup, Exercise } from '../../types';
 import { getExerciseById } from '../../data/exercises';
 
 export interface MuscleGroupBreakdown {
@@ -33,7 +33,8 @@ interface WorkoutRow {
  * Get public stats for a user (viewable by friends or self)
  */
 export const getUserStats = async (
-  userId: string
+  userId: string,
+  customExercises: Exercise[] = []
 ): Promise<{ stats: PublicUserStats | null; error: Error | null }> => {
   const currentUser = await getAuthUser();
   if (!currentUser) {
@@ -153,7 +154,7 @@ export const getUserStats = async (
       totalSets += setCount;
 
       // Get exercise data to find muscle groups
-      const exerciseData = getExerciseById(ex.exercise_id);
+      const exerciseData = getExerciseById(ex.exercise_id, customExercises);
       if (exerciseData && exerciseData.type === 'strength' && exerciseData.muscleGroups) {
         exerciseData.muscleGroups.forEach((mg: MuscleGroup) => {
           muscleGroupCounts[mg] = (muscleGroupCounts[mg] || 0) + setCount;
