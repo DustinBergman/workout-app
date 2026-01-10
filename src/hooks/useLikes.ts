@@ -5,6 +5,7 @@ import {
   getLikeSummary,
   LikeSummary,
 } from '../services/supabase/likes';
+import { toast } from '../store/toastStore';
 
 interface UseLikesReturn {
   likeSummary: LikeSummary | null;
@@ -28,6 +29,7 @@ export const useLikes = (
     const { summary, error: fetchError } = await getLikeSummary(workoutId);
     if (fetchError) {
       setError(fetchError.message);
+      toast.error(fetchError.message);
       return;
     }
     setLikeSummary(summary);
@@ -63,7 +65,9 @@ export const useLikes = (
         hasLiked: wasLiked,
         count: likeSummary.count,
       });
-      setError(err instanceof Error ? err.message : 'Failed to update like');
+      const message = err instanceof Error ? err.message : 'Failed to update like';
+      setError(message);
+      toast.error(message);
     } finally {
       setIsLiking(false);
     }

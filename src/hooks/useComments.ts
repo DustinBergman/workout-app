@@ -8,6 +8,7 @@ import {
   WorkoutComment,
 } from '../services/supabase/comments';
 import { useAuth } from './useAuth';
+import { toast } from '../store/toastStore';
 
 interface UseCommentsReturn {
   comments: WorkoutComment[];
@@ -49,7 +50,9 @@ export const useComments = (
       setCommentCount(fetchedComments.length);
       setHasLoaded(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load comments');
+      const message = err instanceof Error ? err.message : 'Failed to load comments';
+      setError(message);
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
@@ -70,7 +73,9 @@ export const useComments = (
       setCommentCount(fetchedComments.length);
       setHasLoaded(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load comments');
+      const message = err instanceof Error ? err.message : 'Failed to load comments';
+      setError(message);
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
@@ -112,7 +117,9 @@ export const useComments = (
           setCommentCount((prev) => prev + 1);
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to add comment');
+        const message = err instanceof Error ? err.message : 'Failed to add comment';
+        setError(message);
+        toast.error(message);
       } finally {
         setIsSubmitting(false);
       }
@@ -137,9 +144,9 @@ export const useComments = (
         // Revert on error
         setComments(previousComments);
         setCommentCount(previousComments.length);
-        setError(
-          err instanceof Error ? err.message : 'Failed to delete comment'
-        );
+        const message = err instanceof Error ? err.message : 'Failed to delete comment';
+        setError(message);
+        toast.error(message);
       }
     },
     [comments]
@@ -184,9 +191,9 @@ export const useComments = (
               : c
           )
         );
-        setError(
-          err instanceof Error ? err.message : 'Failed to update like'
-        );
+        const message = err instanceof Error ? err.message : 'Failed to update like';
+        setError(message);
+        toast.error(message);
       }
     },
     [comments]

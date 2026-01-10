@@ -13,8 +13,8 @@ vi.mock('../active-workout/index', () => ({
   ExercisePickerModal: ({ isOpen, children }: any) =>
     isOpen ? <div data-testid="exercise-picker">{children}</div> : null,
   CreateExerciseForm: ({ name }: any) => <div>Form: {name}</div>,
-  FinishWorkoutModal: ({ isOpen }: any) =>
-    isOpen ? <div data-testid="finish-modal">Finish Modal</div> : null,
+  PostWorkoutFlow: ({ isOpen }: any) =>
+    isOpen ? <div data-testid="post-workout-flow">Post Workout Flow</div> : null,
   ScoringModal: ({ isOpen }: any) =>
     isOpen ? <div data-testid="scoring-modal">Scoring</div> : null,
   ScoreResultModal: ({ isOpen }: any) =>
@@ -48,6 +48,7 @@ describe('WorkoutModals', () => {
     // Finish workout modal
     showFinishConfirm: false,
     onSetShowFinishConfirm: vi.fn(),
+    workoutName: 'Test Workout',
     totalSets: 0,
     totalVolume: 0,
     totalCardioDistance: 0,
@@ -81,7 +82,7 @@ describe('WorkoutModals', () => {
     render(<WorkoutModals {...defaultProps} />);
 
     expect(screen.queryByTestId('exercise-picker')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('finish-modal')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('post-workout-flow')).not.toBeInTheDocument();
     expect(screen.queryByTestId('scoring-modal')).not.toBeInTheDocument();
     expect(screen.queryByTestId('score-result')).not.toBeInTheDocument();
     expect(screen.queryByTestId('error-toast')).not.toBeInTheDocument();
@@ -99,7 +100,7 @@ describe('WorkoutModals', () => {
     expect(screen.getByTestId('exercise-picker')).toBeInTheDocument();
   });
 
-  it('should show finish modal when open', () => {
+  it('should show post-workout flow when open', () => {
     render(
       <WorkoutModals
         {...defaultProps}
@@ -107,7 +108,7 @@ describe('WorkoutModals', () => {
       />
     );
 
-    expect(screen.getByTestId('finish-modal')).toBeInTheDocument();
+    expect(screen.getByTestId('post-workout-flow')).toBeInTheDocument();
   });
 
   it('should show scoring modal when scoring', () => {

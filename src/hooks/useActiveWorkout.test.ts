@@ -270,7 +270,7 @@ describe('useActiveWorkout', () => {
       resetStores(mockSession);
       const { result } = renderHook(() => useActiveWorkout());
       await act(async () => {
-        await result.current.finishWorkout();
+        await result.current.finishWorkout(3, null);
       });
       expect(useAppStore.getState().activeSession).toBeNull();
       expect(useAppStore.getState().sessions).toHaveLength(1);
@@ -281,7 +281,7 @@ describe('useActiveWorkout', () => {
       resetStores(mockSession);
       const { result } = renderHook(() => useActiveWorkout());
       await act(async () => {
-        await result.current.finishWorkout();
+        await result.current.finishWorkout(3, null);
       });
       expect(mockNavigate).toHaveBeenCalledWith('/history');
     });
@@ -821,5 +821,188 @@ describe('Drag and Drop - Auto-Expand Prevention', () => {
     // to first incomplete exercise (index 1)
     // Note: The effect runs during render, so we check after render
     expect(result.current.elapsedSeconds).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe('Cardio workout duration calculation', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    resetStores(null);
+  });
+
+  it('should use sum of cardio durations for cardio-only workouts', async () => {
+    // Create a cardio-only workout with logged durations
+    const mockSession = createMockSession({
+      exercises: [
+        createCardioSessionExercise('outdoor-run', {
+          sets: [
+            { type: 'cardio', distance: 3, distanceUnit: 'mi', durationSeconds: 1800, completedAt: '' }, // 30 min
+            { type: 'cardio', distance: 2, distanceUnit: 'mi', durationSeconds: 900, completedAt: '' },  // 15 min
+          ],
+        }),
+      ],
+    });
+    resetStores(mockSession);
+
+    const { result } = renderHook(() => useActiveWorkout());
+
+    await act(async () => {
+      await result.current.finishWorkout(3, null);
+    });
+
+    const savedSession = useAppStore.getState().sessions[0];
+    expect(savedSession).toBeDefined();
+
+    // Calculate duration from startedAt to completedAt
+    const startTime = new Date(savedSession.startedAt).getTime();
+    const endTime = new Date(savedSession.completedAt!).getTime();
+    const durationSeconds = (endTime - startTime) / 1000;
+
+    // Should be approximately 45 minutes (2700 seconds) based on logged cardio
+    expect(durationSeconds).toBe(2700);
+  });
+
+  it('should use sum of multiple cardio exercises durations', async () => {
+    const mockSession = createMockSession({
+      exercises: [
+        createCardioSessionExercise('outdoor-run', {
+          sets: [
+            { type: 'cardio', distance: 5, distanceUnit: 'mi', durationSeconds: 2700, completedAt: '' }, // 45 min run
+          ],
+        }),
+        createCardioSessionExercise('outdoor-run', {
+          sets: [
+            { type: 'cardio', distance: 1, distanceUnit: 'mi', durationSeconds: 600, completedAt: '' }, // 10 min cooldown
+          ],
+        }),
+      ],
+    });
+    resetStores(mockSession);
+
+    const { result } = renderHook(() => useActiveWorkout());
+
+    await act(async () => {
+      await result.current.finishWorkout(3, null);
+    });
+
+    const savedSession = useAppStore.getState().sessions[0];
+    const startTime = new Date(savedSession.startedAt).getTime();
+    const endTime = new Date(savedSession.completedAt!).getTime();
+    const durationSeconds = (endTime - startTime) / 1000;
+
+    // Should be 55 minutes (3300 seconds)
+    expect(durationSeconds).toBe(3300);
+  });
+
+  it('should NOT adjust duration for strength-only workouts (use timer)', async () => {
+    const originalStartedAt = new Date('2024-01-01T10:00:00Z').toISOString();
+    const mockSession = createMockSession({
+      startedAt: originalStartedAt,
+      exercises: [
+        createStrengthSessionExercise('bench-press', {
+          sets: [
+            { type: 'strength', reps: 10, weight: 135, unit: 'lbs', completedAt: '' },
+          ],
+        }),
+      ],
+    });
+    resetStores(mockSession);
+
+    const { result } = renderHook(() => useActiveWorkout());
+
+    await act(async () => {
+      await result.current.finishWorkout(3, null);
+    });
+
+    const savedSession = useAppStore.getState().sessions[0];
+
+    // startedAt should be unchanged for strength workouts
+    expect(savedSession.startedAt).toBe(originalStartedAt);
+  });
+
+  it('should NOT adjust duration for mixed strength/cardio workouts (use timer)', async () => {
+    const originalStartedAt = new Date('2024-01-01T10:00:00Z').toISOString();
+    const mockSession = createMockSession({
+      startedAt: originalStartedAt,
+      exercises: [
+        createStrengthSessionExercise('bench-press', {
+          sets: [
+            { type: 'strength', reps: 10, weight: 135, unit: 'lbs', completedAt: '' },
+          ],
+        }),
+        createCardioSessionExercise('outdoor-run', {
+          sets: [
+            { type: 'cardio', distance: 1, distanceUnit: 'mi', durationSeconds: 600, completedAt: '' },
+          ],
+        }),
+      ],
+    });
+    resetStores(mockSession);
+
+    const { result } = renderHook(() => useActiveWorkout());
+
+    await act(async () => {
+      await result.current.finishWorkout(3, null);
+    });
+
+    const savedSession = useAppStore.getState().sessions[0];
+
+    // startedAt should be unchanged for mixed workouts
+    expect(savedSession.startedAt).toBe(originalStartedAt);
+  });
+
+  it('should use timer if cardio workout has no logged durations', async () => {
+    const originalStartedAt = new Date('2024-01-01T10:00:00Z').toISOString();
+    const mockSession = createMockSession({
+      startedAt: originalStartedAt,
+      exercises: [
+        createCardioSessionExercise('outdoor-run', {
+          sets: [], // No logged sets
+        }),
+      ],
+    });
+    resetStores(mockSession);
+
+    const { result } = renderHook(() => useActiveWorkout());
+
+    await act(async () => {
+      await result.current.finishWorkout(3, null);
+    });
+
+    const savedSession = useAppStore.getState().sessions[0];
+
+    // startedAt should be unchanged when no cardio durations logged
+    expect(savedSession.startedAt).toBe(originalStartedAt);
+  });
+
+  it('should handle cardio sets with zero duration', async () => {
+    const originalStartedAt = new Date('2024-01-01T10:00:00Z').toISOString();
+    const mockSession = createMockSession({
+      startedAt: originalStartedAt,
+      exercises: [
+        createCardioSessionExercise('outdoor-run', {
+          sets: [
+            { type: 'cardio', distance: 1, distanceUnit: 'mi', durationSeconds: 0, completedAt: '' },
+          ],
+        }),
+      ],
+    });
+    resetStores(mockSession);
+
+    const { result } = renderHook(() => useActiveWorkout());
+
+    await act(async () => {
+      await result.current.finishWorkout(3, null);
+    });
+
+    const savedSession = useAppStore.getState().sessions[0];
+
+    // startedAt should be unchanged when total duration is 0
+    expect(savedSession.startedAt).toBe(originalStartedAt);
   });
 });

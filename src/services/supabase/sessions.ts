@@ -1,6 +1,14 @@
 import { supabase } from '../../lib/supabase';
 import { getAuthUser } from './authHelper';
-import type { WorkoutSession, SessionExercise, CompletedSet } from '../../types';
+import type {
+  WorkoutSession,
+  SessionExercise,
+  CompletedSet,
+  WorkoutMood,
+  ProgressiveOverloadWeek,
+  WorkoutGoal,
+  PersonalBest,
+} from '../../types';
 
 interface DbCompletedSet {
   id: string;
@@ -32,6 +40,12 @@ interface DbWorkoutSession {
   user_id: string;
   template_id: string | null;
   name: string;
+  custom_title: string | null;
+  mood: number | null;
+  progressive_overload_week: number | null;
+  workout_goal: string | null;
+  personal_bests: PersonalBest[] | null;
+  streak_count: number | null;
   started_at: string;
   completed_at: string | null;
   is_active: boolean;
@@ -198,6 +212,12 @@ export const updateSession = async (
   // Update session metadata
   const sessionUpdates: Record<string, unknown> = {};
   if (updates.name !== undefined) sessionUpdates.name = updates.name;
+  if (updates.customTitle !== undefined) sessionUpdates.custom_title = updates.customTitle;
+  if (updates.mood !== undefined) sessionUpdates.mood = updates.mood;
+  if (updates.progressiveOverloadWeek !== undefined) sessionUpdates.progressive_overload_week = updates.progressiveOverloadWeek;
+  if (updates.workoutGoal !== undefined) sessionUpdates.workout_goal = updates.workoutGoal;
+  if (updates.personalBests !== undefined) sessionUpdates.personal_bests = updates.personalBests;
+  if (updates.streakCount !== undefined) sessionUpdates.streak_count = updates.streakCount;
   if (updates.completedAt !== undefined) {
     sessionUpdates.completed_at = updates.completedAt;
     sessionUpdates.is_active = false;
@@ -289,6 +309,12 @@ const dbSessionToSession = (dbSession: DbWorkoutSession): WorkoutSession => ({
   id: dbSession.id,
   templateId: dbSession.template_id ?? undefined,
   name: dbSession.name,
+  customTitle: dbSession.custom_title ?? undefined,
+  mood: dbSession.mood as WorkoutMood | undefined ?? undefined,
+  progressiveOverloadWeek: dbSession.progressive_overload_week as ProgressiveOverloadWeek | undefined ?? undefined,
+  workoutGoal: dbSession.workout_goal as WorkoutGoal | undefined ?? undefined,
+  personalBests: dbSession.personal_bests ?? undefined,
+  streakCount: dbSession.streak_count ?? undefined,
   startedAt: dbSession.started_at,
   completedAt: dbSession.completed_at ?? undefined,
   exercises: (dbSession.session_exercises || [])

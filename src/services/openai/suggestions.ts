@@ -132,22 +132,37 @@ Target rep range: ${goalInfo.defaultRepRange}
   const weekInfo = weekConfig[currentWeek];
 
   if (workoutGoal === 'build') {
-    // Progressive overload mode
+    // Progressive overload mode with personal trainer logic
     return `
 TRAINING GOAL: ${goalInfo.name} - ${goalInfo.cycleName} Cycle
 ${experienceGuidance}
 ${volumeGuidance}
 IMPORTANT - ${goalInfo.cycleName} Week ${currentWeek + 1}: ${weekInfo.name}
 - Goal: ${weekInfo.description}
-- Weight Adjustment: ${weekInfo.weightAdjustment}
 - Target Rep Range: ${weekInfo.repRange}
 
-Apply these week-specific guidelines when calculating suggestions:
-- Week 1 (Baseline): Use current working weights, aim for 8-12 reps
-- Week 2 (Light Overload): Increase weight by 2-5% from baseline, aim for 8-10 reps
-- Week 3 (Volume Focus): Keep weight same as Week 2, increase to 10-12 reps or add 1 extra set
-- Week 4 (Strength Push): Increase weight by 5-10% from baseline, lower reps to 6-8
-- Week 5 (Deload): Reduce weight by 20-30% from baseline, moderate 8-12 reps for recovery
+SMART WEIGHT SUGGESTION GUIDELINES (Act like a personal trainer):
+Analyze the user's ACTUAL progression patterns from their workout history to determine appropriate weights.
+Do NOT use arbitrary fixed percentages - base suggestions on how this specific user is progressing.
+
+EXPERIENCE-ADJUSTED PROGRESSION:
+- Beginners (fast progression): If consistently hitting reps, suggest 5-10% increases
+- Intermediates (moderate): If progressing well, suggest 2-5% increases
+- Advanced (slow progression): Even 1-2.5% increases are significant wins
+
+WEEK-SPECIFIC GUIDANCE:
+- Week 1 (Baseline): Use current working weights, aim for 8-10 reps to establish baseline
+- Week 2 (Light Overload): Based on baseline performance, suggest weight that challenges for 6-8 reps (lean towards 6)
+- Week 3 (Volume Focus): Moderate weight for 7-9 reps - build work capacity
+- Week 4 (Strength Push): If progression supports it, push for heavier weight at 5-6 reps
+- Week 5 (Deload): Reduce weight by 20-30% for recovery, 8-12 easy reps
+
+DECISION FRAMEWORK:
+1. Look at the user's 1RM trend from exercise analysis
+2. If IMPROVING: Progress according to experience level and week goal
+3. If PLATEAU: Consider rep range change OR technique focus before weight increase
+4. If DECLINING: Maintain or slightly reduce weight, prioritize recovery
+5. Always ensure the suggested weight is achievable for the target rep range
 `;
   }
 

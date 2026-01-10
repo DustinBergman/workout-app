@@ -260,3 +260,19 @@ body {
 [role="button"][aria-label*="Drag"] {
   touch-action: none !important;
 }
+
+/* Toast slide-in animation */
+@keyframes slide-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-in-up {
+  animation: slide-in-up 0.2s ease-out;
+}

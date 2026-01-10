@@ -22,6 +22,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { SyncProvider } from './contexts/SyncContext';
 import { MigrationPrompt } from './components/auth';
 import { NotificationBell } from './components/notifications';
+import { ToastContainer } from './components/ui/ToastContainer';
 import { useAuth } from './hooks/useAuth';
 import { useSync } from './hooks/useSync';
 import { markMigrationComplete } from './services/supabase';
@@ -245,6 +246,7 @@ const App: FC = () => {
       <BrowserRouter>
         <SyncProvider>
           <AppContent />
+          <ToastContainer />
         </SyncProvider>
       </BrowserRouter>
     </AuthProvider>

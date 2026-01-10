@@ -1,6 +1,12 @@
 import { supabase } from '../../lib/supabase';
 import { getAuthUser } from './authHelper';
-import type { CompletedSet } from '../../types';
+import type {
+  CompletedSet,
+  WorkoutMood,
+  ProgressiveOverloadWeek,
+  WorkoutGoal,
+  PersonalBest,
+} from '../../types';
 
 // Types
 export interface FeedUser {
@@ -35,6 +41,12 @@ export interface FeedWorkout {
   id: string;
   user_id: string;
   name: string;
+  custom_title: string | null;
+  mood: WorkoutMood | null;
+  progressive_overload_week: ProgressiveOverloadWeek | null;
+  workout_goal: WorkoutGoal | null;
+  personal_bests: PersonalBest[] | null;
+  streak_count: number | null;
   started_at: string;
   completed_at: string | null;
   user: FeedUser;
@@ -96,6 +108,12 @@ export const getFriendWorkouts = async (
       id,
       user_id,
       name,
+      custom_title,
+      mood,
+      progressive_overload_week,
+      workout_goal,
+      personal_bests,
+      streak_count,
       started_at,
       completed_at,
       user:profiles!workout_sessions_user_id_profiles_fkey (
@@ -158,6 +176,12 @@ export const getWorkoutById = async (
       id,
       user_id,
       name,
+      custom_title,
+      mood,
+      progressive_overload_week,
+      workout_goal,
+      personal_bests,
+      streak_count,
       started_at,
       completed_at,
       user:profiles!workout_sessions_user_id_profiles_fkey (

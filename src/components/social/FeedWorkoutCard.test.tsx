@@ -68,6 +68,12 @@ describe('FeedWorkoutCard', () => {
     id: 'workout-123',
     user_id: 'user-456',
     name: 'Morning Push Day',
+    custom_title: null,
+    mood: null,
+    progressive_overload_week: null,
+    workout_goal: null,
+    personal_bests: null,
+    streak_count: null,
     started_at: '2024-01-01T08:00:00Z',
     completed_at: '2024-01-01T09:00:00Z',
     user: {

@@ -95,35 +95,35 @@ export const PROGRESSIVE_OVERLOAD_WEEKS: Record<ProgressiveOverloadWeek, WeekInf
     week: 0,
     name: 'Baseline',
     description: 'Establish your current working weights',
-    weightAdjustment: 'Current weights',
-    repRange: '8-12 reps',
+    weightAdjustment: 'Based on recent performance',
+    repRange: '8-10 reps',
   },
   1: {
     week: 1,
     name: 'Light Overload',
-    description: 'Small weight increase with slightly lower reps',
-    weightAdjustment: '+2-5%',
-    repRange: '8-10 reps',
+    description: 'Small weight increase with lower reps',
+    weightAdjustment: 'Progression-based increase',
+    repRange: '6-8 reps',
   },
   2: {
     week: 2,
     name: 'Volume Focus',
-    description: 'Maintain weight, increase total volume',
-    weightAdjustment: 'Same as Week 2',
-    repRange: '10-12 reps or +1 set',
+    description: 'Moderate intensity, build work capacity',
+    weightAdjustment: 'Maintain or slight increase',
+    repRange: '7-9 reps',
   },
   3: {
     week: 3,
     name: 'Strength Push',
-    description: 'Heavier weights with lower reps for strength',
-    weightAdjustment: '+5-10%',
-    repRange: '6-8 reps',
+    description: 'Heavy weights with low reps for strength',
+    weightAdjustment: 'Push for PR if progression supports it',
+    repRange: '5-6 reps',
   },
   4: {
     week: 4,
     name: 'Deload',
     description: 'Recovery week with reduced intensity',
-    weightAdjustment: '-20-30%',
+    weightAdjustment: 'Reduce by 20-30%',
     repRange: '8-12 reps',
   },
 };
@@ -259,6 +259,32 @@ export const WORKOUT_GOALS: Record<WorkoutGoal, GoalInfo> = {
     aiGuidance: 'Follow the intensity wave pattern to prevent staleness while maintaining fitness. Vary intensity week to week for sustainable training.',
   },
 };
+
+// Workout Mood - 5 levels from terrible to amazing
+export type WorkoutMood = 1 | 2 | 3 | 4 | 5;
+
+export interface WorkoutMoodConfig {
+  emoji: string;
+  label: string;
+}
+
+export const WORKOUT_MOOD_CONFIG: Record<WorkoutMood, WorkoutMoodConfig> = {
+  1: { emoji: '😫', label: 'Terrible' },
+  2: { emoji: '😓', label: 'Tough' },
+  3: { emoji: '😐', label: 'Okay' },
+  4: { emoji: '😊', label: 'Good' },
+  5: { emoji: '🔥', label: 'Amazing' },
+};
+
+// Personal Best record
+export interface PersonalBest {
+  exerciseId: string;
+  exerciseName: string;
+  type: 'weight' | '1rm';
+  value: number;
+  unit: WeightUnit;
+  reps?: number;
+}
 
 // Base Exercise fields shared by all types
 interface BaseExercise {
@@ -412,6 +438,12 @@ export interface WorkoutSession {
   id: string;
   templateId?: string;
   name: string;
+  customTitle?: string;
+  mood?: WorkoutMood;
+  progressiveOverloadWeek?: ProgressiveOverloadWeek;
+  workoutGoal?: WorkoutGoal;
+  personalBests?: PersonalBest[];
+  streakCount?: number;
   startedAt: string;
   completedAt?: string;
   exercises: SessionExercise[];

@@ -21,11 +21,20 @@ describe('Week Configurations', () => {
       expect(PROGRESSIVE_OVERLOAD_WEEKS[4].name).toBe('Deload');
     });
 
-    it('should have weight adjustments for progression', () => {
-      expect(PROGRESSIVE_OVERLOAD_WEEKS[0].weightAdjustment).toBe('Current weights');
-      expect(PROGRESSIVE_OVERLOAD_WEEKS[1].weightAdjustment).toBe('+2-5%');
-      expect(PROGRESSIVE_OVERLOAD_WEEKS[3].weightAdjustment).toBe('+5-10%');
-      expect(PROGRESSIVE_OVERLOAD_WEEKS[4].weightAdjustment).toBe('-20-30%');
+    it('should have weight adjustments based on progression', () => {
+      expect(PROGRESSIVE_OVERLOAD_WEEKS[0].weightAdjustment).toBe('Based on recent performance');
+      expect(PROGRESSIVE_OVERLOAD_WEEKS[1].weightAdjustment).toBe('Progression-based increase');
+      expect(PROGRESSIVE_OVERLOAD_WEEKS[2].weightAdjustment).toBe('Maintain or slight increase');
+      expect(PROGRESSIVE_OVERLOAD_WEEKS[3].weightAdjustment).toBe('Push for PR if progression supports it');
+      expect(PROGRESSIVE_OVERLOAD_WEEKS[4].weightAdjustment).toBe('Reduce by 20-30%');
+    });
+
+    it('should have correct rep ranges', () => {
+      expect(PROGRESSIVE_OVERLOAD_WEEKS[0].repRange).toBe('8-10 reps');
+      expect(PROGRESSIVE_OVERLOAD_WEEKS[1].repRange).toBe('6-8 reps');
+      expect(PROGRESSIVE_OVERLOAD_WEEKS[2].repRange).toBe('7-9 reps');
+      expect(PROGRESSIVE_OVERLOAD_WEEKS[3].repRange).toBe('5-6 reps');
+      expect(PROGRESSIVE_OVERLOAD_WEEKS[4].repRange).toBe('8-12 reps');
     });
   });
 

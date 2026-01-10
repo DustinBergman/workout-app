@@ -3,13 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import {
   ExercisePickerModal,
   CreateExerciseForm,
-  FinishWorkoutModal,
+  PostWorkoutFlow,
   ScoringModal,
   ScoreResultModal,
   ScoreErrorToast,
 } from './index';
 import { ExerciseHistorySheet } from '../workout/ExerciseHistorySheet';
-import { WorkoutScoreResult } from '../../types';
+import { WorkoutScoreResult, WorkoutMood } from '../../types';
 
 interface WorkoutModalsProps {
   // Exercise picker modal
@@ -30,6 +30,7 @@ interface WorkoutModalsProps {
   // Finish workout modal
   showFinishConfirm: boolean;
   onSetShowFinishConfirm: (show: boolean) => void;
+  workoutName: string;
   totalSets: number;
   totalVolume: number;
   totalCardioDistance: number;
@@ -40,7 +41,7 @@ interface WorkoutModalsProps {
   updatePlan: boolean;
   onSetUpdatePlan: (updatePlan: boolean) => void;
   onCancelWorkout: () => void;
-  onFinishWorkout: () => void;
+  onFinishWorkout: (mood: WorkoutMood, customTitle: string | null) => void;
 
   // Scoring
   isScoring: boolean;
@@ -74,6 +75,7 @@ export const WorkoutModals: FC<WorkoutModalsProps> = ({
   // Finish workout modal
   showFinishConfirm,
   onSetShowFinishConfirm,
+  workoutName,
   totalSets,
   totalVolume,
   totalCardioDistance,
@@ -131,10 +133,11 @@ export const WorkoutModals: FC<WorkoutModalsProps> = ({
         />
       </ExercisePickerModal>
 
-      {/* Finish Confirm Modal */}
-      <FinishWorkoutModal
+      {/* Post-Workout Flow Modal */}
+      <PostWorkoutFlow
         isOpen={showFinishConfirm}
         onClose={() => onSetShowFinishConfirm(false)}
+        workoutName={workoutName}
         totalSets={totalSets}
         totalVolume={totalVolume}
         totalCardioDistance={totalCardioDistance}
@@ -146,7 +149,7 @@ export const WorkoutModals: FC<WorkoutModalsProps> = ({
         onUpdatePlanChange={onSetUpdatePlan}
         onKeepGoing={() => onSetShowFinishConfirm(false)}
         onDiscard={onCancelWorkout}
-        onSaveAndFinish={onFinishWorkout}
+        onComplete={onFinishWorkout}
       />
 
       {/* Scoring Loading Modal */}

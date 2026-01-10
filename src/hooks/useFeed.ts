@@ -8,6 +8,7 @@ import {
   LikeSummary,
 } from '../services/supabase/likes';
 import { getBatchCommentCounts, getBatchPreviewComments, WorkoutComment } from '../services/supabase/comments';
+import { toast } from '../store/toastStore';
 
 interface UseFeedReturn {
   workouts: FeedWorkout[];
@@ -136,7 +137,9 @@ export const useFeed = (): UseFeedReturn => {
 
       initialLoadDone.current = true;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load feed');
+      const message = err instanceof Error ? err.message : 'Failed to load feed';
+      setError(message);
+      toast.error(message);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -179,7 +182,9 @@ export const useFeed = (): UseFeedReturn => {
         };
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load more');
+      const message = err instanceof Error ? err.message : 'Failed to load more';
+      setError(message);
+      toast.error(message);
     } finally {
       setIsLoadingMore(false);
     }

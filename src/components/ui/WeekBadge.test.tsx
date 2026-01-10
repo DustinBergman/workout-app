@@ -48,12 +48,12 @@ describe('WeekBadge', () => {
 
     it('shows weight adjustment', () => {
       render(<WeekBadge week={1} workoutGoal="build" showDetails />);
-      expect(screen.getByText('+2-5%')).toBeInTheDocument();
+      expect(screen.getByText('Progression-based increase')).toBeInTheDocument();
     });
 
     it('shows target rep range', () => {
       render(<WeekBadge week={0} workoutGoal="build" showDetails />);
-      expect(screen.getByText('Target: 8-12 reps')).toBeInTheDocument();
+      expect(screen.getByText('Target: 8-10 reps')).toBeInTheDocument();
     });
 
     it('shows "Tap to change week" when onClick is provided', () => {
@@ -80,30 +80,31 @@ describe('WeekBadge', () => {
     it('displays correct info for Week 1 (Baseline)', () => {
       render(<WeekBadge week={0} workoutGoal="build" showDetails />);
       expect(screen.getByText('Baseline')).toBeInTheDocument();
-      expect(screen.getByText('Current weights')).toBeInTheDocument();
+      expect(screen.getByText('Based on recent performance')).toBeInTheDocument();
     });
 
     it('displays correct info for Week 2 (Light Overload)', () => {
       render(<WeekBadge week={1} workoutGoal="build" showDetails />);
       expect(screen.getByText('Light Overload')).toBeInTheDocument();
-      expect(screen.getByText('+2-5%')).toBeInTheDocument();
+      expect(screen.getByText('Progression-based increase')).toBeInTheDocument();
     });
 
     it('displays correct info for Week 3 (Volume Focus)', () => {
       render(<WeekBadge week={2} workoutGoal="build" showDetails />);
       expect(screen.getByText('Volume Focus')).toBeInTheDocument();
+      expect(screen.getByText('Maintain or slight increase')).toBeInTheDocument();
     });
 
     it('displays correct info for Week 4 (Strength Push)', () => {
       render(<WeekBadge week={3} workoutGoal="build" showDetails />);
       expect(screen.getByText('Strength Push')).toBeInTheDocument();
-      expect(screen.getByText('+5-10%')).toBeInTheDocument();
+      expect(screen.getByText('Push for PR if progression supports it')).toBeInTheDocument();
     });
 
     it('displays correct info for Week 5 (Deload)', () => {
       render(<WeekBadge week={4} workoutGoal="build" showDetails />);
       expect(screen.getByText('Deload')).toBeInTheDocument();
-      expect(screen.getByText('-20-30%')).toBeInTheDocument();
+      expect(screen.getByText('Reduce by 20-30%')).toBeInTheDocument();
     });
   });
 

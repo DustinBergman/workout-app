@@ -11,6 +11,7 @@ import { LikersModal } from './LikersModal';
 import { ProfileModal } from './ProfileModal';
 import { useLikes } from '../../hooks/useLikes';
 import { useAppStore } from '../../store/useAppStore';
+import { WORKOUT_MOOD_CONFIG, getWeekConfigForGoal } from '../../types';
 
 interface FeedWorkoutCardProps {
   workout: FeedWorkout;
@@ -156,7 +157,113 @@ export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
         onClick={() => setIsExpanded(!isExpanded)}
         className="w-full px-3 py-2.5 text-left hover:bg-muted/30 transition-colors"
       >
-        <h3 className="font-semibold text-base mb-1.5">{workout.name}</h3>
+        {/* Title */}
+        {workout.custom_title ? (
+          <div className="mb-1.5">
+            <h3 className="font-semibold text-base">{workout.custom_title}</h3>
+            <p className="text-xs text-muted-foreground">{workout.name}</p>
+          </div>
+        ) : (
+          <h3 className="font-semibold text-base mb-1.5">{workout.name}</h3>
+        )}
+
+        {/* Chips Row - Smart selection of 1-3 most interesting chips */}
+        {(() => {
+          const chips: React.ReactNode[] = [];
+
+          // Calculate cardio distance
+          const totalCardioDistance = workout.session_exercises.reduce((sum, ex) => {
+            if (ex.type === 'cardio') {
+              return sum + ex.completed_sets.reduce((setSum, set) => {
+                return setSum + (set.distance || 0);
+              }, 0);
+            }
+            return sum;
+          }, 0);
+
+          // Determine distance unit from first cardio set
+          const firstCardioSet = workout.session_exercises
+            .filter(ex => ex.type === 'cardio')
+            .flatMap(ex => ex.completed_sets)
+            .find(set => set.distance_unit);
+          const distanceUnit = firstCardioSet?.distance_unit || 'mi';
+
+          // 1. Mood chip (always show if set)
+          if (workout.mood) {
+            chips.push(
+              <span key="mood" className="px-2 py-0.5 rounded-full bg-muted text-xs">
+                {WORKOUT_MOOD_CONFIG[workout.mood].emoji}
+              </span>
+            );
+          }
+
+          // 2. Streak chip (if >= 2 days)
+          if (workout.streak_count && workout.streak_count >= 2) {
+            chips.push(
+              <span key="streak" className="px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-500/20 text-orange-700 dark:text-orange-300 text-xs">
+                🔥 {workout.streak_count} day streak
+              </span>
+            );
+          }
+
+          // 3. PB chip (max 1, prioritize weight PBs)
+          if (workout.personal_bests && workout.personal_bests.length > 0) {
+            const weightPB = workout.personal_bests.find(pb => pb.type === 'weight');
+            const bestPB = weightPB || workout.personal_bests[0];
+            chips.push(
+              <span key="pb" className="px-2 py-0.5 rounded-full bg-yellow-100 dark:bg-yellow-500/20 text-yellow-700 dark:text-yellow-300 text-xs">
+                🏆 PB: {bestPB.exerciseName}
+              </span>
+            );
+          }
+
+          // 4. Intensity chip (based on duration)
+          if (summary.durationMinutes > 0) {
+            if (summary.durationMinutes < 30) {
+              chips.push(
+                <span key="intensity" className="px-2 py-0.5 rounded-full bg-cyan-100 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 text-xs">
+                  ⚡ Quick
+                </span>
+              );
+            } else if (summary.durationMinutes > 75) {
+              chips.push(
+                <span key="intensity" className="px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300 text-xs">
+                  💪 Long
+                </span>
+              );
+            }
+          }
+
+          // 5. Cardio distance chip (if significant cardio)
+          if (totalCardioDistance >= 1) {
+            chips.push(
+              <span key="cardio" className="px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-300 text-xs">
+                🏃 {totalCardioDistance.toFixed(1)} {distanceUnit}
+              </span>
+            );
+          }
+
+          // 6. Week chip (if on training plan) - lower priority
+          if (workout.progressive_overload_week != null && workout.workout_goal && chips.length < 3) {
+            const weekConfig = getWeekConfigForGoal(workout.workout_goal);
+            const weekName = weekConfig[workout.progressive_overload_week]?.name || '';
+            chips.push(
+              <span key="week" className="px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300 text-xs">
+                Week {workout.progressive_overload_week + 1}{weekName ? ` - ${weekName}` : ''}
+              </span>
+            );
+          }
+
+          // Limit to 3 chips max
+          const displayChips = chips.slice(0, 3);
+
+          return displayChips.length > 0 ? (
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              {displayChips}
+            </div>
+          ) : null;
+        })()}
+
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
           <div className="flex items-center gap-1">
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

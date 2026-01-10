@@ -8,7 +8,7 @@ import { EmptyWorkoutState } from '../components/active-workout/EmptyWorkoutStat
 import { WorkoutModals } from '../components/active-workout/WorkoutModals';
 import { ActiveWorkoutProvider, useActiveWorkoutContext } from '../contexts/ActiveWorkoutContext';
 import { useActiveWorkoutPage } from '../hooks/useActiveWorkoutPage';
-import { WorkoutSession, Exercise, WorkoutScoreResult } from '../types';
+import { WorkoutSession, Exercise, WorkoutScoreResult, WorkoutMood } from '../types';
 
 export const ActiveWorkout: FC = () => {
   const navigate = useNavigate();
@@ -126,7 +126,7 @@ interface ActiveWorkoutContentProps {
   scoreResult: WorkoutScoreResult | null;
   scoreError: string | null;
   clearScoreResult: () => void;
-  finishWorkout: () => void;
+  finishWorkout: (mood: WorkoutMood, customTitle: string | null) => void;
   cancelWorkout: () => void;
   handleCreateExercise: () => void;
   handleDragStart: (event: DragStartEvent) => void;
@@ -243,6 +243,7 @@ const ActiveWorkoutContent: FC<ActiveWorkoutContentProps> = ({
         onHandleCreateExercise={handleCreateExercise}
         showFinishConfirm={showFinishConfirm}
         onSetShowFinishConfirm={setShowFinishConfirm}
+        workoutName={session.name}
         totalSets={totalSets}
         totalVolume={totalVolume}
         totalCardioDistance={totalCardioDistance}

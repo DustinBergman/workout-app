@@ -4,6 +4,8 @@ import { useAppStore } from '../store/useAppStore';
 import { useCurrentWorkoutStore } from '../store/currentWorkoutStore';
 import { getAllExercises, searchExercises } from '../data/exercises';
 import { hasSessionDeviatedFromTemplate } from '../utils/workoutUtils';
+import { detectPersonalBests } from '../utils/personalBestUtils';
+import { calculateStreak } from '../utils/streakUtils';
 import { syncAddSession } from '../services/supabase/sync';
 import { markSessionAsSynced } from '../store/syncSubscriptions';
 import { clearFeedCache } from './useFeed';
@@ -14,6 +16,7 @@ import {
   CardioExercise,
   CARDIO_TYPE_TO_CATEGORY,
   CardioTemplateExercise,
+  WorkoutMood,
 } from '../types';
 
 // Import sub-hooks used internally
@@ -53,7 +56,7 @@ export interface UseActiveWorkoutReturn {
   finishError: string | null;
 
   // Orchestrated actions
-  finishWorkout: () => Promise<void>;
+  finishWorkout: (mood: WorkoutMood, customTitle: string | null) => Promise<void>;
   cancelWorkout: () => void;
 }
 
@@ -64,8 +67,11 @@ export const useActiveWorkout = (): UseActiveWorkoutReturn => {
 
   // App store selectors (granular)
   const session = useAppStore((state) => state.activeSession);
+  const sessions = useAppStore((state) => state.sessions);
   const templates = useAppStore((state) => state.templates);
   const customExercises = useAppStore((state) => state.customExercises);
+  const currentWeek = useAppStore((state) => state.currentWeek);
+  const workoutGoal = useAppStore((state) => state.workoutGoal);
   const setActiveSession = useAppStore((state) => state.setActiveSession);
   const addSession = useAppStore((state) => state.addSession);
   const updateTemplate = useAppStore((state) => state.updateTemplate);
@@ -134,15 +140,58 @@ export const useActiveWorkout = (): UseActiveWorkoutReturn => {
   }, [session, setExpandedIndex]);
 
   // Finish workout
-  const finishWorkout = useCallback(async () => {
+  const finishWorkout = useCallback(async (mood: WorkoutMood, customTitle: string | null) => {
     if (!session) return;
 
     setIsFinishing(true);
     setFinishError(null);
 
+    const completedAt = new Date().toISOString();
+    let startedAt = session.startedAt;
+
+    // For cardio-only workouts, use the sum of logged durations instead of the timer
+    // This is important because cardio workouts are often logged retrospectively
+    const isCardioOnly = session.exercises.length > 0 &&
+      session.exercises.every(ex => ex.type === 'cardio');
+
+    if (isCardioOnly) {
+      // Sum up all cardio durations
+      const totalDurationSeconds = session.exercises.reduce((total, ex) => {
+        if (ex.type === 'cardio') {
+          const setsDuration = ex.sets.reduce((setTotal, set) => {
+            if (set.type === 'cardio') {
+              return setTotal + (set.durationSeconds || 0);
+            }
+            return setTotal;
+          }, 0);
+          return total + setsDuration;
+        }
+        return total;
+      }, 0);
+
+      // Only adjust if we have logged cardio duration
+      if (totalDurationSeconds > 0) {
+        const completedDate = new Date(completedAt);
+        startedAt = new Date(completedDate.getTime() - totalDurationSeconds * 1000).toISOString();
+      }
+    }
+
+    // Detect personal bests
+    const personalBests = detectPersonalBests(session, sessions, customExercises);
+
+    // Calculate streak
+    const streakCount = calculateStreak(sessions, new Date(completedAt));
+
     const completedSession = {
       ...session,
-      completedAt: new Date().toISOString(),
+      customTitle: customTitle || undefined,
+      mood,
+      progressiveOverloadWeek: currentWeek,
+      workoutGoal,
+      personalBests: personalBests.length > 0 ? personalBests : undefined,
+      streakCount,
+      startedAt,
+      completedAt,
     };
 
     // Update template if user opted to
@@ -235,7 +284,7 @@ export const useActiveWorkout = (): UseActiveWorkoutReturn => {
       // No API key, go directly to history
       navigate('/history');
     }
-  }, [session, updatePlan, hasDeviated, templates, addSession, setActiveSession, updateTemplate, scoring, navigate, setShowFinishConfirm, customExercises]);
+  }, [session, sessions, updatePlan, hasDeviated, templates, addSession, setActiveSession, updateTemplate, scoring, navigate, setShowFinishConfirm, customExercises, currentWeek, workoutGoal]);
 
   // Cancel workout
   const cancelWorkout = useCallback(() => {
