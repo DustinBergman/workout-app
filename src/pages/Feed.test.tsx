@@ -69,6 +69,7 @@ describe('Feed', () => {
   const mockUpdateLikeSummary = vi.fn();
   const mockUpdateCommentCount = vi.fn();
   const mockUpdatePreviewComments = vi.fn();
+  const mockRemoveWorkout = vi.fn();
 
   const defaultHookReturn = {
     workouts: mockWorkouts,
@@ -85,6 +86,7 @@ describe('Feed', () => {
     updateLikeSummary: mockUpdateLikeSummary,
     updateCommentCount: mockUpdateCommentCount,
     updatePreviewComments: mockUpdatePreviewComments,
+    removeWorkout: mockRemoveWorkout,
   };
 
   beforeEach(() => {

@@ -1,17 +1,22 @@
 import { useState, useRef, FC } from 'react';
 import { useAppStore } from '../store/useAppStore';
-import { Card, Modal } from '../components/ui';
+import { Card, Modal, Button } from '../components/ui';
 import { getExerciseById } from '../data/exercises';
 import { WorkoutSession } from '../types';
 import { WorkoutHeatmap } from '../components/history/WorkoutHeatmap';
 import { calculateSessionStats } from '../hooks/useSessionStats';
 import { formatCardioDuration, calculatePace } from '../utils/workoutUtils';
+import { deleteSession as deleteSessionFromDb } from '../services/supabase/sessions';
+import { toast } from '../store/toastStore';
 
 export const History: FC = () => {
   const sessions = useAppStore((state) => state.sessions);
   const preferences = useAppStore((state) => state.preferences);
   const customExercises = useAppStore((state) => state.customExercises);
+  const deleteSessionFromStore = useAppStore((state) => state.deleteSession);
   const [selectedSession, setSelectedSession] = useState<WorkoutSession | null>(null);
+  const [sessionToDelete, setSessionToDelete] = useState<WorkoutSession | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'heatmap'>('heatmap');
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -81,6 +86,33 @@ export const History: FC = () => {
 
   const clearDateFilter = () => {
     setSelectedDate(null);
+  };
+
+  const handleDeleteClick = (e: React.MouseEvent, session: WorkoutSession) => {
+    e.stopPropagation();
+    setSessionToDelete(session);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!sessionToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      const { error } = await deleteSessionFromDb(sessionToDelete.id);
+      if (error) {
+        toast.error('Failed to delete workout');
+        console.error('Delete error:', error);
+      } else {
+        deleteSessionFromStore(sessionToDelete.id);
+        toast.success('Workout deleted');
+      }
+    } catch (err) {
+      toast.error('Failed to delete workout');
+      console.error('Delete error:', err);
+    } finally {
+      setIsDeleting(false);
+      setSessionToDelete(null);
+    }
   };
 
   return (
@@ -187,7 +219,7 @@ export const History: FC = () => {
                         onClick={() => setSelectedSession(session)}
                       >
                         <div className="flex items-start justify-between">
-                          <div>
+                          <div className="flex-1 min-w-0">
                             <h3 className="font-semibold text-gray-900 dark:text-gray-100">
                               {session.name}
                             </h3>
@@ -195,7 +227,7 @@ export const History: FC = () => {
                               {session.exercises.length} exercises | {formatDuration(session)}
                             </p>
                           </div>
-                          <div className="text-right">
+                          <div className="text-right mr-2">
                             <p className="font-medium text-gray-900 dark:text-gray-100">
                               {stats.totalSets} sets
                             </p>
@@ -205,6 +237,15 @@ export const History: FC = () => {
                               {stats.totalCardioDistance > 0 && `${stats.totalCardioDistance.toFixed(2)} ${preferences.distanceUnit}`}
                             </p>
                           </div>
+                          <button
+                            onClick={(e) => handleDeleteClick(e, session)}
+                            className="p-1.5 -mr-1 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                            aria-label="Delete workout"
+                          >
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
                         </div>
                       </Card>
                     );
@@ -335,6 +376,37 @@ export const History: FC = () => {
             })()}
           </div>
         )}
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={!!sessionToDelete}
+        onClose={() => setSessionToDelete(null)}
+        title="Delete Workout"
+      >
+        <div className="space-y-4">
+          <p className="text-gray-600 dark:text-gray-400">
+            Are you sure you want to delete "{sessionToDelete?.name}"? This action cannot be undone.
+          </p>
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => setSessionToDelete(null)}
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              className="flex-1"
+              onClick={handleConfirmDelete}
+              disabled={isDeleting}
+            >
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </Button>
+          </div>
+        </div>
       </Modal>
       </div>
     </div>

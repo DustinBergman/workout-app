@@ -185,7 +185,8 @@ export const getBatchLikeSummaries = async (
     return { summaries: {}, error: new Error('Not authenticated') };
   }
 
-  // Get all likes for these workouts
+  // Get likes for these workouts (limited to reduce data transfer)
+  // Trade-off: counts may be slightly inaccurate for very popular workouts
   const { data: allLikes, error } = await supabase
     .from('workout_likes')
     .select(`
@@ -201,7 +202,8 @@ export const getBatchLikeSummaries = async (
       )
     `)
     .in('workout_id', workoutIds)
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .limit(workoutIds.length * 10);
 
   if (error) {
     return { summaries: {}, error };

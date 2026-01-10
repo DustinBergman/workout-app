@@ -187,6 +187,7 @@ export const getBatchPreviewComments = async (
 
   const user = await getAuthUser();
 
+  // Limit total records to reduce data transfer (we only need 2 per workout)
   const { data, error } = await supabase
     .from('workout_comments')
     .select(`
@@ -207,7 +208,8 @@ export const getBatchPreviewComments = async (
       )
     `)
     .in('workout_id', workoutIds)
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .limit(workoutIds.length * 3);
 
   if (error) {
     return { previews: {}, error };

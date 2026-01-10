@@ -25,6 +25,7 @@ interface UseFeedReturn {
   updateLikeSummary: (workoutId: string, summary: LikeSummary) => void;
   updateCommentCount: (workoutId: string, count: number) => void;
   updatePreviewComments: (workoutId: string, comments: WorkoutComment[]) => void;
+  removeWorkout: (workoutId: string) => void;
 }
 
 const PAGE_SIZE = 20;
@@ -224,6 +225,39 @@ export const useFeed = (): UseFeedReturn => {
     });
   }, []);
 
+  const removeWorkout = useCallback((workoutId: string) => {
+    setWorkouts((prev) => {
+      const updated = prev.filter((w) => w.id !== workoutId);
+      // Also update cache
+      if (feedCache) {
+        feedCache.workouts = updated;
+      }
+      return updated;
+    });
+    // Clean up related engagement data
+    setLikeSummaries((prev) => {
+      const { [workoutId]: _, ...rest } = prev;
+      if (feedCache) {
+        feedCache.likeSummaries = rest;
+      }
+      return rest;
+    });
+    setCommentCounts((prev) => {
+      const { [workoutId]: _, ...rest } = prev;
+      if (feedCache) {
+        feedCache.commentCounts = rest;
+      }
+      return rest;
+    });
+    setPreviewComments((prev) => {
+      const { [workoutId]: _, ...rest } = prev;
+      if (feedCache) {
+        feedCache.previewComments = rest;
+      }
+      return rest;
+    });
+  }, []);
+
   // Refresh function that forces a reload
   const refresh = useCallback(async (force = true) => {
     await loadInitial(force);
@@ -249,5 +283,6 @@ export const useFeed = (): UseFeedReturn => {
     updateLikeSummary,
     updateCommentCount,
     updatePreviewComments,
+    removeWorkout,
   };
 };

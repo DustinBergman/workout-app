@@ -304,6 +304,24 @@ export const cancelSession = async (id: string): Promise<{ error: Error | null }
   return { error };
 };
 
+/**
+ * Delete a completed workout session
+ */
+export const deleteSession = async (id: string): Promise<{ error: Error | null }> => {
+  const user = await getAuthUser();
+  if (!user) {
+    return { error: new Error('Not authenticated') };
+  }
+
+  const { error } = await supabase
+    .from('workout_sessions')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', user.id);
+
+  return { error };
+};
+
 // Helper: Convert DB session to app session
 const dbSessionToSession = (dbSession: DbWorkoutSession): WorkoutSession => ({
   id: dbSession.id,

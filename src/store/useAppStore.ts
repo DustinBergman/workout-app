@@ -35,6 +35,7 @@ interface AppState {
   // Session actions
   addSession: (session: WorkoutSession) => void;
   updateSession: (session: WorkoutSession) => void;
+  deleteSession: (sessionId: string) => void;
   setActiveSession: (session: WorkoutSession | null) => void;
 
   // Preference actions
@@ -120,6 +121,11 @@ export const useAppStore = create<AppState>()(
             sessions: state.sessions.map((s) =>
               s.id === session.id ? session : s
             ),
+          })),
+
+        deleteSession: (sessionId) =>
+          set((state) => ({
+            sessions: state.sessions.filter((s) => s.id !== sessionId),
           })),
 
         setActiveSession: (session) =>

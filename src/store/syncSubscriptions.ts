@@ -1,5 +1,4 @@
 import { useAppStore } from './useAppStore';
-import { supabase } from '../lib/supabase';
 import {
   syncPreferences,
   syncWorkoutGoal,
@@ -51,13 +50,12 @@ export const markSessionAsSynced = (sessionId: string) => {
 };
 
 /**
- * Check if user is authenticated
+ * Check if sync is enabled (user is authenticated and online)
+ * This is a synchronous check - syncEnabled is managed by setSyncEnabled()
+ * which is called from SyncContext when auth state changes
  */
-const isAuthenticated = async (): Promise<boolean> => {
-  if (!syncEnabled) return false;
-
-  const { data: { user } } = await supabase.auth.getUser();
-  return !!user;
+const isSyncEnabled = (): boolean => {
+  return syncEnabled;
 };
 
 /**
@@ -67,8 +65,8 @@ export const setupSyncSubscriptions = () => {
   // Preferences sync
   useAppStore.subscribe(
     (state) => state.preferences,
-    async (preferences, prevPreferences) => {
-      if (!await isAuthenticated()) return;
+    (preferences, prevPreferences) => {
+      if (!isSyncEnabled()) return;
       if (JSON.stringify(preferences) === JSON.stringify(prevPreferences)) return;
 
       // Only sync the changed fields
@@ -91,8 +89,8 @@ export const setupSyncSubscriptions = () => {
   // Workout goal sync
   useAppStore.subscribe(
     (state) => state.workoutGoal,
-    async (goal) => {
-      if (!await isAuthenticated()) return;
+    (goal) => {
+      if (!isSyncEnabled()) return;
       syncWorkoutGoal(goal).catch(console.error);
     }
   );
@@ -100,8 +98,8 @@ export const setupSyncSubscriptions = () => {
   // Current week sync
   useAppStore.subscribe(
     (state) => ({ week: state.currentWeek, startedAt: state.weekStartedAt }),
-    async ({ week, startedAt }) => {
-      if (!await isAuthenticated()) return;
+    ({ week, startedAt }) => {
+      if (!isSyncEnabled()) return;
       syncCurrentWeek(week, startedAt).catch(console.error);
     }
   );
@@ -109,8 +107,8 @@ export const setupSyncSubscriptions = () => {
   // Has completed intro sync
   useAppStore.subscribe(
     (state) => state.hasCompletedIntro,
-    async (value) => {
-      if (!await isAuthenticated()) return;
+    (value) => {
+      if (!isSyncEnabled()) return;
       syncHasCompletedIntro(value).catch(console.error);
     }
   );
@@ -118,8 +116,8 @@ export const setupSyncSubscriptions = () => {
   // Templates sync
   useAppStore.subscribe(
     (state) => state.templates,
-    async (templates, prevTemplates) => {
-      if (!await isAuthenticated()) return;
+    (templates, prevTemplates) => {
+      if (!isSyncEnabled()) return;
 
       const currentIds = templates.map((t) => t.id);
       const prevIds = prevTemplates.map((t) => t.id);
@@ -162,8 +160,8 @@ export const setupSyncSubscriptions = () => {
   // Sessions sync
   useAppStore.subscribe(
     (state) => state.sessions,
-    async (sessions, prevSessions) => {
-      if (!await isAuthenticated()) return;
+    (sessions, prevSessions) => {
+      if (!isSyncEnabled()) return;
 
       const currentIds = sessions.map((s) => s.id);
       const prevIds = prevSessions.map((s) => s.id);
@@ -199,8 +197,8 @@ export const setupSyncSubscriptions = () => {
   // Active session sync
   useAppStore.subscribe(
     (state) => state.activeSession,
-    async (session, prevSession) => {
-      if (!await isAuthenticated()) return;
+    (session, prevSession) => {
+      if (!isSyncEnabled()) return;
 
       // Only sync significant changes
       if (JSON.stringify(session) !== JSON.stringify(prevSession)) {
@@ -212,8 +210,8 @@ export const setupSyncSubscriptions = () => {
   // Custom exercises sync
   useAppStore.subscribe(
     (state) => state.customExercises,
-    async (exercises, prevExercises) => {
-      if (!await isAuthenticated()) return;
+    (exercises, prevExercises) => {
+      if (!isSyncEnabled()) return;
 
       const prevIds = prevExercises.map((e) => e.id);
 
@@ -231,8 +229,8 @@ export const setupSyncSubscriptions = () => {
   // Weight entries sync
   useAppStore.subscribe(
     (state) => state.weightEntries,
-    async (entries, prevEntries) => {
-      if (!await isAuthenticated()) return;
+    (entries, prevEntries) => {
+      if (!isSyncEnabled()) return;
 
       const currentDates = entries.map((e) => e.date);
       const prevDates = prevEntries.map((e) => e.date);

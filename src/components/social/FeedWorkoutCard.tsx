@@ -1,6 +1,6 @@
-import { FC, useState, useCallback } from 'react';
+import { FC, useState, useCallback, useRef, useEffect } from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { Card } from '../ui';
+import { Card, Modal, Button } from '../ui';
 import { FeedWorkout, calculateWorkoutSummary } from '../../services/supabase/feed';
 import { getExerciseById } from '../../data/exercises';
 import { LikeSummary } from '../../services/supabase/likes';
@@ -11,7 +11,10 @@ import { LikersModal } from './LikersModal';
 import { ProfileModal } from './ProfileModal';
 import { useLikes } from '../../hooks/useLikes';
 import { useAppStore } from '../../store/useAppStore';
+import { useAuth } from '../../hooks/useAuth';
 import { WORKOUT_MOOD_CONFIG, getWeekConfigForGoal } from '../../types';
+import { deleteSession } from '../../services/supabase/sessions';
+import { toast } from '../../store/toastStore';
 
 interface FeedWorkoutCardProps {
   workout: FeedWorkout;
@@ -22,6 +25,7 @@ interface FeedWorkoutCardProps {
   onLikeSummaryChange?: (workoutId: string, summary: LikeSummary) => void;
   onCommentCountChange?: (workoutId: string, count: number) => void;
   onPreviewCommentsChange?: (workoutId: string, comments: WorkoutComment[]) => void;
+  onDelete?: (workoutId: string) => void;
 }
 
 export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
@@ -33,6 +37,7 @@ export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
   onLikeSummaryChange,
   onCommentCountChange,
   onPreviewCommentsChange,
+  onDelete,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showComments, setShowComments] = useState(defaultCommentsExpanded);
@@ -41,8 +46,29 @@ export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [commentCount, setCommentCount] = useState(initialCommentCount);
   const [previewComments, setPreviewComments] = useState<WorkoutComment[]>(initialPreviewComments);
+  const [showMenu, setShowMenu] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const customExercises = useAppStore((state) => state.customExercises);
+  const deleteSessionFromStore = useAppStore((state) => state.deleteSession);
+  const { user } = useAuth();
+
+  const isOwnWorkout = user?.id === workout.user_id;
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowMenu(false);
+      }
+    };
+    if (showMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showMenu]);
 
   const {
     likeSummary,
@@ -122,6 +148,27 @@ export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
     }
   }, [previewComments, workout.id, onPreviewCommentsChange]);
 
+  const handleConfirmDelete = useCallback(async () => {
+    setIsDeleting(true);
+    try {
+      const { error } = await deleteSession(workout.id);
+      if (error) {
+        toast.error('Failed to delete workout');
+        console.error('Delete error:', error);
+      } else {
+        deleteSessionFromStore(workout.id);
+        onDelete?.(workout.id);
+        toast.success('Workout deleted');
+      }
+    } catch (err) {
+      toast.error('Failed to delete workout');
+      console.error('Delete error:', err);
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteConfirm(false);
+    }
+  }, [workout.id, deleteSessionFromStore, onDelete]);
+
   return (
     <Card className="overflow-hidden" padding="none">
       {/* Header */}
@@ -149,6 +196,37 @@ export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
               <span>{formatDistanceToNow(new Date(workout.completed_at || workout.started_at), { addSuffix: true })}</span>
             </div>
           </div>
+          {/* Three-dot menu (only for own workouts) */}
+          {isOwnWorkout && (
+            <div className="relative" ref={menuRef}>
+              <button
+                onClick={() => setShowMenu(!showMenu)}
+                className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors"
+                aria-label="More options"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                </svg>
+              </button>
+              {/* Dropdown menu */}
+              {showMenu && (
+                <div className="absolute right-0 top-full mt-1 w-40 bg-background border border-border rounded-lg shadow-lg z-50 py-1">
+                  <button
+                    onClick={() => {
+                      setShowMenu(false);
+                      setShowDeleteConfirm(true);
+                    }}
+                    className="w-full px-4 py-2 text-left text-sm text-destructive hover:bg-destructive/10 transition-colors flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Delete workout
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -409,6 +487,37 @@ export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
           userId={selectedUserId}
         />
       )}
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        title="Delete Workout"
+      >
+        <div className="space-y-4">
+          <p className="text-muted-foreground">
+            Are you sure you want to delete this workout? This action cannot be undone.
+          </p>
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => setShowDeleteConfirm(false)}
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              className="flex-1"
+              onClick={handleConfirmDelete}
+              disabled={isDeleting}
+            >
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </Card>
   );
 };

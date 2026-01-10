@@ -22,6 +22,7 @@ export const Feed: FC = () => {
     updateLikeSummary,
     updateCommentCount,
     updatePreviewComments,
+    removeWorkout,
   } = useFeed();
 
   const loadMoreRef = useRef<HTMLDivElement>(null);
@@ -192,6 +193,7 @@ export const Feed: FC = () => {
                 onLikeSummaryChange={updateLikeSummary}
                 onCommentCountChange={updateCommentCount}
                 onPreviewCommentsChange={updatePreviewComments}
+                onDelete={removeWorkout}
               />
             ))}
 
