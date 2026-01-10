@@ -16,6 +16,7 @@ import {
   syncAddWeightEntry,
   syncDeleteWeightEntry,
 } from '../services/supabase/sync';
+import { clearFeedCache } from '../hooks/useFeed';
 
 // Track if sync is enabled (user is authenticated)
 let syncEnabled = false;
@@ -162,6 +163,8 @@ export const setupSyncSubscriptions = () => {
       for (const session of sessions) {
         if (!prevIds.includes(session.id) && !previousSessionIds.includes(session.id)) {
           syncAddSession(session).catch(console.error);
+          // Clear feed cache so newly completed workouts show up immediately
+          clearFeedCache();
         }
       }
 
