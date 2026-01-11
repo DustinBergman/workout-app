@@ -933,11 +933,9 @@ describe('ExerciseAccordion', () => {
         </MockActiveWorkoutProvider>
       );
 
-      const removeSetButton = screen.getByRole('button', { name: /Remove Set/ });
-      fireEvent.click(removeSetButton);
-
-      // updateTargetSets should not be called
-      expect(updateTargetSets).not.toHaveBeenCalled();
+      // Remove Set button should not be rendered when targetSets is 1
+      const removeSetButton = screen.queryByRole('button', { name: /Remove Set/ });
+      expect(removeSetButton).not.toBeInTheDocument();
     });
 
     it('should work with targetSets using default value', async () => {

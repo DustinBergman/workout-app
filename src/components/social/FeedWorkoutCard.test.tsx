@@ -108,6 +108,7 @@ describe('FeedWorkoutCard', () => {
       {
         id: 'ex-1',
         exercise_id: 'bench-press',
+        custom_exercise_name: null,
         type: 'strength' as const,
         sort_order: 0,
         target_sets: 3,

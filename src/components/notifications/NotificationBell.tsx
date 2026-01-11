@@ -3,7 +3,8 @@ import { useNotifications } from '../../hooks/useNotifications';
 import { NotificationList } from './NotificationList';
 
 export const NotificationBell: FC = () => {
-  const { unreadCount } = useNotifications();
+  const notificationsHook = useNotifications();
+  const { unreadCount } = notificationsHook;
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -46,7 +47,10 @@ export const NotificationBell: FC = () => {
           />
           {/* Dropdown */}
           <div className="absolute right-0 top-full mt-2 z-50">
-            <NotificationList onClose={() => setIsOpen(false)} />
+            <NotificationList
+              onClose={() => setIsOpen(false)}
+              notificationsHook={notificationsHook}
+            />
           </div>
         </>
       )}

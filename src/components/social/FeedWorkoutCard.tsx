@@ -410,8 +410,10 @@ export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
       {isExpanded && (
         <div className="border-t border-border px-3 py-2.5 space-y-3">
           {workout.session_exercises.map((exercise) => {
+            // Use custom_exercise_name from feed data first (handles other users' custom exercises)
+            // Then fall back to local lookup for built-in exercises
             const exerciseData = getExerciseById(exercise.exercise_id, customExercises);
-            const exerciseName = exerciseData?.name || 'Unknown Exercise';
+            const exerciseName = exercise.custom_exercise_name || exerciseData?.name || 'Unknown Exercise';
 
             return (
               <div key={exercise.id} className="space-y-1">

@@ -1,8 +1,12 @@
-import { useState, useEffect, FC, DOMAttributes } from 'react';
+import { FC, DOMAttributes } from 'react';
 import { DraggableAttributes } from '@dnd-kit/core';
 import { StrengthSessionExercise, StrengthExercise } from '../../types';
 import { Card, Button } from '../ui';
 import { useActiveWorkoutContext } from '../../contexts/ActiveWorkoutContext';
+import { useExerciseAccordion } from '../../hooks/useExerciseAccordion';
+import { CompletedSetAccordion } from './CompletedSetAccordion';
+import { EmptySetAccordion } from './EmptySetAccordion';
+import { AISuggestionBadge } from './AISuggestionBadge';
 
 interface ExerciseAccordionProps {
   exercise: StrengthSessionExercise;
@@ -35,76 +39,61 @@ export const ExerciseAccordion: FC<ExerciseAccordionProps> = ({
   } = useActiveWorkoutContext();
 
   // Find the index of this exercise in the session
-  const index = session?.exercises.findIndex(ex => ex.id === exercise.id) ?? -1;
-
-  // Wrapped handlers that include the index
-  const wrappedLogSet = (reps: number, weight: number) => logSetForExercise(index, reps, weight);
-  const wrappedRemoveExercise = () => removeExercise(index);
-  const wrappedUpdateTargetSets = (delta: number) => updateTargetSets(exercise.exerciseId, delta);
-  const wrappedShowHistory = () => handleShowHistory(exercise.exerciseId);
+  const index = session?.exercises.findIndex((ex) => ex.id === exercise.id) ?? -1;
 
   // Derived state from context
   const isExpanded = expandedIndex === index;
   const onToggle = () => setExpandedIndex(isExpanded ? null : index);
   const suggestion = getSuggestionForExercise(exercise.exerciseId);
-  const [repsInput, setRepsInput] = useState('');
-  const [weightInput, setWeightInput] = useState('');
-  const [expandedSetIndex, setExpandedSetIndex] = useState<number | null>(null);
-  const [editingSetIndex, setEditingSetIndex] = useState<number | null>(null);
-  const [editingWeight, setEditingWeight] = useState<number | null>(null);
-  const [editingReps, setEditingReps] = useState<number | null>(null);
 
-  const isComplete = exercise.sets.length >= (exercise.targetSets || 3);
-  const progress = `${exercise.sets.length}/${exercise.targetSets || 3}`;
+  // Wrapped handlers
+  const wrappedLogSet = (reps: number, weight: number) => logSetForExercise(index, reps, weight);
+  const wrappedRemoveExercise = () => removeExercise(index);
+  const wrappedUpdateTargetSets = (delta: number) => updateTargetSets(exercise.exerciseId, delta);
+  const wrappedShowHistory = () => handleShowHistory(exercise.exerciseId);
 
-  // Calculate average weight for collapsed view (only for strength sets)
-  const strengthSets = exercise.sets.filter((s) => s.type === 'strength' || !('type' in s));
-  const avgWeight = strengthSets.length > 0
-    ? Math.round(strengthSets.reduce((sum, s) => sum + ('weight' in s ? s.weight : 0), 0) / strengthSets.length)
-    : 0;
-
-  // Generate array of all sets (completed + empty placeholders)
-  const allSets = Array.from({ length: exercise.targetSets || 3 }, (_, idx) => {
-    if (idx < exercise.sets.length) {
-      return { type: 'completed' as const, data: exercise.sets[idx], index: idx };
-    }
-    return { type: 'empty' as const, index: idx };
+  // Use the hook for state management
+  const {
+    repsInput,
+    setRepsInput,
+    weightInput,
+    setWeightInput,
+    expandedSetIndex,
+    setExpandedSetIndex,
+    editingSetIndex,
+    setEditingSetIndex,
+    editingWeight,
+    setEditingWeight,
+    editingReps,
+    setEditingReps,
+    isComplete,
+    progress,
+    targetSets,
+    avgWeight,
+    allSets,
+    getEmptySetDefaults,
+    handleCompleteSet,
+    handleToggleSet,
+    handleStartEditing,
+    handleFinishEditing,
+    handleAddSet,
+    adjustWeight,
+    adjustReps,
+  } = useExerciseAccordion({
+    exercise,
+    index,
+    isExpanded,
+    suggestion,
+    weightUnit,
+    onLogSet: wrappedLogSet,
+    onRemoveExercise: wrappedRemoveExercise,
+    onRemoveSet: (setIndex) => removeSetForExercise(index, setIndex),
+    onUpdateSet: (setIndex, reps, weight) => updateSetForExercise(index, setIndex, reps, weight),
+    onUpdateTargetSets: wrappedUpdateTargetSets,
+    onStartTimer: handleStartTimer,
   });
 
-  // Auto-open next incomplete set when exercise accordion is expanded
-  useEffect(() => {
-    if (isExpanded) {
-      // Auto-open the next incomplete set
-      setExpandedSetIndex(exercise.sets.length);
-    }
-  }, [isExpanded]);
-
-  // Pre-fill inputs when an empty set is expanded
-  useEffect(() => {
-    if (expandedSetIndex !== null && expandedSetIndex >= exercise.sets.length) {
-      // Empty set accordion expanded
-      if (exercise.sets.length > 0) {
-        const lastSet = exercise.sets[exercise.sets.length - 1];
-        if (lastSet.type === 'strength' || !('type' in lastSet)) {
-          setWeightInput(('weight' in lastSet ? lastSet.weight : 0).toString());
-        }
-      } else if (suggestion) {
-        setWeightInput(suggestion.suggestedWeight.toString());
-      } else {
-        setWeightInput('');
-      }
-      setRepsInput(exercise.targetReps?.toString() || '10');
-    }
-  }, [expandedSetIndex, exercise.sets.length, exercise.targetReps, suggestion]);
-
-  const handleLogSet = () => {
-    const reps = parseInt(repsInput) || 0;
-    const weight = parseFloat(weightInput) || 0;
-    if (reps <= 0) return;
-
-    wrappedLogSet(reps, weight);
-    handleStartTimer(exercise.restSeconds || 90);
-  };
+  const { lastSetWeight, targetReps } = getEmptySetDefaults();
 
   return (
     <Card
@@ -115,7 +104,7 @@ export const ExerciseAccordion: FC<ExerciseAccordionProps> = ({
           : ''
       } ${isDragging ? 'opacity-50 ring-2 ring-blue-500' : ''}`}
     >
-      {/* Simplified Header */}
+      {/* Header */}
       <div className="p-4 flex items-center justify-between gap-3">
         {/* Status Icon */}
         <div
@@ -137,10 +126,7 @@ export const ExerciseAccordion: FC<ExerciseAccordionProps> = ({
         </div>
 
         {/* Exercise Name + Expand Button */}
-        <button
-          onClick={onToggle}
-          className="flex items-center gap-2 text-left flex-1 min-w-0"
-        >
+        <button onClick={onToggle} className="flex items-center gap-2 text-left flex-1 min-w-0">
           <div className="flex-1 min-w-0">
             <h3 className="font-medium text-gray-900 dark:text-gray-100 truncate">
               {exerciseInfo?.name || 'Unknown Exercise'}
@@ -148,13 +134,15 @@ export const ExerciseAccordion: FC<ExerciseAccordionProps> = ({
             <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
               {isComplete
                 ? `${progress} sets - ${avgWeight} ${weightUnit} avg`
-                : `Target: ${exercise.targetSets || 3} x ${exercise.targetReps || 10}`}
+                : `Target: ${targetSets} x ${exercise.targetReps || 10}`}
             </p>
           </div>
 
           {/* Chevron */}
           <svg
-            className={`w-5 h-5 text-gray-400 transition-transform flex-shrink-0 ${isExpanded ? 'rotate-180' : ''}`}
+            className={`w-5 h-5 text-gray-400 transition-transform flex-shrink-0 ${
+              isExpanded ? 'rotate-180' : ''
+            }`}
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -163,7 +151,7 @@ export const ExerciseAccordion: FC<ExerciseAccordionProps> = ({
           </svg>
         </button>
 
-        {/* Drag Handle (RIGHT SIDE) */}
+        {/* Drag Handle */}
         <div
           {...listeners}
           {...attributes}
@@ -184,7 +172,6 @@ export const ExerciseAccordion: FC<ExerciseAccordionProps> = ({
         <div className="px-4 pb-4 border-t border-border/50 bg-white/15 dark:bg-white/8 backdrop-blur-lg">
           {/* Control buttons */}
           <div className="flex items-center gap-2 mt-3 pb-3 border-b border-border/50">
-            {/* History button */}
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -193,72 +180,23 @@ export const ExerciseAccordion: FC<ExerciseAccordionProps> = ({
               className="flex-1 py-2 px-3 text-sm rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center justify-center gap-2"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
               </svg>
               History
             </button>
-
-            {/* Target sets display (read-only) */}
             <span className="text-sm text-gray-600 dark:text-gray-400">
-              Target: {exercise.targetSets || 3} sets
+              Target: {targetSets} sets
             </span>
           </div>
 
           {/* AI Suggestion badge */}
           {suggestion && exercise.sets.length === 0 && (
-            <div className="mt-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-              <div className="flex items-center gap-2">
-                <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                </svg>
-                <span className="text-sm text-blue-700 dark:text-blue-300">
-                  AI suggests: {suggestion.suggestedWeight} {weightUnit} x {suggestion.suggestedReps}
-                </span>
-                <span className={`text-xs px-1.5 py-0.5 rounded ${
-                  suggestion.confidence === 'high'
-                    ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
-                    : suggestion.confidence === 'medium'
-                    ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300'
-                    : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
-                }`}>
-                  {suggestion.confidence}
-                </span>
-                {suggestion.progressStatus && (
-                  <span className={`text-xs px-1.5 py-0.5 rounded ${
-                    suggestion.progressStatus === 'improving'
-                      ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
-                      : suggestion.progressStatus === 'plateau'
-                      ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
-                      : suggestion.progressStatus === 'declining'
-                      ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
-                      : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
-                  }`}>
-                    {suggestion.progressStatus}
-                  </span>
-                )}
-              </div>
-              <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                {suggestion.reasoning}
-              </p>
-              {/* Technique tip for plateau exercises */}
-              {suggestion.techniqueTip && (
-                <div className="mt-2 p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg border border-amber-200 dark:border-amber-800">
-                  <div className="flex items-start gap-2">
-                    <svg className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                    </svg>
-                    <p className="text-sm text-amber-800 dark:text-amber-200">
-                      {suggestion.techniqueTip}
-                    </p>
-                  </div>
-                  {suggestion.repRangeChange && (
-                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-1 ml-6">
-                      Rep range: {suggestion.repRangeChange.from} → {suggestion.repRangeChange.to}
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
+            <AISuggestionBadge suggestion={suggestion} weightUnit={weightUnit} />
           )}
 
           {/* All Sets (Completed + Empty) */}
@@ -271,236 +209,65 @@ export const ExerciseAccordion: FC<ExerciseAccordionProps> = ({
                 {allSets.map((setItem) => {
                   const isSetExpanded = expandedSetIndex === setItem.index;
 
-                  if (setItem.type === 'completed') {
-                    // Completed set accordion (green)
-                    const strengthSet = setItem.data as { weight: number; unit: string; reps: number };
+                  if (setItem.type === 'completed' && setItem.data) {
                     return (
-                      <div key={setItem.index} className="border border-green-500/40 bg-green-500/25 backdrop-blur-lg rounded-lg overflow-hidden">
-                        {/* Set Header */}
-                        <button
-                          onClick={() => setExpandedSetIndex(isSetExpanded ? null : setItem.index)}
-                          className="w-full flex items-center justify-between p-2 hover:bg-green-500/20 transition-colors"
-                        >
-                          <span className="text-sm font-medium text-green-600 dark:text-green-400">
-                            Set {setItem.index + 1}
-                          </span>
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm text-green-600 dark:text-green-400">
-                              {strengthSet.weight} {strengthSet.unit} x {strengthSet.reps} reps
-                            </span>
-                            <svg
-                              className={`w-4 h-4 text-green-600 dark:text-green-400 transition-transform ${isSetExpanded ? 'rotate-180' : ''}`}
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                            >
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
-                          </div>
-                        </button>
-
-                        {/* Set Details */}
-                        {isSetExpanded && (
-                          <div className="px-3 py-2 border-t border-green-500/20 space-y-2">
-                            {editingSetIndex === setItem.index ? (
-                              <>
-                                <div className="flex gap-2">
-                                  <div className="flex-1">
-                                    <label className="text-xs text-gray-600 dark:text-gray-400 block mb-1">
-                                      Weight ({weightUnit})
-                                    </label>
-                                    <input
-                                      type="number"
-                                      value={editingWeight !== null ? editingWeight : strengthSet.weight}
-                                      onChange={(e) => {
-                                        setEditingWeight(parseFloat(e.target.value) || 0);
-                                      }}
-                                      className="w-full px-2 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                                      autoFocus
-                                    />
-                                  </div>
-                                  <div className="flex-1">
-                                    <label className="text-xs text-gray-600 dark:text-gray-400 block mb-1">
-                                      Reps
-                                    </label>
-                                    <input
-                                      type="number"
-                                      value={editingReps !== null ? editingReps : strengthSet.reps}
-                                      onChange={(e) => {
-                                        setEditingReps(parseInt(e.target.value) || 0);
-                                      }}
-                                      className="w-full px-2 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                                    />
-                                  </div>
-                                </div>
-                                <div className="flex gap-2">
-                                  <Button
-                                    onClick={() => {
-                                      const finalReps = editingReps ?? strengthSet.reps;
-                                      const finalWeight = editingWeight ?? strengthSet.weight;
-                                      updateSetForExercise(index, setItem.index, finalReps, finalWeight);
-                                      setEditingSetIndex(null);
-                                      setExpandedSetIndex(null);
-                                      setEditingWeight(null);
-                                      setEditingReps(null);
-                                    }}
-                                    variant="outline"
-                                    className="flex-1 py-1 text-sm"
-                                  >
-                                    Done
-                                  </Button>
-                                  <Button
-                                    onClick={() => {
-                                      removeSetForExercise(index, setItem.index);
-                                      setEditingSetIndex(null);
-                                      setEditingWeight(null);
-                                      setEditingReps(null);
-                                    }}
-                                    variant="outline"
-                                    className="flex-1 text-red-600 dark:text-red-400 py-1 text-sm"
-                                  >
-                                    Remove
-                                  </Button>
-                                </div>
-                              </>
-                            ) : (
-                              <div className="space-y-2">
-                                <div className="text-sm text-green-700 dark:text-green-300">
-                                  <span className="font-medium">{strengthSet.weight} {strengthSet.unit}</span>
-                                  <span className="text-green-600 dark:text-green-400 ml-2">x</span>
-                                  <span className="font-medium ml-2">{strengthSet.reps} reps</span>
-                                </div>
-                                <Button
-                                  onClick={() => {
-                                    setEditingSetIndex(setItem.index);
-                                    setEditingWeight(strengthSet.weight);
-                                    setEditingReps(strengthSet.reps);
-                                  }}
-                                  variant="outline"
-                                  className="w-full py-1 text-sm"
-                                >
-                                  Edit
-                                </Button>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
+                      <CompletedSetAccordion
+                        key={setItem.index}
+                        setIndex={setItem.index}
+                        weight={setItem.data.weight}
+                        unit={setItem.data.unit}
+                        reps={setItem.data.reps}
+                        weightUnit={weightUnit}
+                        isExpanded={isSetExpanded}
+                        isEditing={editingSetIndex === setItem.index}
+                        editingWeight={editingWeight}
+                        editingReps={editingReps}
+                        onToggle={() => handleToggleSet(setItem.index)}
+                        onStartEditing={() =>
+                          handleStartEditing(setItem.index, setItem.data!.weight, setItem.data!.reps)
+                        }
+                        onFinishEditing={() =>
+                          handleFinishEditing(
+                            setItem.index,
+                            setItem.data!.reps,
+                            setItem.data!.weight,
+                            (setIdx, reps, weight) =>
+                              updateSetForExercise(index, setIdx, reps, weight)
+                          )
+                        }
+                        onRemoveSet={() => {
+                          removeSetForExercise(index, setItem.index);
+                          setEditingSetIndex(null);
+                          setEditingWeight(null);
+                          setEditingReps(null);
+                        }}
+                        onEditingWeightChange={setEditingWeight}
+                        onEditingRepsChange={setEditingReps}
+                      />
                     );
                   } else {
-                    // Empty set accordion (gray)
-                    const lastSetWeight = exercise.sets.length > 0
-                      ? (exercise.sets[exercise.sets.length - 1] as { weight?: number }).weight || 0
-                      : suggestion?.suggestedWeight || 0;
-                    const targetReps = exercise.targetReps || 10;
                     return (
-                      <div key={setItem.index} className="border border-border/60 bg-card/70 backdrop-blur-lg rounded-lg overflow-hidden">
-                        {/* Empty Set Header */}
-                        <button
-                          onClick={() => setExpandedSetIndex(isSetExpanded ? null : setItem.index)}
-                          className="w-full flex items-center justify-between p-2 hover:bg-white/10 dark:hover:bg-white/5 transition-colors"
-                        >
-                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Set {setItem.index + 1}
-                          </span>
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm text-gray-600 dark:text-gray-400">
-                              {targetReps} reps @ {lastSetWeight} {weightUnit}
-                            </span>
-                            <svg
-                              className={`w-4 h-4 text-gray-600 dark:text-gray-400 transition-transform ${isSetExpanded ? 'rotate-180' : ''}`}
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                            >
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
-                          </div>
-                        </button>
-
-                        {/* Empty Set Form */}
-                        {isSetExpanded && (
-                          <div className="px-3 py-3 border-t border-border/50 space-y-3">
-                            <div className="flex gap-3">
-                              <div className="flex-1">
-                                <label className="text-xs text-gray-600 dark:text-gray-400 mb-1 block">
-                                  Weight ({weightUnit})
-                                </label>
-                                <input
-                                  type="number"
-                                  value={weightInput}
-                                  onChange={(e) => setWeightInput(e.target.value)}
-                                  placeholder="0"
-                                  className="w-full px-4 py-3 text-lg text-center rounded-lg border border-border/50 bg-card/70 backdrop-blur-lg text-gray-900 dark:text-gray-100"
-                                />
-                                <div className="flex gap-1 mt-2">
-                                  {[-10, -5, 5, 10].map((delta) => (
-                                    <button
-                                      key={delta}
-                                      onClick={() => {
-                                        const current = parseFloat(weightInput) || 0;
-                                        setWeightInput(Math.max(0, current + delta).toString());
-                                      }}
-                                      className="flex-1 py-1 text-xs rounded bg-white/10 dark:bg-white/5 hover:bg-white/20 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 transition-colors"
-                                    >
-                                      {delta > 0 ? '+' : ''}{delta}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-                              <div className="flex-1">
-                                <label className="text-xs text-gray-600 dark:text-gray-400 mb-1 block">Reps</label>
-                                <input
-                                  type="number"
-                                  value={repsInput}
-                                  onChange={(e) => setRepsInput(e.target.value)}
-                                  placeholder="0"
-                                  className="w-full px-4 py-3 text-lg text-center rounded-lg border border-border/50 bg-card/70 backdrop-blur-lg text-gray-900 dark:text-gray-100"
-                                />
-                                <div className="flex gap-1 mt-2">
-                                  {[-2, -1, 1, 2].map((delta) => (
-                                    <button
-                                      key={delta}
-                                      onClick={() => {
-                                        const current = parseInt(repsInput) || 0;
-                                        setRepsInput(Math.max(1, current + delta).toString());
-                                      }}
-                                      className="flex-1 py-1 text-xs rounded bg-white/10 dark:bg-white/5 hover:bg-white/20 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 transition-colors"
-                                    >
-                                      {delta > 0 ? '+' : ''}{delta}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-                            </div>
-                            <Button
-                              onClick={() => {
-                                handleLogSet();
-                                setExpandedSetIndex(null);
-                                setRepsInput('');
-                                setWeightInput('');
-                              }}
-                              disabled={!repsInput || parseInt(repsInput) <= 0}
-                              className="w-full"
-                              size="lg"
-                            >
-                              Complete Set
-                            </Button>
-                            <Button
-                              onClick={() => {
-                                if ((exercise.targetSets || 3) > 1) {
-                                  wrappedUpdateTargetSets(-1);
-                                  setExpandedSetIndex(null);
-                                }
-                              }}
-                              variant="outline"
-                              className="w-full text-red-600 dark:text-red-400"
-                            >
-                              Remove Set
-                            </Button>
-                          </div>
-                        )}
-                      </div>
+                      <EmptySetAccordion
+                        key={setItem.index}
+                        setIndex={setItem.index}
+                        targetReps={targetReps}
+                        lastSetWeight={lastSetWeight}
+                        weightUnit={weightUnit}
+                        isExpanded={isSetExpanded}
+                        weightInput={weightInput}
+                        repsInput={repsInput}
+                        canRemoveSet={targetSets > 1}
+                        onToggle={() => handleToggleSet(setItem.index)}
+                        onWeightChange={setWeightInput}
+                        onRepsChange={setRepsInput}
+                        onAdjustWeight={adjustWeight}
+                        onAdjustReps={adjustReps}
+                        onCompleteSet={handleCompleteSet}
+                        onRemoveSet={() => {
+                          wrappedUpdateTargetSets(-1);
+                          setExpandedSetIndex(null);
+                        }}
+                      />
                     );
                   }
                 })}
@@ -512,14 +279,7 @@ export const ExerciseAccordion: FC<ExerciseAccordionProps> = ({
           <Button
             onClick={(e) => {
               e.stopPropagation();
-              // Always increase targetSets to add a new set
-              wrappedUpdateTargetSets(1);
-              // Clear form inputs before expanding new set
-              setRepsInput('');
-              setWeightInput('');
-              // Expand the newly added set accordion
-              // The new set will be at index equal to current targetSets (which is the last index after increment)
-              setExpandedSetIndex((exercise.targetSets || 3));
+              handleAddSet(wrappedUpdateTargetSets);
             }}
             variant="outline"
             className="mt-4 w-full"
@@ -544,4 +304,4 @@ export const ExerciseAccordion: FC<ExerciseAccordionProps> = ({
       )}
     </Card>
   );
-}
+};

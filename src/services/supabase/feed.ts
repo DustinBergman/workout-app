@@ -19,6 +19,7 @@ export interface FeedUser {
 export interface FeedSessionExercise {
   id: string;
   exercise_id: string;
+  custom_exercise_name: string | null;
   type: 'strength' | 'cardio';
   sort_order: number;
   target_sets: number | null;
@@ -142,6 +143,29 @@ export const getFriendWorkouts = async (
     return { workouts: [], error };
   }
 
+  // Collect all unique exercise IDs from the workouts
+  const exerciseIds = new Set<string>();
+  (data || []).forEach((workout) => {
+    (workout.session_exercises || []).forEach((ex) => {
+      exerciseIds.add(ex.exercise_id);
+    });
+  });
+
+  // Fetch custom exercise names using RPC function (bypasses RLS for name lookup)
+  // Only send UUIDs - built-in exercises have string IDs like "bench-press"
+  const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const customExerciseMap = new Map<string, string>();
+  const uuidIds = Array.from(exerciseIds).filter((id) => UUID_REGEX.test(id));
+
+  if (uuidIds.length > 0) {
+    const { data: customExercises } = await supabase
+      .rpc('get_custom_exercise_names', { exercise_ids: uuidIds });
+
+    (customExercises || []).forEach((ce: { id: string; name: string }) => {
+      customExerciseMap.set(ce.id, ce.name);
+    });
+  }
+
   // Transform the data
   const workouts = (data || []).map((workout) => ({
     ...workout,
@@ -150,6 +174,7 @@ export const getFriendWorkouts = async (
       .sort((a, b) => a.sort_order - b.sort_order)
       .map((ex) => ({
         ...ex,
+        custom_exercise_name: customExerciseMap.get(ex.exercise_id) || null,
         completed_sets: (ex.completed_sets || []).sort(
           (a, b) => new Date(a.completed_at).getTime() - new Date(b.completed_at).getTime()
         ),
@@ -212,6 +237,22 @@ export const getWorkoutById = async (
     return { workout: null, error: new Error('Workout not found') };
   }
 
+  // Collect exercise IDs and fetch custom exercise names using RPC (bypasses RLS)
+  // Only send UUIDs - built-in exercises have string IDs like "bench-press"
+  const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const exerciseIds = (data.session_exercises || []).map((ex) => ex.exercise_id);
+  const uuidIds = exerciseIds.filter((id) => UUID_REGEX.test(id));
+  const customExerciseMap = new Map<string, string>();
+
+  if (uuidIds.length > 0) {
+    const { data: customExercises } = await supabase
+      .rpc('get_custom_exercise_names', { exercise_ids: uuidIds });
+
+    (customExercises || []).forEach((ce: { id: string; name: string }) => {
+      customExerciseMap.set(ce.id, ce.name);
+    });
+  }
+
   // Transform the data
   const workout: FeedWorkout = {
     ...data,
@@ -220,6 +261,7 @@ export const getWorkoutById = async (
       .sort((a, b) => a.sort_order - b.sort_order)
       .map((ex) => ({
         ...ex,
+        custom_exercise_name: customExerciseMap.get(ex.exercise_id) || null,
         completed_sets: (ex.completed_sets || []).sort(
           (a, b) => new Date(a.completed_at).getTime() - new Date(b.completed_at).getTime()
         ),

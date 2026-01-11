@@ -15,7 +15,7 @@ export const CopyWorkoutModal: FC<CopyWorkoutModalProps> = ({
   workout,
   onCopy,
 }) => {
-  const [templateName, setTemplateName] = useState(workout.custom_title || workout.name);
+  const [templateName, setTemplateName] = useState(workout.name || workout.custom_title || '');
   const [isCopying, setIsCopying] = useState(false);
 
   const displayName = workout.user.username
@@ -35,7 +35,7 @@ export const CopyWorkoutModal: FC<CopyWorkoutModalProps> = ({
   };
 
   const handleClose = () => {
-    setTemplateName(workout.custom_title || workout.name);
+    setTemplateName(workout.name || workout.custom_title || '');
     onClose();
   };
 

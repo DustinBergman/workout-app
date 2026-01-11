@@ -3,11 +3,17 @@ import { useNotifications } from '../../hooks/useNotifications';
 import { NotificationItem } from './NotificationItem';
 import { Card } from '../ui';
 
+type UseNotificationsReturn = ReturnType<typeof useNotifications>;
+
 interface NotificationListProps {
   onClose: () => void;
+  notificationsHook: UseNotificationsReturn;
 }
 
-export const NotificationList: FC<NotificationListProps> = ({ onClose }) => {
+export const NotificationList: FC<NotificationListProps> = ({
+  onClose,
+  notificationsHook,
+}) => {
   const {
     notifications,
     isLoading,
@@ -15,7 +21,7 @@ export const NotificationList: FC<NotificationListProps> = ({ onClose }) => {
     markNotificationAsRead,
     markAllNotificationsAsRead,
     removeNotification,
-  } = useNotifications();
+  } = notificationsHook;
 
   return (
     <Card className="w-80 max-h-96 overflow-hidden shadow-lg bg-background border border-border">
