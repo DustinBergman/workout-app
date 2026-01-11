@@ -64,6 +64,37 @@ export const syncAddTemplate = async (template: WorkoutTemplate): Promise<void> 
   const userId = await getUserId();
   if (!userId) return;
 
+  // Guard against corrupted data - templates should never have more than 50 exercises
+  // and should never have more than 3 duplicates of the same exercise
+  const exerciseIdCounts = new Map<string, number>();
+  for (const ex of template.exercises) {
+    exerciseIdCounts.set(ex.exerciseId, (exerciseIdCounts.get(ex.exerciseId) || 0) + 1);
+  }
+  const maxDuplicates = Math.max(...exerciseIdCounts.values(), 0);
+
+  if (template.exercises.length > 50 || maxDuplicates > 3) {
+    console.error('[Sync] Detected corrupted template data, skipping sync:', {
+      templateId: template.id,
+      exerciseCount: template.exercises.length,
+      maxDuplicates,
+    });
+    return;
+  }
+
+  // Check if template already exists (prevent duplicate exercise inserts)
+  const { data: existing } = await supabase
+    .from('workout_templates')
+    .select('id')
+    .eq('id', template.id)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (existing) {
+    // Template already exists, use update instead
+    await syncUpdateTemplate(template);
+    return;
+  }
+
   // Insert template
   const { data: templateData, error: templateError } = await supabase
     .from('workout_templates')
@@ -126,6 +157,23 @@ export const syncUpdateTemplate = async (template: WorkoutTemplate): Promise<voi
   const userId = await getUserId();
   if (!userId) return;
 
+  // Guard against corrupted data - templates should never have more than 50 exercises
+  // and should never have more than 3 duplicates of the same exercise
+  const exerciseIdCounts = new Map<string, number>();
+  for (const ex of template.exercises) {
+    exerciseIdCounts.set(ex.exerciseId, (exerciseIdCounts.get(ex.exerciseId) || 0) + 1);
+  }
+  const maxDuplicates = Math.max(...exerciseIdCounts.values(), 0);
+
+  if (template.exercises.length > 50 || maxDuplicates > 3) {
+    console.error('[Sync] Detected corrupted template data, skipping sync:', {
+      templateId: template.id,
+      exerciseCount: template.exercises.length,
+      maxDuplicates,
+    });
+    return;
+  }
+
   // Update template metadata
   await supabase
     .from('workout_templates')
@@ -139,7 +187,15 @@ export const syncUpdateTemplate = async (template: WorkoutTemplate): Promise<voi
     .eq('user_id', userId);
 
   // Delete existing exercises and re-insert
-  await supabase.from('template_exercises').delete().eq('template_id', template.id);
+  const { error: deleteError } = await supabase
+    .from('template_exercises')
+    .delete()
+    .eq('template_id', template.id);
+
+  if (deleteError) {
+    console.error('[Sync] Failed to delete template exercises:', deleteError.message, deleteError.code);
+    throw deleteError;
+  }
 
   if (template.exercises.length > 0) {
     const exercisesToInsert = template.exercises.map((ex, idx) => {
@@ -173,7 +229,11 @@ export const syncUpdateTemplate = async (template: WorkoutTemplate): Promise<voi
       };
     });
 
-    await supabase.from('template_exercises').insert(exercisesToInsert);
+    const { error: insertError } = await supabase.from('template_exercises').insert(exercisesToInsert);
+    if (insertError) {
+      console.error('[Sync] Failed to insert template exercises:', insertError.message, insertError.code);
+      throw insertError;
+    }
   }
 };
 
@@ -211,6 +271,20 @@ export const syncReorderTemplates = async (templateIds: string[]): Promise<void>
 export const syncAddSession = async (session: WorkoutSession): Promise<void> => {
   const userId = await getUserId();
   if (!userId) return;
+
+  // Check if session already exists (prevent duplicate exercise inserts)
+  const { data: existing } = await supabase
+    .from('workout_sessions')
+    .select('id')
+    .eq('id', session.id)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (existing) {
+    // Session already exists, use update instead
+    await syncUpdateSession(session);
+    return;
+  }
 
   // Insert session
   const { data: sessionData, error: sessionError } = await supabase

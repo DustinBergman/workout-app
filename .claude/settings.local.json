@@ -16,7 +16,13 @@
       "mcp__ide__getDiagnostics",
       "Bash(npx vitest:*)",
       "Bash(find:*)",
-      "Bash(xargs cat:*)"
+      "Bash(xargs cat:*)",
+      "Bash(git log:*)",
+      "Bash(node check-duplicates.mjs:*)",
+      "Bash(git -C /Users/dustinbergman/Repos/workout-app show a15e918 --stat)",
+      "Bash(git -C /Users/dustinbergman/Repos/workout-app show a15e918 --name-only)",
+      "Bash(git -C /Users/dustinbergman/Repos/workout-app show a15e918 -- src/services/supabase/sync.ts)",
+      "Bash(git -C /Users/dustinbergman/Repos/workout-app show 32522cc --stat)"
     ]
   }
 }

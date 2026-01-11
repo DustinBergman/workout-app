@@ -10,8 +10,7 @@ import {
   getCustomExercises,
   getWeightEntries,
   profileToPreferences,
-  hasLocalStorageData,
-  isMigrationComplete,
+  deduplicateTemplateExercises,
 } from '../services/supabase';
 import { setupSyncSubscriptions, setSyncEnabled } from '../store/syncSubscriptions';
 import {
@@ -32,8 +31,6 @@ export interface SyncContextType {
   error: string | null;
   lastSyncedAt: Date | null;
   isInitialLoading: boolean;
-  showMigrationPrompt: boolean;
-  setShowMigrationPrompt: (show: boolean) => void;
   syncFromCloud: () => Promise<void>;
 }
 
@@ -52,7 +49,6 @@ export const SyncProvider: FC<SyncProviderProps> = ({ children }) => {
   const [error, setError] = useState<string | null>(null);
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
-  const [showMigrationPrompt, setShowMigrationPrompt] = useState(false);
 
   // Setup sync subscriptions once
   useEffect(() => {
@@ -214,6 +210,25 @@ export const SyncProvider: FC<SyncProviderProps> = ({ children }) => {
         }
       }
 
+      // One-time fix for duplicate template exercises bug
+      const dedupeKey = 'workout-app-dedupe-fix-v1';
+      if (!localStorage.getItem(dedupeKey)) {
+        try {
+          const { fixed, error: dedupeError } = await deduplicateTemplateExercises();
+          if (!dedupeError && fixed > 0) {
+            console.log(`[Sync] Fixed ${fixed} duplicate template exercises`);
+            // Re-fetch templates after fix
+            const { templates: refreshedTemplates } = await getTemplates();
+            if (refreshedTemplates.length > 0) {
+              useAppStore.setState({ templates: refreshedTemplates });
+            }
+          }
+          localStorage.setItem(dedupeKey, 'true');
+        } catch (dedupeErr) {
+          console.error('[Sync] Failed to deduplicate:', dedupeErr);
+        }
+      }
+
       setStatus('synced');
       setLastSyncedAt(new Date());
     } catch (err) {
@@ -228,13 +243,6 @@ export const SyncProvider: FC<SyncProviderProps> = ({ children }) => {
       if (authLoading) return;
 
       if (isAuthenticated && isOnline) {
-        // Check if user has local data that needs migration
-        if (hasLocalStorageData() && !isMigrationComplete()) {
-          setShowMigrationPrompt(true);
-          setIsInitialLoading(false);
-          return;
-        }
-
         // Sync from cloud - wait for this to complete before showing app
         await syncFromCloud();
         setIsInitialLoading(false);
@@ -263,8 +271,6 @@ export const SyncProvider: FC<SyncProviderProps> = ({ children }) => {
     error,
     lastSyncedAt,
     isInitialLoading,
-    showMigrationPrompt,
-    setShowMigrationPrompt,
     syncFromCloud,
   };
 

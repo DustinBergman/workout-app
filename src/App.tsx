@@ -20,12 +20,10 @@ import { useAppStore, migrateTemplates, migrateToUUIDs } from './store/useAppSto
 import { GlobalTimerNotification } from './components/timer/GlobalTimerNotification';
 import { AuthProvider } from './contexts/AuthContext';
 import { SyncProvider } from './contexts/SyncContext';
-import { MigrationPrompt } from './components/auth';
 import { NotificationBell } from './components/notifications';
 import { ToastContainer } from './components/ui/ToastContainer';
 import { useAuth } from './hooks/useAuth';
 import { useSync } from './hooks/useSync';
-import { markMigrationComplete } from './services/supabase';
 
 const HeaderContent: FC = () => {
   const location = useLocation();
@@ -140,7 +138,7 @@ const AppContent: FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
-  const { showMigrationPrompt, setShowMigrationPrompt, syncFromCloud, isInitialLoading } = useSync();
+  const { isInitialLoading } = useSync();
   const hasCompletedIntro = useAppStore((state) => state.hasCompletedIntro);
 
   // Redirect to /auth if not authenticated (except when already on /auth)
@@ -149,19 +147,6 @@ const AppContent: FC = () => {
       navigate('/auth', { replace: true });
     }
   }, [isAuthenticated, authLoading, location.pathname, navigate]);
-
-  const handleMigrationComplete = () => {
-    markMigrationComplete();
-    setShowMigrationPrompt(false);
-    // Sync from cloud after migration
-    syncFromCloud();
-  };
-
-  const handleMigrationSkip = () => {
-    setShowMigrationPrompt(false);
-    // Sync from cloud (will load any existing cloud data)
-    syncFromCloud();
-  };
 
   // Show loading while checking auth or doing initial sync
   if (authLoading || isInitialLoading) {
@@ -222,14 +207,6 @@ const AppContent: FC = () => {
         {/* Bottom Navigation */}
         <Navigation />
       </div>
-
-      {/* Migration Prompt Modal */}
-      {showMigrationPrompt && (
-        <MigrationPrompt
-          onComplete={handleMigrationComplete}
-          onSkip={handleMigrationSkip}
-        />
-      )}
     </>
   );
 };

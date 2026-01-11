@@ -244,6 +244,69 @@ const dbExerciseToTemplateExercise = (dbEx: DbTemplateExercise): TemplateExercis
   };
 };
 
+/**
+ * Deduplicate exercises in all templates for the current user.
+ * This fixes a bug where exercises were duplicated due to sync issues.
+ */
+export const deduplicateTemplateExercises = async (): Promise<{ fixed: number; error: Error | null }> => {
+  const user = await getAuthUser();
+  if (!user) {
+    return { fixed: 0, error: new Error('Not authenticated') };
+  }
+
+  // Get all templates with their exercises
+  const { data: templates, error: fetchError } = await supabase
+    .from('workout_templates')
+    .select(`
+      id,
+      template_exercises (*)
+    `)
+    .eq('user_id', user.id);
+
+  if (fetchError) {
+    return { fixed: 0, error: fetchError };
+  }
+
+  let totalFixed = 0;
+
+  for (const template of templates || []) {
+    const exercises = template.template_exercises || [];
+
+    // Group exercises by exercise_id, keeping only the first (lowest sort_order) of each
+    const seen = new Set<string>();
+    const duplicateIds: string[] = [];
+
+    // Sort by sort_order to keep the first occurrence
+    const sorted = [...exercises].sort((a, b) => a.sort_order - b.sort_order);
+
+    for (const ex of sorted) {
+      if (seen.has(ex.exercise_id)) {
+        duplicateIds.push(ex.id);
+      } else {
+        seen.add(ex.exercise_id);
+      }
+    }
+
+    if (duplicateIds.length > 0) {
+      // Delete the duplicate exercises
+      const { error: deleteError } = await supabase
+        .from('template_exercises')
+        .delete()
+        .in('id', duplicateIds);
+
+      if (deleteError) {
+        console.error('Failed to delete duplicates for template', template.id, deleteError);
+        continue;
+      }
+
+      totalFixed += duplicateIds.length;
+      console.log(`Fixed ${duplicateIds.length} duplicate exercises in template ${template.id}`);
+    }
+  }
+
+  return { fixed: totalFixed, error: null };
+};
+
 // Helper: Convert app template exercise to DB format
 const templateExerciseToDbExercise = (
   ex: TemplateExercise,

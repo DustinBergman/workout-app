@@ -4,7 +4,6 @@ export * from './templates';
 export * from './sessions';
 export * from './exercises';
 export * from './weightEntries';
-export * from './migration';
 export * from './sync';
 export * from './friends';
 export * from './notifications';
