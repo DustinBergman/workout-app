@@ -11,6 +11,7 @@ export interface Profile {
   distance_unit: 'mi' | 'km';
   default_rest_seconds: number;
   dark_mode: boolean;
+  email_notifications_enabled: boolean;
   experience_level: ExperienceLevel;
   workout_goal: WorkoutGoal;
   current_week: ProgressiveOverloadWeek;
@@ -66,6 +67,7 @@ export const profileToPreferences = (profile: Profile): UserPreferences => ({
   distanceUnit: profile.distance_unit,
   defaultRestSeconds: profile.default_rest_seconds,
   darkMode: profile.dark_mode,
+  emailNotificationsEnabled: profile.email_notifications_enabled,
   firstName: profile.first_name ?? undefined,
   lastName: profile.last_name ?? undefined,
   experienceLevel: profile.experience_level,
@@ -88,6 +90,7 @@ export const preferencesToProfileUpdates = (
   if (prefs.lastName !== undefined) updates.last_name = prefs.lastName || null;
   if (prefs.experienceLevel !== undefined) updates.experience_level = prefs.experienceLevel;
   if (prefs.openaiApiKey !== undefined) updates.openai_api_key = prefs.openaiApiKey || null;
+  if (prefs.emailNotificationsEnabled !== undefined) updates.email_notifications_enabled = prefs.emailNotificationsEnabled;
 
   return updates;
 };

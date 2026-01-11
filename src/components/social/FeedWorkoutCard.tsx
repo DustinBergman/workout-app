@@ -78,7 +78,7 @@ export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
     likeSummary,
     isLiking,
     toggleLike,
-  } = useLikes(workout.id, initialLikeSummary);
+  } = useLikes(workout.id, initialLikeSummary, workout.user_id);
 
   const summary = calculateWorkoutSummary(workout);
 
@@ -494,6 +494,7 @@ export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
       {/* Comments Section (Always shows preview + input, expands for full list) */}
       <CommentsSection
         workoutId={workout.id}
+        workoutOwnerId={workout.user_id}
         initialCount={commentCount}
         isExpanded={showComments}
         onUserClick={handleUserClick}

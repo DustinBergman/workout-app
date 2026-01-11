@@ -6,6 +6,7 @@ import { WorkoutComment } from '../../services/supabase/comments';
 
 interface CommentsSectionProps {
   workoutId: string;
+  workoutOwnerId?: string;
   initialCount?: number;
   isExpanded: boolean;
   onUserClick: (userId: string) => void;
@@ -16,6 +17,7 @@ interface CommentsSectionProps {
 
 export const CommentsSection: FC<CommentsSectionProps> = ({
   workoutId,
+  workoutOwnerId,
   initialCount = 0,
   isExpanded,
   onUserClick,
@@ -34,7 +36,7 @@ export const CommentsSection: FC<CommentsSectionProps> = ({
     addComment,
     deleteComment,
     toggleCommentLike,
-  } = useComments(workoutId, initialCount);
+  } = useComments(workoutId, initialCount, workoutOwnerId);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

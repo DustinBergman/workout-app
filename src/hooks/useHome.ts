@@ -1,6 +1,6 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useAppStore } from '../store/useAppStore';
-import { getProgressiveOverloadRecommendations } from '../services/openai';
+import { getProgressiveOverloadRecommendations, createSessionsHash, hasValidRecommendationsCache } from '../services/openai';
 import {
   WorkoutTemplate,
   WorkoutSession,
@@ -136,12 +136,20 @@ export const useHome = (): UseHomeReturn => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Create stable sessions hash for dependency tracking
+  const sessionsHash = useMemo(() => createSessionsHash(sessions), [sessions]);
+
   // Load progressive overload recommendations
   useEffect(() => {
     const loadRecommendations = async () => {
       if (!preferences.openaiApiKey || sessions.length < 2) return;
 
-      setLoadingRecommendations(true);
+      // Only show loading spinner if cache is not valid (will actually fetch from AI)
+      const hasCachedResults = hasValidRecommendationsCache(sessions);
+      if (!hasCachedResults) {
+        setLoadingRecommendations(true);
+      }
+
       try {
         const recs = await getProgressiveOverloadRecommendations(
           preferences.openaiApiKey,
@@ -160,7 +168,8 @@ export const useHome = (): UseHomeReturn => {
     };
 
     loadRecommendations();
-  }, [preferences.openaiApiKey, sessions, preferences.weightUnit, customExercises, experienceLevel, workoutGoal]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preferences.openaiApiKey, sessionsHash, preferences.weightUnit, customExercises, experienceLevel, workoutGoal]);
 
   // Select week and close modal
   const selectWeek = useCallback(

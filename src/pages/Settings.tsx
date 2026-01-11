@@ -261,6 +261,20 @@ export const Settings: FC = () => {
               </SelectContent>
             </Select>
           </div>
+
+          {/* Email Notifications - only show when authenticated */}
+          {isAuthenticated && (
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="font-medium text-foreground">Email Notifications</Label>
+                <p className="text-sm text-muted-foreground">Get notified about likes, comments & friend requests</p>
+              </div>
+              <Switch
+                checked={preferences.emailNotificationsEnabled ?? true}
+                onCheckedChange={(checked) => updatePreferences({ emailNotificationsEnabled: checked })}
+              />
+            </div>
+          )}
         </Card>
       </section>
 

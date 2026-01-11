@@ -7,6 +7,7 @@ import {
   unlikeComment as unlikeCommentService,
   WorkoutComment,
 } from '../services/supabase/comments';
+import { sendEmailNotification } from '../services/supabase/emailNotifications';
 import { useAuth } from './useAuth';
 import { toast } from '../store/toastStore';
 
@@ -24,7 +25,8 @@ interface UseCommentsReturn {
 
 export const useComments = (
   workoutId: string,
-  initialCount?: number
+  initialCount?: number,
+  workoutOwnerId?: string
 ): UseCommentsReturn => {
   const { user } = useAuth();
   const [comments, setComments] = useState<WorkoutComment[]>([]);
@@ -115,6 +117,16 @@ export const useComments = (
           };
           setComments((prev) => [...prev, newComment]);
           setCommentCount((prev) => prev + 1);
+
+          // Send email notification on successful comment (fire-and-forget)
+          if (workoutOwnerId) {
+            sendEmailNotification({
+              type: 'workout_commented',
+              recipientUserId: workoutOwnerId,
+              actorUserId: user.id,
+              workoutId,
+            }).catch(() => {}); // Silently ignore errors
+          }
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to add comment';
@@ -124,7 +136,7 @@ export const useComments = (
         setIsSubmitting(false);
       }
     },
-    [workoutId, user]
+    [workoutId, user, workoutOwnerId]
   );
 
   const deleteComment = useCallback(

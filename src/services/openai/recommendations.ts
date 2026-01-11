@@ -13,9 +13,35 @@ interface RecommendationsCache {
 }
 
 // Create a simple hash of sessions to detect changes
-const createSessionsHash = (sessions: WorkoutSession[]): string => {
+export const createSessionsHash = (sessions: WorkoutSession[]): string => {
   const recentSessions = sessions.slice(0, 10);
   return recentSessions.map(s => `${s.id}:${s.exercises.length}`).join('|');
+};
+
+// Check if valid cache exists (exported for use in hooks)
+export const hasValidRecommendationsCache = (sessions: WorkoutSession[]): boolean => {
+  try {
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (!cached) return false;
+
+    const parsed: RecommendationsCache = JSON.parse(cached);
+    const now = Date.now();
+
+    // Check if cache is expired
+    if (now - parsed.timestamp > CACHE_DURATION_MS) {
+      return false;
+    }
+
+    // Check if sessions have changed
+    const sessionsHash = createSessionsHash(sessions);
+    if (parsed.sessionsHash !== sessionsHash) {
+      return false;
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
 };
 
 const getCachedRecommendations = (sessionsHash: string): WorkoutRecommendation[] | null => {

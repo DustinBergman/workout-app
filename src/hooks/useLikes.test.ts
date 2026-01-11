@@ -9,6 +9,19 @@ vi.mock('../services/supabase/likes', () => ({
   getLikeSummary: vi.fn(),
 }));
 
+// Mock the auth hook
+vi.mock('./useAuth', () => ({
+  useAuth: vi.fn(() => ({
+    user: { id: 'test-user-123' },
+    isAuthenticated: true,
+  })),
+}));
+
+// Mock the email notifications service
+vi.mock('../services/supabase/emailNotifications', () => ({
+  sendEmailNotification: vi.fn(() => Promise.resolve()),
+}));
+
 import {
   likeWorkout,
   unlikeWorkout,

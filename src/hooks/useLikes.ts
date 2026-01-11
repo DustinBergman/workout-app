@@ -5,6 +5,8 @@ import {
   getLikeSummary,
   LikeSummary,
 } from '../services/supabase/likes';
+import { sendEmailNotification } from '../services/supabase/emailNotifications';
+import { useAuth } from './useAuth';
 import { toast } from '../store/toastStore';
 
 interface UseLikesReturn {
@@ -17,8 +19,10 @@ interface UseLikesReturn {
 
 export const useLikes = (
   workoutId: string,
-  initialSummary?: LikeSummary
+  initialSummary?: LikeSummary,
+  workoutOwnerId?: string
 ): UseLikesReturn => {
+  const { user } = useAuth();
   const [likeSummary, setLikeSummary] = useState<LikeSummary | null>(
     initialSummary || null
   );
@@ -57,6 +61,16 @@ export const useLikes = (
       } else {
         const { error: likeError } = await likeWorkout(workoutId);
         if (likeError) throw likeError;
+
+        // Send email notification on successful like (fire-and-forget)
+        if (workoutOwnerId && user?.id) {
+          sendEmailNotification({
+            type: 'workout_liked',
+            recipientUserId: workoutOwnerId,
+            actorUserId: user.id,
+            workoutId,
+          }).catch(() => {}); // Silently ignore errors
+        }
       }
     } catch (err) {
       // Revert optimistic update on error
@@ -71,7 +85,7 @@ export const useLikes = (
     } finally {
       setIsLiking(false);
     }
-  }, [workoutId, likeSummary, isLiking]);
+  }, [workoutId, likeSummary, isLiking, workoutOwnerId, user?.id]);
 
   return {
     likeSummary,

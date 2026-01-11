@@ -11,6 +11,7 @@ import {
   cancelFriendRequest,
   getPendingRequests,
 } from '../services/supabase/friends';
+import { sendEmailNotification } from '../services/supabase/emailNotifications';
 import { getUserStats, PublicUserStats } from '../services/supabase/userStats';
 import { useAuth } from './useAuth';
 import { useAppStore } from '../store/useAppStore';
@@ -105,23 +106,35 @@ export const useProfile = (userId: string): UseProfileReturn => {
   }, [loadProfile]);
 
   const sendRequest = useCallback(async () => {
+    if (!user) return;
+
     setIsActionLoading(true);
     setError(null);
 
     try {
-      const { error: sendError } = await sendFriendRequest(userId);
+      const { requestId, error: sendError } = await sendFriendRequest(userId);
       if (sendError) throw sendError;
 
       setFriendshipStatus('pending_sent');
+
+      // Send email notification (fire-and-forget)
+      if (requestId) {
+        sendEmailNotification({
+          type: 'friend_request_received',
+          recipientUserId: userId,
+          actorUserId: user.id,
+          friendRequestId: requestId,
+        }).catch(() => {}); // Silently ignore errors
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send request');
     } finally {
       setIsActionLoading(false);
     }
-  }, [userId]);
+  }, [userId, user]);
 
   const acceptRequest = useCallback(async () => {
-    if (!pendingRequestId) return;
+    if (!pendingRequestId || !user) return;
 
     setIsActionLoading(true);
     setError(null);
@@ -132,12 +145,21 @@ export const useProfile = (userId: string): UseProfileReturn => {
 
       setFriendshipStatus('friends');
       setPendingRequestId(null);
+
+      // Send email notification to the person who sent the request (fire-and-forget)
+      // userId is the profile being viewed, which is the original sender
+      sendEmailNotification({
+        type: 'friend_request_accepted',
+        recipientUserId: userId,
+        actorUserId: user.id,
+        friendRequestId: pendingRequestId,
+      }).catch(() => {}); // Silently ignore errors
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to accept request');
     } finally {
       setIsActionLoading(false);
     }
-  }, [pendingRequestId]);
+  }, [pendingRequestId, userId, user]);
 
   const cancelRequestFn = useCallback(async () => {
     if (!pendingRequestId) return;

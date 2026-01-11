@@ -465,6 +465,7 @@ export interface UserPreferences {
   defaultRestSeconds: number;
   openaiApiKey?: string;
   darkMode: boolean;
+  emailNotificationsEnabled?: boolean;
   firstName?: string;
   lastName?: string;
   experienceLevel?: ExperienceLevel;

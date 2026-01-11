@@ -8,7 +8,7 @@ export { callOpenAI, parseJSONResponse } from './client';
 export { createHistoryContext, analyzeExercisePerformance } from './history';
 
 // Main functions
-export { getProgressiveOverloadRecommendations } from './recommendations';
+export { getProgressiveOverloadRecommendations, createSessionsHash, hasValidRecommendationsCache } from './recommendations';
 export { getPreWorkoutSuggestions } from './suggestions';
 export { getWorkoutScore } from './scoring';
 export { generateWorkoutPlan, generateCardioPlan, createTemplateFromPlan, createCardioTemplateFromPlan, WORKOUT_TYPE_MUSCLES } from './planGenerator';
