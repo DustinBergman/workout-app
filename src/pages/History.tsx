@@ -1,119 +1,38 @@
-import { useState, useRef, FC } from 'react';
-import { useAppStore } from '../store/useAppStore';
+import { FC } from 'react';
 import { Card, Modal, Button } from '../components/ui';
-import { getExerciseById } from '../data/exercises';
+import {
+  WorkoutHeatmap,
+  HistorySessionCard,
+  SessionDetailModal,
+} from '../components/history';
+import {
+  useWorkoutHistory,
+  formatHistoryDate,
+} from '../hooks/useWorkoutHistory';
 import { WorkoutSession } from '../types';
-import { WorkoutHeatmap } from '../components/history/WorkoutHeatmap';
-import { calculateSessionStats } from '../hooks/useSessionStats';
-import { formatCardioDuration, calculatePace } from '../utils/workoutUtils';
-import { deleteSession as deleteSessionFromDb } from '../services/supabase/sessions';
-import { toast } from '../store/toastStore';
 
 export const History: FC = () => {
-  const sessions = useAppStore((state) => state.sessions);
-  const preferences = useAppStore((state) => state.preferences);
-  const customExercises = useAppStore((state) => state.customExercises);
-  const deleteSessionFromStore = useAppStore((state) => state.deleteSession);
-  const [selectedSession, setSelectedSession] = useState<WorkoutSession | null>(null);
-  const [sessionToDelete, setSessionToDelete] = useState<WorkoutSession | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [viewMode, setViewMode] = useState<'list' | 'heatmap'>('heatmap');
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const listRef = useRef<HTMLDivElement>(null);
-
-  const sortedSessions = [...sessions].sort(
-    (a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
-  );
-
-  const formatDuration = (session: WorkoutSession) => {
-    if (!session.completedAt) return 'In progress';
-    const start = new Date(session.startedAt);
-    const end = new Date(session.completedAt);
-    const minutes = Math.round((end.getTime() - start.getTime()) / 60000);
-    if (minutes < 60) return `${minutes} min`;
-    const hours = Math.floor(minutes / 60);
-    const remainingMins = minutes % 60;
-    return `${hours}h ${remainingMins}m`;
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-
-    if (date.toDateString() === today.toDateString()) {
-      return 'Today';
-    }
-    if (date.toDateString() === yesterday.toDateString()) {
-      return 'Yesterday';
-    }
-    return date.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
-
-  // Group sessions by date
-  const groupedSessions: { [key: string]: WorkoutSession[] } = {};
-  sortedSessions.forEach((session) => {
-    const dateKey = new Date(session.startedAt).toDateString();
-    if (!groupedSessions[dateKey]) {
-      groupedSessions[dateKey] = [];
-    }
-    groupedSessions[dateKey].push(session);
-  });
-
-  // Filter sessions by selected date (for heatmap click)
-  const filteredSessions = selectedDate
-    ? sortedSessions.filter(
-        (s) => new Date(s.startedAt).toDateString() === selectedDate.toDateString()
-      )
-    : sortedSessions;
-
-  const handleDayClick = (date: Date, daySessions: WorkoutSession[]) => {
-    if (daySessions.length > 0) {
-      setSelectedDate(date);
-      // Scroll list into view
-      setTimeout(() => {
-        listRef.current?.scrollIntoView({ behavior: 'smooth' });
-      }, 100);
-    } else {
-      setSelectedDate(null);
-    }
-  };
-
-  const clearDateFilter = () => {
-    setSelectedDate(null);
-  };
-
-  const handleDeleteClick = (e: React.MouseEvent, session: WorkoutSession) => {
-    e.stopPropagation();
-    setSessionToDelete(session);
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!sessionToDelete) return;
-
-    setIsDeleting(true);
-    try {
-      const { error } = await deleteSessionFromDb(sessionToDelete.id);
-      if (error) {
-        toast.error('Failed to delete workout');
-        console.error('Delete error:', error);
-      } else {
-        deleteSessionFromStore(sessionToDelete.id);
-        toast.success('Workout deleted');
-      }
-    } catch (err) {
-      toast.error('Failed to delete workout');
-      console.error('Delete error:', err);
-    } finally {
-      setIsDeleting(false);
-      setSessionToDelete(null);
-    }
-  };
+  const {
+    preferences,
+    customExercises,
+    selectedSession,
+    sessionToDelete,
+    isDeleting,
+    viewMode,
+    selectedDate,
+    listRef,
+    setSelectedSession,
+    setViewMode,
+    sortedSessions,
+    groupedSessions,
+    filteredSessions,
+    handleDayClick,
+    clearDateFilter,
+    handleDeleteClick,
+    handleConfirmDelete,
+    cancelDelete,
+    closeSessionDetail,
+  } = useWorkoutHistory();
 
   return (
     <div className="relative min-h-screen bg-transparent">
@@ -125,290 +44,167 @@ export const History: FC = () => {
       </div>
 
       <div className="relative z-10 p-4 pb-20">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-          Workout History
-        </h1>
-        <div className="flex rounded-lg overflow-hidden border border-gray-300 dark:border-gray-600">
-          <button
-            onClick={() => setViewMode('list')}
-            className={`px-3 py-1.5 text-sm font-medium transition-colors ${
-              viewMode === 'list'
-                ? 'bg-blue-500 text-white'
-                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-            }`}
-          >
-            List
-          </button>
-          <button
-            onClick={() => setViewMode('heatmap')}
-            className={`px-3 py-1.5 text-sm font-medium transition-colors ${
-              viewMode === 'heatmap'
-                ? 'bg-blue-500 text-white'
-                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-            }`}
-          >
-            Heatmap
-          </button>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            Workout History
+          </h1>
+          <div className="flex rounded-lg overflow-hidden border border-gray-300 dark:border-gray-600">
+            <button
+              onClick={() => setViewMode('list')}
+              className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+                viewMode === 'list'
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+              }`}
+            >
+              List
+            </button>
+            <button
+              onClick={() => setViewMode('heatmap')}
+              className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+                viewMode === 'heatmap'
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+              }`}
+            >
+              Heatmap
+            </button>
+          </div>
         </div>
-      </div>
 
-      {sortedSessions.length === 0 ? (
-        <Card className="text-center py-8">
-          <svg className="w-12 h-12 mx-auto text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <p className="text-gray-600 dark:text-gray-400">
-            No workout history yet. Complete a workout to see it here!
-          </p>
-        </Card>
-      ) : (
-        <div className="space-y-6">
-          {/* Heatmap View */}
-          {viewMode === 'heatmap' && (
-            <Card>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                Workout Activity
-              </h2>
-              <WorkoutHeatmap
-                sessions={sortedSessions}
-                onDayClick={handleDayClick}
+        {sortedSessions.length === 0 ? (
+          <Card className="text-center py-8">
+            <svg
+              className="w-12 h-12 mx-auto text-gray-400 mb-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
               />
-              <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {sortedSessions.length} total workouts | Click a day to see details
-                </p>
-              </div>
-            </Card>
-          )}
-
-          {/* Date filter indicator */}
-          {selectedDate && (
-            <div className="flex items-center justify-between bg-blue-50 dark:bg-blue-900/30 rounded-lg px-4 py-2">
-              <span className="text-sm text-blue-700 dark:text-blue-300">
-                Showing workouts from {selectedDate.toLocaleDateString('en-US', {
-                  weekday: 'long',
-                  month: 'long',
-                  day: 'numeric',
-                  year: 'numeric'
-                })}
-              </span>
-              <button
-                onClick={clearDateFilter}
-                className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200"
-              >
-                Clear filter
-              </button>
-            </div>
-          )}
-
-          {/* Session List */}
-          <div ref={listRef}>
-            {(selectedDate ? [[selectedDate.toDateString(), filteredSessions]] : Object.entries(groupedSessions)).map(([dateKey, sessions]) => (
-              <div key={dateKey as string} className="mb-6">
-                <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
-                  {formatDate((sessions as WorkoutSession[])[0]?.startedAt || dateKey as string)}
+            </svg>
+            <p className="text-gray-600 dark:text-gray-400">
+              No workout history yet. Complete a workout to see it here!
+            </p>
+          </Card>
+        ) : (
+          <div className="space-y-6">
+            {/* Heatmap View */}
+            {viewMode === 'heatmap' && (
+              <Card>
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                  Workout Activity
                 </h2>
-                <div className="space-y-3">
-                  {(sessions as WorkoutSession[]).map((session) => {
-                    const stats = calculateSessionStats(session);
-                    return (
-                      <Card
-                        key={session.id}
-                        className="cursor-pointer hover:border-blue-300 dark:hover:border-blue-700 transition-colors"
-                        onClick={() => setSelectedSession(session)}
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-gray-900 dark:text-gray-100">
-                              {session.name}
-                            </h3>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">
-                              {session.exercises.length} exercises | {formatDuration(session)}
-                            </p>
-                          </div>
-                          <div className="text-right mr-2">
-                            <p className="font-medium text-gray-900 dark:text-gray-100">
-                              {stats.totalSets} sets
-                            </p>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">
-                              {stats.totalVolume > 0 && `${stats.totalVolume.toLocaleString()} ${preferences.weightUnit}`}
-                              {stats.totalVolume > 0 && stats.totalCardioDistance > 0 && ' | '}
-                              {stats.totalCardioDistance > 0 && `${stats.totalCardioDistance.toFixed(2)} ${preferences.distanceUnit}`}
-                            </p>
-                          </div>
-                          <button
-                            onClick={(e) => handleDeleteClick(e, session)}
-                            className="p-1.5 -mr-1 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
-                            aria-label="Delete workout"
-                          >
-                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        </div>
-                      </Card>
-                    );
-                  })}
+                <WorkoutHeatmap sessions={sortedSessions} onDayClick={handleDayClick} />
+                <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {sortedSessions.length} total workouts | Click a day to see details
+                  </p>
                 </div>
-              </div>
-            ))}
-            {selectedDate && filteredSessions.length === 0 && (
-              <Card className="text-center py-6">
-                <p className="text-gray-500 dark:text-gray-400">No workouts on this day</p>
               </Card>
             )}
-          </div>
-        </div>
-      )}
 
-      {/* Session Detail Modal */}
-      <Modal
-        isOpen={!!selectedSession}
-        onClose={() => setSelectedSession(null)}
-        title={selectedSession?.name || 'Workout Details'}
-      >
-        {selectedSession && (
-          <div className="space-y-4">
-            <div className="flex justify-between text-sm text-gray-500 dark:text-gray-400">
-              <span>{new Date(selectedSession.startedAt).toLocaleString()}</span>
-              <span>{formatDuration(selectedSession)}</span>
+            {/* Date filter indicator */}
+            {selectedDate && (
+              <div className="flex items-center justify-between bg-blue-50 dark:bg-blue-900/30 rounded-lg px-4 py-2">
+                <span className="text-sm text-blue-700 dark:text-blue-300">
+                  Showing workouts from{' '}
+                  {selectedDate.toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    month: 'long',
+                    day: 'numeric',
+                    year: 'numeric',
+                  })}
+                </span>
+                <button
+                  onClick={clearDateFilter}
+                  className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200"
+                >
+                  Clear filter
+                </button>
+              </div>
+            )}
+
+            {/* Session List */}
+            <div ref={listRef}>
+              {(selectedDate
+                ? [[selectedDate.toDateString(), filteredSessions]]
+                : Object.entries(groupedSessions)
+              ).map(([dateKey, sessions]) => (
+                <div key={dateKey as string} className="mb-6">
+                  <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
+                    {formatHistoryDate(
+                      (sessions as WorkoutSession[])[0]?.startedAt || (dateKey as string)
+                    )}
+                  </h2>
+                  <div className="space-y-3">
+                    {(sessions as WorkoutSession[]).map((session) => (
+                      <HistorySessionCard
+                        key={session.id}
+                        session={session}
+                        weightUnit={preferences.weightUnit}
+                        distanceUnit={preferences.distanceUnit}
+                        onClick={() => setSelectedSession(session)}
+                        onDeleteClick={(e) => handleDeleteClick(e, session)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
+              {selectedDate && filteredSessions.length === 0 && (
+                <Card className="text-center py-6">
+                  <p className="text-gray-500 dark:text-gray-400">No workouts on this day</p>
+                </Card>
+              )}
             </div>
-
-            {selectedSession.exercises.map((exercise, index) => {
-              const info = getExerciseById(exercise.exerciseId, customExercises);
-              const isCardio = exercise.type === 'cardio';
-              return (
-                <div key={index} className="border-t border-gray-200 dark:border-gray-700 pt-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <h4 className="font-medium text-gray-900 dark:text-gray-100">
-                      {info?.name || 'Unknown Exercise'}
-                    </h4>
-                    {isCardio && (
-                      <span className="text-xs px-2 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400">
-                        Cardio
-                      </span>
-                    )}
-                  </div>
-                  {exercise.sets.length > 0 ? (
-                    <div className="space-y-1">
-                      {exercise.sets.map((set, setIndex) => (
-                        <div
-                          key={setIndex}
-                          className="flex justify-between text-sm"
-                        >
-                          <span className="text-gray-500 dark:text-gray-400">
-                            {isCardio ? `Entry ${setIndex + 1}` : `Set ${setIndex + 1}`}
-                          </span>
-                          <span className="text-gray-900 dark:text-gray-100">
-                            {set.type === 'cardio' ? (
-                              <>
-                                {set.distance.toFixed(2)} {set.distanceUnit} in {formatCardioDuration(set.durationSeconds)}
-                                <span className="text-xs text-gray-500 ml-2">
-                                  ({calculatePace(set.distance, set.durationSeconds, set.distanceUnit)})
-                                </span>
-                              </>
-                            ) : (
-                              <>
-                                {('weight' in set ? set.weight : 0)} {('unit' in set ? set.unit : preferences.weightUnit)} x {('reps' in set ? set.reps : 0)} reps
-                              </>
-                            )}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-gray-400 italic">No sets recorded</p>
-                  )}
-                </div>
-              );
-            })}
-
-            {/* Summary */}
-            {(() => {
-              const sessionStats = calculateSessionStats(selectedSession);
-              const hasStrength = sessionStats.totalVolume > 0;
-              const hasCardio = sessionStats.totalCardioDistance > 0;
-              return (
-                <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
-                    <div>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                        {sessionStats.totalSets}
-                      </p>
-                      <p className="text-xs text-gray-500">Sets</p>
-                    </div>
-                    {hasStrength && (
-                      <>
-                        <div>
-                          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                            {sessionStats.totalReps}
-                          </p>
-                          <p className="text-xs text-gray-500">Reps</p>
-                        </div>
-                        <div>
-                          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                            {sessionStats.totalVolume.toLocaleString()}
-                          </p>
-                          <p className="text-xs text-gray-500">{preferences.weightUnit}</p>
-                        </div>
-                      </>
-                    )}
-                    {hasCardio && (
-                      <>
-                        <div>
-                          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                            {sessionStats.totalCardioDistance.toFixed(2)}
-                          </p>
-                          <p className="text-xs text-gray-500">{preferences.distanceUnit}</p>
-                        </div>
-                        <div>
-                          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                            {formatCardioDuration(sessionStats.totalCardioDurationSeconds)}
-                          </p>
-                          <p className="text-xs text-gray-500">Duration</p>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
-              );
-            })()}
           </div>
         )}
-      </Modal>
 
-      {/* Delete Confirmation Modal */}
-      <Modal
-        isOpen={!!sessionToDelete}
-        onClose={() => setSessionToDelete(null)}
-        title="Delete Workout"
-      >
-        <div className="space-y-4">
-          <p className="text-gray-600 dark:text-gray-400">
-            Are you sure you want to delete "{sessionToDelete?.name}"? This action cannot be undone.
-          </p>
-          <div className="flex gap-3">
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={() => setSessionToDelete(null)}
-              disabled={isDeleting}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="danger"
-              className="flex-1"
-              onClick={handleConfirmDelete}
-              disabled={isDeleting}
-            >
-              {isDeleting ? 'Deleting...' : 'Delete'}
-            </Button>
+        {/* Session Detail Modal */}
+        <SessionDetailModal
+          session={selectedSession}
+          customExercises={customExercises}
+          weightUnit={preferences.weightUnit}
+          distanceUnit={preferences.distanceUnit}
+          onClose={closeSessionDetail}
+        />
+
+        {/* Delete Confirmation Modal */}
+        <Modal
+          isOpen={!!sessionToDelete}
+          onClose={cancelDelete}
+          title="Delete Workout"
+        >
+          <div className="space-y-4">
+            <p className="text-gray-600 dark:text-gray-400">
+              Are you sure you want to delete "{sessionToDelete?.name}"? This action
+              cannot be undone.
+            </p>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={cancelDelete}
+                disabled={isDeleting}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                className="flex-1"
+                onClick={handleConfirmDelete}
+                disabled={isDeleting}
+              >
+                {isDeleting ? 'Deleting...' : 'Delete'}
+              </Button>
+            </div>
           </div>
-        </div>
-      </Modal>
+        </Modal>
       </div>
     </div>
   );
-}
+};
