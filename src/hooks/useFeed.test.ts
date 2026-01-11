@@ -34,7 +34,7 @@ describe('useFeed', () => {
       streak_count: null,
       started_at: '2024-01-01T08:00:00Z',
       completed_at: '2024-01-01T09:00:00Z',
-      user: { id: 'user-1', first_name: 'John', last_name: 'Doe', username: 'johnd' },
+      user: { id: 'user-1', first_name: 'John', last_name: 'Doe', username: 'johnd', avatar_url: null },
       session_exercises: [],
     },
     {
@@ -49,7 +49,7 @@ describe('useFeed', () => {
       streak_count: null,
       started_at: '2024-01-01T18:00:00Z',
       completed_at: '2024-01-01T19:00:00Z',
-      user: { id: 'user-2', first_name: 'Jane', last_name: 'Smith', username: 'janes' },
+      user: { id: 'user-2', first_name: 'Jane', last_name: 'Smith', username: 'janes', avatar_url: null },
       session_exercises: [],
     },
   ];
@@ -72,7 +72,7 @@ describe('useFeed', () => {
         user_id: 'user-2',
         content: 'Great workout!',
         created_at: '2024-01-01T10:00:00Z',
-        user: { id: 'user-2', first_name: 'Jane', last_name: 'Smith', username: 'janes' },
+        user: { id: 'user-2', first_name: 'Jane', last_name: 'Smith', username: 'janes', avatar_url: null },
         like_count: 0,
         has_liked: false,
       },
@@ -208,7 +208,7 @@ describe('useFeed', () => {
       streak_count: null,
       started_at: '2024-01-01T08:00:00Z',
       completed_at: '2024-01-01T09:00:00Z',
-      user: { id: 'user-1', first_name: 'John', last_name: 'Doe', username: 'johnd' },
+      user: { id: 'user-1', first_name: 'John', last_name: 'Doe', username: 'johnd', avatar_url: null },
       session_exercises: [],
     }));
 
@@ -225,7 +225,7 @@ describe('useFeed', () => {
         streak_count: null,
         started_at: '2024-01-02T08:00:00Z',
         completed_at: '2024-01-02T09:00:00Z',
-        user: { id: 'user-1', first_name: 'John', last_name: 'Doe', username: 'johnd' },
+        user: { id: 'user-1', first_name: 'John', last_name: 'Doe', username: 'johnd', avatar_url: null },
         session_exercises: [],
       },
     ];
@@ -313,7 +313,7 @@ describe('useFeed', () => {
         user_id: 'user-3',
         content: 'New comment!',
         created_at: '2024-01-01T12:00:00Z',
-        user: { id: 'user-3', first_name: 'Bob', last_name: 'Wilson', username: 'bobw' },
+        user: { id: 'user-3', first_name: 'Bob', last_name: 'Wilson', username: 'bobw', avatar_url: null },
         like_count: 0,
         has_liked: false,
       },

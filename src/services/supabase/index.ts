@@ -9,3 +9,4 @@ export * from './sync';
 export * from './friends';
 export * from './notifications';
 export * from './feed';
+export * from './avatar';

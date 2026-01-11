@@ -14,6 +14,7 @@ export interface FeedUser {
   first_name: string | null;
   last_name: string | null;
   username: string | null;
+  avatar_url: string | null;
 }
 
 export interface FeedSessionExercise {
@@ -118,7 +119,7 @@ export const getFriendWorkouts = async (
       started_at,
       completed_at,
       user:profiles!workout_sessions_user_id_profiles_fkey (
-        id, first_name, last_name, username
+        id, first_name, last_name, username, avatar_url
       ),
       session_exercises (
         id,
@@ -210,7 +211,7 @@ export const getWorkoutById = async (
       started_at,
       completed_at,
       user:profiles!workout_sessions_user_id_profiles_fkey (
-        id, first_name, last_name, username
+        id, first_name, last_name, username, avatar_url
       ),
       session_exercises (
         id,

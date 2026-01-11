@@ -15,6 +15,7 @@ describe('ProfileModal', () => {
     first_name: 'John',
     last_name: 'Doe',
     username: 'johnd',
+    avatar_url: null,
     experience_level: 'intermediate' as const,
     workout_goal: 'build' as const,
   };

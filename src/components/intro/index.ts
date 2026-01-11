@@ -21,4 +21,7 @@ export type { WeightStepProps } from './WeightStep';
 export { ApiKeyStep } from './ApiKeyStep';
 export type { ApiKeyStepProps } from './ApiKeyStep';
 
+export { ProfilePictureStep } from './ProfilePictureStep';
+export type { ProfilePictureStepProps } from './ProfilePictureStep';
+
 export type { IntroFormData } from './types';

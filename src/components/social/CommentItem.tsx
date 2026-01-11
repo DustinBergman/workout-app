@@ -1,6 +1,7 @@
 import { FC } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { WorkoutComment } from '../../services/supabase/comments';
+import { Avatar } from '../ui';
 
 interface CommentItemProps {
   comment: WorkoutComment;
@@ -32,12 +33,13 @@ export const CommentItem: FC<CommentItemProps> = ({
   return (
     <div className="flex gap-2">
       {/* Avatar - clickable */}
-      <button
+      <Avatar
+        src={comment.user.avatar_url}
+        name={comment.user.first_name || comment.user.username}
+        size="xs"
         onClick={onUserClick}
-        className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-primary text-xs font-semibold flex-shrink-0 hover:ring-2 hover:ring-primary/50 transition-all"
-      >
-        {(comment.user.first_name?.charAt(0) || comment.user.username?.charAt(0) || 'A').toUpperCase()}
-      </button>
+        className="flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
+      />
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 flex-wrap">

@@ -37,7 +37,7 @@ describe('useComments', () => {
       user_id: 'user-1',
       content: 'Great workout!',
       created_at: '2024-01-01T00:00:00Z',
-      user: { id: 'user-1', first_name: 'John', last_name: 'Doe', username: 'johnd' },
+      user: { id: 'user-1', first_name: 'John', last_name: 'Doe', username: 'johnd', avatar_url: null },
       like_count: 0,
       has_liked: false,
     },

@@ -7,6 +7,7 @@ export interface CommentUser {
   first_name: string | null;
   last_name: string | null;
   username: string | null;
+  avatar_url: string | null;
 }
 
 export interface WorkoutComment {
@@ -92,7 +93,8 @@ export const getWorkoutComments = async (
         id,
         first_name,
         last_name,
-        username
+        username,
+        avatar_url
       ),
       comment_likes (
         id,
@@ -200,7 +202,8 @@ export const getBatchPreviewComments = async (
         id,
         first_name,
         last_name,
-        username
+        username,
+        avatar_url
       ),
       comment_likes (
         id,

@@ -8,6 +8,7 @@ import {
   ExperienceLevelStep,
   PreferencesStep,
   WeightStep,
+  ProfilePictureStep,
   ApiKeyStep,
   GoalOption,
   UnitOption,
@@ -97,7 +98,7 @@ export const Intro: FC = () => {
     setHasCompletedIntro(true);
   };
 
-  const nextStep = () => setStep((s) => Math.min(s + 1, 5));
+  const nextStep = () => setStep((s) => Math.min(s + 1, 6));
   const prevStep = () => setStep((s) => Math.max(s - 1, 1));
 
   return (
@@ -105,7 +106,7 @@ export const Intro: FC = () => {
       <AnimatedBackground />
 
       <div className="relative z-10 flex flex-col min-h-screen p-6">
-        <ProgressIndicator currentStep={step} totalSteps={5} />
+        <ProgressIndicator currentStep={step} totalSteps={6} />
 
         <form onSubmit={handleSubmit(completeIntro)} className="flex-1 flex flex-col">
           {step === 1 && (
@@ -153,6 +154,17 @@ export const Intro: FC = () => {
           )}
 
           {step === 5 && (
+            <ProfilePictureStep
+              onBack={prevStep}
+              onNext={nextStep}
+              onAvatarUpload={() => {
+                // Avatar is uploaded directly in the component
+                // No additional handling needed here
+              }}
+            />
+          )}
+
+          {step === 6 && (
             <ApiKeyStep
               register={register}
               onBack={prevStep}

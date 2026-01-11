@@ -111,6 +111,7 @@ export const useComments = (
               first_name: user.user_metadata?.firstName || null,
               last_name: user.user_metadata?.lastName || null,
               username: user.user_metadata?.username || null,
+              avatar_url: user.user_metadata?.avatarUrl || null,
             },
             like_count: 0,
             has_liked: false,

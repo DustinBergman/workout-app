@@ -1,6 +1,6 @@
 import { FC, useState, useCallback, useRef, useEffect } from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { Card, Modal, Button } from '../ui';
+import { Card, Modal, Button, Avatar } from '../ui';
 import { FeedWorkout, calculateWorkoutSummary } from '../../services/supabase/feed';
 import { getExerciseById } from '../../data/exercises';
 import { LikeSummary } from '../../services/supabase/likes';
@@ -190,12 +190,13 @@ export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
       <div className="px-3 py-2.5 border-b border-border">
         <div className="flex items-center gap-2.5">
           {/* Avatar - clickable */}
-          <button
+          <Avatar
+            src={workout.user.avatar_url}
+            name={workout.user.first_name || workout.user.username}
+            size="sm"
             onClick={() => handleUserClick(workout.user_id)}
-            className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary text-sm font-semibold hover:ring-2 hover:ring-primary/50 transition-all flex-shrink-0"
-          >
-            {(workout.user.first_name?.charAt(0) || workout.user.username?.charAt(0) || 'A').toUpperCase()}
-          </button>
+            className="flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
+          />
           <div className="flex-1 min-w-0">
             {/* Name - clickable */}
             <button

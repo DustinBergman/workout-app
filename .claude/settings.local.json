@@ -15,7 +15,8 @@
       "Bash(ls:*)",
       "mcp__ide__getDiagnostics",
       "Bash(npx vitest:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(xargs cat:*)"
     ]
   }
 }

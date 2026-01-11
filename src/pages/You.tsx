@@ -1,12 +1,14 @@
-import { FC, useState } from 'react';
+import { FC, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import { useAppStore } from '../store/useAppStore';
-import { Card, Button } from '../components/ui';
+import { Card, Button, Avatar, Modal } from '../components/ui';
+import { AvatarUpload } from '../components/profile';
 import { useUserStats, TimePeriod } from '../hooks/useUserStats';
 import { MuscleGroup } from '../types';
 import { WeightChart } from '../components/you';
 import { WeightLogModal } from '../components/weight';
+import { getProfile } from '../services/supabase';
 
 const MUSCLE_GROUP_COLORS: Record<MuscleGroup, string> = {
   chest: '#ef4444',
@@ -40,12 +42,25 @@ const formatMuscleGroup = (mg: MuscleGroup): string => {
 export const You: FC = () => {
   const [timePeriod, setTimePeriod] = useState<TimePeriod>('all');
   const [showWeightModal, setShowWeightModal] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [showEditAvatar, setShowEditAvatar] = useState(false);
   const sessions = useAppStore((state) => state.sessions);
   const preferences = useAppStore((state) => state.preferences);
   const customExercises = useAppStore((state) => state.customExercises);
   const weightEntries = useAppStore((state) => state.weightEntries);
 
   const stats = useUserStats(sessions, timePeriod, customExercises, weightEntries);
+
+  // Fetch avatar on mount
+  useEffect(() => {
+    const loadAvatar = async () => {
+      const { profile } = await getProfile();
+      if (profile?.avatar_url) {
+        setAvatarUrl(profile.avatar_url);
+      }
+    };
+    loadAvatar();
+  }, []);
 
   const pieChartData = stats.muscleGroupBreakdown.map((item) => ({
     name: formatMuscleGroup(item.muscleGroup),
@@ -70,10 +85,23 @@ export const You: FC = () => {
         <Card className="mb-6" padding="lg">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              {/* Avatar */}
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center text-white text-2xl font-bold">
-                {preferences.firstName?.[0]?.toUpperCase() || '?'}
-              </div>
+              {/* Avatar - clickable to edit */}
+              <button
+                onClick={() => setShowEditAvatar(true)}
+                className="relative group"
+              >
+                <Avatar
+                  src={avatarUrl}
+                  name={preferences.firstName}
+                  size="xl"
+                />
+                <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </div>
+              </button>
               {/* Name and stats */}
               <div>
                 <h2 className="text-xl font-bold text-foreground">
@@ -374,6 +402,22 @@ export const You: FC = () => {
           isOpen={showWeightModal}
           onClose={() => setShowWeightModal(false)}
         />
+
+        {/* Avatar Edit Modal */}
+        <Modal
+          isOpen={showEditAvatar}
+          onClose={() => setShowEditAvatar(false)}
+          title="Profile Picture"
+        >
+          <AvatarUpload
+            currentAvatarUrl={avatarUrl}
+            userName={preferences.firstName}
+            onAvatarChange={(url) => {
+              setAvatarUrl(url);
+              setShowEditAvatar(false);
+            }}
+          />
+        </Modal>
       </div>
     </div>
   );

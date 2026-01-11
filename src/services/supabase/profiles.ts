@@ -7,6 +7,7 @@ export interface Profile {
   first_name: string | null;
   last_name: string | null;
   username: string | null;
+  avatar_url: string | null;
   weight_unit: 'lbs' | 'kg';
   distance_unit: 'mi' | 'km';
   default_rest_seconds: number;
@@ -201,6 +202,7 @@ export interface PublicProfile {
   first_name: string | null;
   last_name: string | null;
   username: string | null;
+  avatar_url: string | null;
   experience_level: ExperienceLevel;
   workout_goal: WorkoutGoal;
 }
@@ -213,7 +215,7 @@ export const getPublicProfile = async (
 ): Promise<{ profile: PublicProfile | null; error: Error | null }> => {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, first_name, last_name, username, experience_level, workout_goal')
+    .select('id, first_name, last_name, username, avatar_url, experience_level, workout_goal')
     .eq('id', userId)
     .single();
 

@@ -44,7 +44,7 @@ describe('Feed', () => {
       streak_count: null,
       started_at: '2024-01-01T08:00:00Z',
       completed_at: '2024-01-01T09:00:00Z',
-      user: { id: 'user-1', first_name: 'John', last_name: 'Doe', username: 'johnd' },
+      user: { id: 'user-1', first_name: 'John', last_name: 'Doe', username: 'johnd', avatar_url: null },
       session_exercises: [],
     },
     {
@@ -59,7 +59,7 @@ describe('Feed', () => {
       streak_count: null,
       started_at: '2024-01-01T18:00:00Z',
       completed_at: '2024-01-01T19:00:00Z',
-      user: { id: 'user-2', first_name: 'Jane', last_name: 'Smith', username: 'janes' },
+      user: { id: 'user-2', first_name: 'Jane', last_name: 'Smith', username: 'janes', avatar_url: null },
       session_exercises: [],
     },
   ];

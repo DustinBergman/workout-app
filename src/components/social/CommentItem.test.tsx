@@ -15,6 +15,7 @@ describe('CommentItem', () => {
       first_name: 'John',
       last_name: 'Doe',
       username: 'johnd',
+      avatar_url: null,
     },
     like_count: 0,
     has_liked: false,
@@ -60,6 +61,7 @@ describe('CommentItem', () => {
         first_name: null,
         last_name: null,
         username: 'johnd',
+        avatar_url: null,
       },
     };
     renderComponent(commentWithUsernameOnly);
@@ -76,6 +78,7 @@ describe('CommentItem', () => {
         first_name: null,
         last_name: null,
         username: null,
+        avatar_url: null,
       },
     };
     renderComponent(anonymousComment);

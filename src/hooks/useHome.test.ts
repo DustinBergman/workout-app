@@ -7,6 +7,8 @@ import { WorkoutTemplate, WorkoutSession, ProgressiveOverloadWeek } from '../typ
 // Mock openai service
 vi.mock('../services/openai', () => ({
   getProgressiveOverloadRecommendations: vi.fn().mockResolvedValue([]),
+  createSessionsHash: vi.fn((sessions) => sessions.map((s: { id: string }) => s.id).join('|')),
+  hasValidRecommendationsCache: vi.fn().mockReturnValue(false),
 }));
 
 const createMockTemplate = (overrides: Partial<WorkoutTemplate> = {}): WorkoutTemplate => ({

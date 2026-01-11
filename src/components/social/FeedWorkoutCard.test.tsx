@@ -103,6 +103,7 @@ describe('FeedWorkoutCard', () => {
       first_name: 'John',
       last_name: 'Doe',
       username: 'johnd',
+      avatar_url: null,
     },
     session_exercises: [
       {
@@ -280,7 +281,7 @@ describe('FeedWorkoutCard', () => {
         user_id: 'user-789',
         content: 'Nice work!',
         created_at: '2024-01-01T10:00:00Z',
-        user: { id: 'user-789', first_name: 'Jane', last_name: 'Smith', username: 'janes' },
+        user: { id: 'user-789', first_name: 'Jane', last_name: 'Smith', username: 'janes', avatar_url: null },
         like_count: 2,
         has_liked: false,
       },
@@ -307,6 +308,7 @@ describe('FeedWorkoutCard', () => {
         first_name: null,
         last_name: null,
         username: 'johnd',
+        avatar_url: null,
       },
     };
 
@@ -323,6 +325,7 @@ describe('FeedWorkoutCard', () => {
         first_name: null,
         last_name: null,
         username: null,
+        avatar_url: null,
       },
     };
 
@@ -360,6 +363,7 @@ describe('FeedWorkoutCard', () => {
           first_name: 'Current',
           last_name: 'User',
           username: 'currentuser',
+          avatar_url: null,
         },
       };
 

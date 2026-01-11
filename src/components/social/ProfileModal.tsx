@@ -1,6 +1,6 @@
 import { FC } from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { Modal, Button } from '../ui';
+import { Modal, Button, Avatar } from '../ui';
 import { useProfile, FriendshipStatus } from '../../hooks/useProfile';
 import { MuscleGroup } from '../../types';
 
@@ -114,9 +114,12 @@ export const ProfileModal: FC<ProfileModalProps> = ({
         <div className="space-y-4">
           {/* Profile Header */}
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center text-primary text-xl font-bold flex-shrink-0">
-              {(profile.first_name?.charAt(0) || profile.username?.charAt(0) || 'A').toUpperCase()}
-            </div>
+            <Avatar
+              src={profile.avatar_url}
+              name={profile.first_name || profile.username}
+              size="lg"
+              className="flex-shrink-0"
+            />
             <div className="min-w-0">
               <h2 className="text-lg font-semibold truncate">{displayName}</h2>
               {fullName && usernameDisplay && (

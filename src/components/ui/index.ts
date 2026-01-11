@@ -32,3 +32,6 @@ export { Navigation } from './Navigation';
 export { WeekBadge } from './WeekBadge';
 
 export { SyncIndicator } from './SyncIndicator';
+
+export { Avatar } from './Avatar';
+export type { AvatarProps } from './Avatar';
