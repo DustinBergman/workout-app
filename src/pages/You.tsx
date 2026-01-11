@@ -174,12 +174,24 @@ export const You: FC = () => {
         {/* Stats Content */}
         {hasEnoughData && (
           <div className="space-y-4">
-            {/* Strength Increase */}
+            {/* Strength Progress */}
             <Card padding="lg">
               <div className="flex items-center gap-3">
-                <div className="p-3 rounded-xl bg-green-100 dark:bg-green-900/30">
+                <div className={`p-3 rounded-xl ${
+                  stats.averageStrengthIncrease > 0
+                    ? 'bg-green-100 dark:bg-green-900/30'
+                    : stats.averageStrengthIncrease < 0
+                    ? 'bg-red-100 dark:bg-red-900/30'
+                    : 'bg-muted'
+                }`}>
                   <svg
-                    className="w-6 h-6 text-green-600 dark:text-green-400"
+                    className={`w-6 h-6 ${
+                      stats.averageStrengthIncrease > 0
+                        ? 'text-green-600 dark:text-green-400'
+                        : stats.averageStrengthIncrease < 0
+                        ? 'text-red-600 dark:text-red-400'
+                        : 'text-muted-foreground'
+                    }`}
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -192,14 +204,27 @@ export const You: FC = () => {
                     />
                   </svg>
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Avg Strength Increase</p>
-                  <p className="text-2xl font-bold text-foreground">
-                    {stats.averageStrengthIncrease > 0
-                      ? `+${stats.averageStrengthIncrease.toFixed(1)}%`
-                      : stats.totalSessions < 2
+                <div className="flex-1">
+                  <p className="text-sm text-muted-foreground">Strength Progress</p>
+                  <p className={`text-2xl font-bold ${
+                    stats.averageStrengthIncrease > 0
+                      ? 'text-green-600 dark:text-green-400'
+                      : stats.averageStrengthIncrease < 0
+                      ? 'text-red-600 dark:text-red-400'
+                      : 'text-foreground'
+                  }`}>
+                    {stats.totalSessions < 2
                       ? 'Need more data'
+                      : stats.averageStrengthIncrease > 0
+                      ? `+${stats.averageStrengthIncrease.toFixed(1)}%`
+                      : stats.averageStrengthIncrease < 0
+                      ? `${stats.averageStrengthIncrease.toFixed(1)}%`
                       : '0%'}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {stats.totalSessions < 2
+                      ? 'Complete more workouts to track progress'
+                      : 'Avg weight change per exercise (first vs latest)'}
                   </p>
                 </div>
               </div>

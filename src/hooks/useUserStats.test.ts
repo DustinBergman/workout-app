@@ -209,6 +209,319 @@ describe('useUserStats', () => {
       const { result } = renderHook(() => useUserStats(sessions, 'all'));
       expect(result.current.averageStrengthIncrease).toBe(0);
     });
+
+    it('should calculate negative strength change (regression)', () => {
+      const oldDate = new Date();
+      oldDate.setDate(oldDate.getDate() - 30);
+      const newDate = new Date();
+
+      const sessions: WorkoutSession[] = [
+        {
+          id: 'session-1',
+          name: 'Workout 1',
+          startedAt: oldDate.toISOString(),
+          completedAt: oldDate.toISOString(),
+          exercises: [
+            createStrengthExercise('bench-press', [
+              createStrengthSet(100, 10),
+            ]),
+          ],
+        },
+        {
+          id: 'session-2',
+          name: 'Workout 2',
+          startedAt: newDate.toISOString(),
+          completedAt: newDate.toISOString(),
+          exercises: [
+            createStrengthExercise('bench-press', [
+              createStrengthSet(90, 10), // 10% decrease
+            ]),
+          ],
+        },
+      ];
+
+      const { result } = renderHook(() => useUserStats(sessions, 'all'));
+      expect(result.current.averageStrengthIncrease).toBe(-10);
+    });
+
+    it('should return 0 when weight stays the same', () => {
+      const oldDate = new Date();
+      oldDate.setDate(oldDate.getDate() - 30);
+      const newDate = new Date();
+
+      const sessions: WorkoutSession[] = [
+        {
+          id: 'session-1',
+          name: 'Workout 1',
+          startedAt: oldDate.toISOString(),
+          completedAt: oldDate.toISOString(),
+          exercises: [
+            createStrengthExercise('bench-press', [
+              createStrengthSet(100, 10),
+            ]),
+          ],
+        },
+        {
+          id: 'session-2',
+          name: 'Workout 2',
+          startedAt: newDate.toISOString(),
+          completedAt: newDate.toISOString(),
+          exercises: [
+            createStrengthExercise('bench-press', [
+              createStrengthSet(100, 10), // Same weight
+            ]),
+          ],
+        },
+      ];
+
+      const { result } = renderHook(() => useUserStats(sessions, 'all'));
+      expect(result.current.averageStrengthIncrease).toBe(0);
+    });
+
+    it('should average progress across multiple exercises', () => {
+      const oldDate = new Date();
+      oldDate.setDate(oldDate.getDate() - 30);
+      const newDate = new Date();
+
+      const sessions: WorkoutSession[] = [
+        {
+          id: 'session-1',
+          name: 'Workout 1',
+          startedAt: oldDate.toISOString(),
+          completedAt: oldDate.toISOString(),
+          exercises: [
+            createStrengthExercise('bench-press', [createStrengthSet(100, 10)]),
+            createStrengthExercise('squat', [createStrengthSet(200, 10)]),
+          ],
+        },
+        {
+          id: 'session-2',
+          name: 'Workout 2',
+          startedAt: newDate.toISOString(),
+          completedAt: newDate.toISOString(),
+          exercises: [
+            createStrengthExercise('bench-press', [createStrengthSet(120, 10)]), // +20%
+            createStrengthExercise('squat', [createStrengthSet(210, 10)]), // +5%
+          ],
+        },
+      ];
+
+      const { result } = renderHook(() => useUserStats(sessions, 'all'));
+      // Average of 20% and 5% = 12.5%
+      expect(result.current.averageStrengthIncrease).toBe(12.5);
+    });
+
+    it('should handle mixed positive and negative changes', () => {
+      const oldDate = new Date();
+      oldDate.setDate(oldDate.getDate() - 30);
+      const newDate = new Date();
+
+      const sessions: WorkoutSession[] = [
+        {
+          id: 'session-1',
+          name: 'Workout 1',
+          startedAt: oldDate.toISOString(),
+          completedAt: oldDate.toISOString(),
+          exercises: [
+            createStrengthExercise('bench-press', [createStrengthSet(100, 10)]),
+            createStrengthExercise('squat', [createStrengthSet(200, 10)]),
+          ],
+        },
+        {
+          id: 'session-2',
+          name: 'Workout 2',
+          startedAt: newDate.toISOString(),
+          completedAt: newDate.toISOString(),
+          exercises: [
+            createStrengthExercise('bench-press', [createStrengthSet(110, 10)]), // +10%
+            createStrengthExercise('squat', [createStrengthSet(180, 10)]), // -10%
+          ],
+        },
+      ];
+
+      const { result } = renderHook(() => useUserStats(sessions, 'all'));
+      // Average of +10% and -10% = 0%
+      expect(result.current.averageStrengthIncrease).toBe(0);
+    });
+
+    it('should use average weight when multiple sets per exercise', () => {
+      const oldDate = new Date();
+      oldDate.setDate(oldDate.getDate() - 30);
+      const newDate = new Date();
+
+      const sessions: WorkoutSession[] = [
+        {
+          id: 'session-1',
+          name: 'Workout 1',
+          startedAt: oldDate.toISOString(),
+          completedAt: oldDate.toISOString(),
+          exercises: [
+            createStrengthExercise('bench-press', [
+              createStrengthSet(100, 10),
+              createStrengthSet(100, 10),
+              createStrengthSet(100, 10),
+            ]), // avg = 100
+          ],
+        },
+        {
+          id: 'session-2',
+          name: 'Workout 2',
+          startedAt: newDate.toISOString(),
+          completedAt: newDate.toISOString(),
+          exercises: [
+            createStrengthExercise('bench-press', [
+              createStrengthSet(100, 10),
+              createStrengthSet(110, 10),
+              createStrengthSet(120, 10),
+            ]), // avg = 110
+          ],
+        },
+      ];
+
+      const { result } = renderHook(() => useUserStats(sessions, 'all'));
+      // 100 -> 110 = 10% increase
+      expect(result.current.averageStrengthIncrease).toBe(10);
+    });
+
+    it('should compare first and last session for exercise (not max)', () => {
+      const date1 = new Date();
+      date1.setDate(date1.getDate() - 30);
+      const date2 = new Date();
+      date2.setDate(date2.getDate() - 15);
+      const date3 = new Date();
+
+      const sessions: WorkoutSession[] = [
+        {
+          id: 'session-1',
+          name: 'Workout 1',
+          startedAt: date1.toISOString(),
+          completedAt: date1.toISOString(),
+          exercises: [
+            createStrengthExercise('bench-press', [createStrengthSet(100, 10)]),
+          ],
+        },
+        {
+          id: 'session-2',
+          name: 'Workout 2',
+          startedAt: date2.toISOString(),
+          completedAt: date2.toISOString(),
+          exercises: [
+            createStrengthExercise('bench-press', [createStrengthSet(120, 10)]), // Peak
+          ],
+        },
+        {
+          id: 'session-3',
+          name: 'Workout 3',
+          startedAt: date3.toISOString(),
+          completedAt: date3.toISOString(),
+          exercises: [
+            createStrengthExercise('bench-press', [createStrengthSet(105, 10)]), // Latest
+          ],
+        },
+      ];
+
+      const { result } = renderHook(() => useUserStats(sessions, 'all'));
+      // Compares first (100) to latest (105) = 5% increase, not peak (120)
+      expect(result.current.averageStrengthIncrease).toBe(5);
+    });
+
+    it('should only include exercises with 2+ data points', () => {
+      const oldDate = new Date();
+      oldDate.setDate(oldDate.getDate() - 30);
+      const newDate = new Date();
+
+      const sessions: WorkoutSession[] = [
+        {
+          id: 'session-1',
+          name: 'Workout 1',
+          startedAt: oldDate.toISOString(),
+          completedAt: oldDate.toISOString(),
+          exercises: [
+            createStrengthExercise('bench-press', [createStrengthSet(100, 10)]),
+            createStrengthExercise('squat', [createStrengthSet(200, 10)]),
+          ],
+        },
+        {
+          id: 'session-2',
+          name: 'Workout 2',
+          startedAt: newDate.toISOString(),
+          completedAt: newDate.toISOString(),
+          exercises: [
+            createStrengthExercise('bench-press', [createStrengthSet(110, 10)]), // +10%
+            // squat not done - only 1 data point, should be excluded
+            createStrengthExercise('deadlift', [createStrengthSet(300, 5)]), // Only 1 data point
+          ],
+        },
+      ];
+
+      const { result } = renderHook(() => useUserStats(sessions, 'all'));
+      // Only bench press has 2+ data points, so average = 10%
+      expect(result.current.averageStrengthIncrease).toBe(10);
+    });
+  });
+
+  describe('weight change per week', () => {
+    it('should calculate positive weight gain per week', () => {
+      const oldDate = new Date();
+      oldDate.setDate(oldDate.getDate() - 14); // 2 weeks ago
+      const newDate = new Date();
+
+      const weightEntries = [
+        { weight: 150, date: oldDate.toISOString(), unit: 'lbs' as const },
+        { weight: 152, date: newDate.toISOString(), unit: 'lbs' as const }, // +2 lbs over 2 weeks
+      ];
+
+      // Need at least one session for weight change to be calculated
+      const sessions = [createMockSession({}, 0)];
+
+      const { result } = renderHook(() =>
+        useUserStats(sessions, 'all', [], weightEntries)
+      );
+      // (152-150)/150 * 100 = 1.33% over 2 weeks = 0.67% per week
+      expect(result.current.averageWeightChangePerWeek).toBeCloseTo(0.67, 1);
+    });
+
+    it('should calculate negative weight loss per week', () => {
+      const oldDate = new Date();
+      oldDate.setDate(oldDate.getDate() - 7); // 1 week ago
+      const newDate = new Date();
+
+      const weightEntries = [
+        { weight: 200, date: oldDate.toISOString(), unit: 'lbs' as const },
+        { weight: 198, date: newDate.toISOString(), unit: 'lbs' as const }, // -2 lbs over 1 week
+      ];
+
+      // Need at least one session for weight change to be calculated
+      const sessions = [createMockSession({}, 0)];
+
+      const { result } = renderHook(() =>
+        useUserStats(sessions, 'all', [], weightEntries)
+      );
+      // (198-200)/200 * 100 = -1% over 1 week = -1% per week
+      expect(result.current.averageWeightChangePerWeek).toBeCloseTo(-1, 1);
+    });
+
+    it('should return 0 with only one weight entry', () => {
+      const weightEntries = [
+        { weight: 150, date: new Date().toISOString(), unit: 'lbs' as const },
+      ];
+
+      const sessions = [createMockSession({}, 0)];
+
+      const { result } = renderHook(() =>
+        useUserStats(sessions, 'all', [], weightEntries)
+      );
+      expect(result.current.averageWeightChangePerWeek).toBe(0);
+    });
+
+    it('should return 0 with no weight entries', () => {
+      const sessions = [createMockSession({}, 0)];
+
+      const { result } = renderHook(() =>
+        useUserStats(sessions, 'all', [], [])
+      );
+      expect(result.current.averageWeightChangePerWeek).toBe(0);
+    });
   });
 
   describe('memoization', () => {

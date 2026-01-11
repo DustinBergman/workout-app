@@ -68,7 +68,7 @@ const calculateStrengthProgress = (
   });
 
   // Calculate progress for exercises with 2+ data points
-  const increases: number[] = [];
+  const changes: number[] = [];
 
   exerciseHistory.forEach((history) => {
     if (history.length < 2) return;
@@ -79,15 +79,16 @@ const calculateStrengthProgress = (
     const firstWeight = history[0].avgWeight;
     const lastWeight = history[history.length - 1].avgWeight;
 
-    if (firstWeight > 0 && lastWeight > firstWeight) {
-      const increase = ((lastWeight - firstWeight) / firstWeight) * 100;
-      increases.push(increase);
+    if (firstWeight > 0) {
+      // Include all changes (positive, negative, or zero)
+      const change = ((lastWeight - firstWeight) / firstWeight) * 100;
+      changes.push(change);
     }
   });
 
-  if (increases.length === 0) return 0;
+  if (changes.length === 0) return 0;
 
-  return increases.reduce((sum, inc) => sum + inc, 0) / increases.length;
+  return changes.reduce((sum, change) => sum + change, 0) / changes.length;
 };
 
 const calculateMuscleGroupBreakdown = (
