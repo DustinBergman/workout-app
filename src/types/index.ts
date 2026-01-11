@@ -379,12 +379,21 @@ export type CardioTemplateExercise =
 // Template Exercise Union Type
 export type TemplateExercise = StrengthTemplateExercise | CardioTemplateExercise;
 
+// Attribution for copied templates
+export interface TemplateCopiedFrom {
+  userId: string;
+  username: string | null;
+  firstName: string | null;
+  lastName: string | null;
+}
+
 // Workout Template
 export interface WorkoutTemplate {
   id: string;
   name: string;
   templateType: TemplateType;  // 'strength' or 'cardio'
   exercises: TemplateExercise[];
+  copiedFrom?: TemplateCopiedFrom;  // Attribution if copied from another user
   createdAt: string;
   updatedAt: string;
 }

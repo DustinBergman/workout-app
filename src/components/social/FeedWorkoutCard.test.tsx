@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { FeedWorkoutCard } from './FeedWorkoutCard';
+
+const mockAddTemplate = vi.fn();
 
 // Mock the hooks
 vi.mock('../../hooks/useLikes', () => ({
@@ -22,6 +24,17 @@ vi.mock('../../hooks/useComments', () => ({
     deleteComment: vi.fn(),
     toggleCommentLike: vi.fn(),
   })),
+}));
+
+vi.mock('../../store/useAppStore', () => ({
+  useAppStore: vi.fn((selector) => {
+    const state = {
+      customExercises: [],
+      deleteSession: vi.fn(),
+      addTemplate: mockAddTemplate,
+    };
+    return selector(state);
+  }),
 }));
 
 vi.mock('../../hooks/useAuth', () => ({
@@ -61,6 +74,15 @@ vi.mock('../../data/exercises', () => ({
     type: 'strength',
     muscleGroups: ['chest'],
   })),
+  getAllExercises: vi.fn(() => [
+    {
+      id: 'bench-press',
+      name: 'Bench Press',
+      type: 'strength',
+      muscleGroups: ['chest'],
+      equipment: 'barbell',
+    },
+  ]),
 }));
 
 describe('FeedWorkoutCard', () => {
@@ -306,5 +328,142 @@ describe('FeedWorkoutCard', () => {
     render(<FeedWorkoutCard workout={workoutWithAnonymousUser} />);
 
     expect(screen.getByText('Anonymous')).toBeInTheDocument();
+  });
+
+  describe('three-dot menu', () => {
+    it('should show menu button on all workouts', () => {
+      render(<FeedWorkoutCard workout={mockWorkout} />);
+
+      const menuButton = screen.getByLabelText('More options');
+      expect(menuButton).toBeInTheDocument();
+    });
+
+    it('should show "Copy to plans" option for other users workouts', () => {
+      // mockWorkout has user_id: 'user-456', current user is 'current-user-123'
+      render(<FeedWorkoutCard workout={mockWorkout} />);
+
+      // Open the menu
+      const menuButton = screen.getByLabelText('More options');
+      fireEvent.click(menuButton);
+
+      expect(screen.getByText('Copy to plans')).toBeInTheDocument();
+      expect(screen.queryByText('Delete workout')).not.toBeInTheDocument();
+    });
+
+    it('should show "Delete workout" option only for own workouts', () => {
+      const ownWorkout = {
+        ...mockWorkout,
+        user_id: 'current-user-123',
+        user: {
+          id: 'current-user-123',
+          first_name: 'Current',
+          last_name: 'User',
+          username: 'currentuser',
+        },
+      };
+
+      render(<FeedWorkoutCard workout={ownWorkout} />);
+
+      // Open the menu
+      const menuButton = screen.getByLabelText('More options');
+      fireEvent.click(menuButton);
+
+      expect(screen.getByText('Delete workout')).toBeInTheDocument();
+      expect(screen.queryByText('Copy to plans')).not.toBeInTheDocument();
+    });
+
+    it('should open copy modal when "Copy to plans" is clicked', () => {
+      render(<FeedWorkoutCard workout={mockWorkout} />);
+
+      // Open the menu
+      const menuButton = screen.getByLabelText('More options');
+      fireEvent.click(menuButton);
+
+      // Click "Copy to plans"
+      fireEvent.click(screen.getByText('Copy to plans'));
+
+      // Modal should open with title
+      expect(screen.getByText('Copy Workout to Plans')).toBeInTheDocument();
+      expect(screen.getByText('Plan Name')).toBeInTheDocument();
+    });
+
+    it('should pre-fill template name with workout name in copy modal', () => {
+      render(<FeedWorkoutCard workout={mockWorkout} />);
+
+      // Open the menu and click copy
+      fireEvent.click(screen.getByLabelText('More options'));
+      fireEvent.click(screen.getByText('Copy to plans'));
+
+      // Check input has workout name pre-filled
+      const input = screen.getByDisplayValue('Morning Push Day');
+      expect(input).toBeInTheDocument();
+    });
+
+    it('should show attribution in copy modal', () => {
+      render(<FeedWorkoutCard workout={mockWorkout} />);
+
+      // Open the menu and click copy
+      fireEvent.click(screen.getByLabelText('More options'));
+      fireEvent.click(screen.getByText('Copy to plans'));
+
+      // Should show who the workout is from
+      expect(screen.getByText('From @johnd')).toBeInTheDocument();
+    });
+
+    it('should call addTemplate when copy is confirmed', async () => {
+      render(<FeedWorkoutCard workout={mockWorkout} />);
+
+      // Open the menu and click copy
+      fireEvent.click(screen.getByLabelText('More options'));
+      fireEvent.click(screen.getByText('Copy to plans'));
+
+      // Click the "Copy to Plans" button in the modal
+      const copyButton = screen.getByRole('button', { name: 'Copy to Plans' });
+      fireEvent.click(copyButton);
+
+      await waitFor(() => {
+        expect(mockAddTemplate).toHaveBeenCalledTimes(1);
+      });
+
+      // Verify the template has correct structure
+      const calledTemplate = mockAddTemplate.mock.calls[0][0];
+      expect(calledTemplate.name).toBe('Morning Push Day');
+      expect(calledTemplate.copiedFrom).toEqual({
+        userId: 'user-456',
+        username: 'johnd',
+        firstName: 'John',
+        lastName: 'Doe',
+      });
+    });
+
+    it('should close menu when clicking outside', () => {
+      render(<FeedWorkoutCard workout={mockWorkout} />);
+
+      // Open the menu
+      const menuButton = screen.getByLabelText('More options');
+      fireEvent.click(menuButton);
+
+      expect(screen.getByText('Copy to plans')).toBeInTheDocument();
+
+      // Click outside (on the card)
+      fireEvent.mouseDown(document.body);
+
+      expect(screen.queryByText('Copy to plans')).not.toBeInTheDocument();
+    });
+
+    it('should close copy modal when cancel is clicked', () => {
+      render(<FeedWorkoutCard workout={mockWorkout} />);
+
+      // Open the menu and click copy
+      fireEvent.click(screen.getByLabelText('More options'));
+      fireEvent.click(screen.getByText('Copy to plans'));
+
+      expect(screen.getByText('Copy Workout to Plans')).toBeInTheDocument();
+
+      // Click cancel
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+      expect(screen.queryByText('Copy Workout to Plans')).not.toBeInTheDocument();
+    });
   });
 });

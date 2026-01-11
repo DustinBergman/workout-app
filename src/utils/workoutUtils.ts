@@ -9,7 +9,14 @@ import {
   CardioCompletedSet,
   SessionExercise,
   StrengthSessionExercise,
+  TemplateExercise,
+  StrengthTemplateExercise,
+  CardioTemplateExercise,
+  CARDIO_TYPE_TO_CATEGORY,
+  TemplateCopiedFrom,
 } from '../types';
+import { FeedWorkout } from '../services/supabase/feed';
+import { getAllExercises } from '../data/exercises';
 
 /**
  * Convert weight between units (lbs <-> kg)
@@ -191,4 +198,117 @@ export const isStrengthSessionExercise = (
   exercise: SessionExercise
 ): exercise is StrengthSessionExercise => {
   return exercise.type === 'strength';
+};
+
+/**
+ * Convert a FeedWorkout to a WorkoutTemplate
+ * Used when copying a friend's workout to your plans
+ */
+export const convertFeedWorkoutToTemplate = (
+  workout: FeedWorkout,
+  templateName: string,
+  customExercises: Exercise[] = []
+): WorkoutTemplate => {
+  const now = new Date().toISOString();
+  const allExercises = getAllExercises(customExercises);
+
+  // Determine template type from exercises
+  const hasStrength = workout.session_exercises.some(ex => ex.type === 'strength');
+  const hasCardio = workout.session_exercises.some(ex => ex.type === 'cardio');
+  const templateType = hasCardio && !hasStrength ? 'cardio' : 'strength';
+
+  // Convert exercises
+  const exercises: TemplateExercise[] = workout.session_exercises
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .map((ex): TemplateExercise | null => {
+      if (ex.type === 'strength') {
+        const strengthEx: StrengthTemplateExercise = {
+          type: 'strength',
+          exerciseId: ex.exercise_id,
+          targetSets: ex.target_sets || ex.completed_sets.length || 3,
+          targetReps: ex.target_reps || 10,
+          restSeconds: ex.rest_seconds || 90,
+        };
+        return strengthEx;
+      } else {
+        // Cardio - determine category from exercise definition
+        const exerciseInfo = allExercises.find(e => e.id === ex.exercise_id);
+        if (!exerciseInfo || exerciseInfo.type !== 'cardio') {
+          // Unknown cardio exercise - use 'other' category
+          const otherCardio: CardioTemplateExercise = {
+            type: 'cardio',
+            cardioCategory: 'other',
+            exerciseId: ex.exercise_id,
+            targetDurationMinutes: 20,
+            restSeconds: ex.rest_seconds || 60,
+          };
+          return otherCardio;
+        }
+
+        const cardioType = (exerciseInfo as CardioExercise).cardioType;
+        const category = CARDIO_TYPE_TO_CATEGORY[cardioType];
+
+        // Build cardio template based on category
+        const baseCardio = {
+          type: 'cardio' as const,
+          exerciseId: ex.exercise_id,
+          restSeconds: ex.rest_seconds || 60,
+        };
+
+        switch (category) {
+          case 'distance':
+            return {
+              ...baseCardio,
+              cardioCategory: 'distance',
+              targetDurationMinutes: 30,
+            } as CardioTemplateExercise;
+          case 'interval':
+            return {
+              ...baseCardio,
+              cardioCategory: 'interval',
+              rounds: 4,
+              workSeconds: 30,
+              restBetweenRoundsSeconds: 15,
+            } as CardioTemplateExercise;
+          case 'laps':
+            return {
+              ...baseCardio,
+              cardioCategory: 'laps',
+              targetLaps: 20,
+            } as CardioTemplateExercise;
+          case 'duration':
+            return {
+              ...baseCardio,
+              cardioCategory: 'duration',
+              targetDurationMinutes: 20,
+              targetIntensity: 'moderate',
+            } as CardioTemplateExercise;
+          default:
+            return {
+              ...baseCardio,
+              cardioCategory: 'other',
+              targetDurationMinutes: 20,
+            } as CardioTemplateExercise;
+        }
+      }
+    })
+    .filter((ex): ex is TemplateExercise => ex !== null);
+
+  // Build copiedFrom attribution
+  const copiedFrom: TemplateCopiedFrom = {
+    userId: workout.user_id,
+    username: workout.user.username,
+    firstName: workout.user.first_name,
+    lastName: workout.user.last_name,
+  };
+
+  return {
+    id: crypto.randomUUID(),
+    name: templateName,
+    templateType,
+    exercises,
+    copiedFrom,
+    createdAt: now,
+    updatedAt: now,
+  };
 };

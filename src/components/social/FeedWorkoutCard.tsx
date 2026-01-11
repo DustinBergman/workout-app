@@ -9,12 +9,14 @@ import { LikeButton } from './LikeButton';
 import { CommentsSection } from './CommentsSection';
 import { LikersModal } from './LikersModal';
 import { ProfileModal } from './ProfileModal';
+import { CopyWorkoutModal } from './CopyWorkoutModal';
 import { useLikes } from '../../hooks/useLikes';
 import { useAppStore } from '../../store/useAppStore';
 import { useAuth } from '../../hooks/useAuth';
 import { WORKOUT_MOOD_CONFIG, getWeekConfigForGoal } from '../../types';
 import { deleteSession } from '../../services/supabase/sessions';
 import { toast } from '../../store/toastStore';
+import { convertFeedWorkoutToTemplate } from '../../utils/workoutUtils';
 
 interface FeedWorkoutCardProps {
   workout: FeedWorkout;
@@ -48,11 +50,13 @@ export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
   const [previewComments, setPreviewComments] = useState<WorkoutComment[]>(initialPreviewComments);
   const [showMenu, setShowMenu] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showCopyModal, setShowCopyModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const customExercises = useAppStore((state) => state.customExercises);
   const deleteSessionFromStore = useAppStore((state) => state.deleteSession);
+  const addTemplate = useAppStore((state) => state.addTemplate);
   const { user } = useAuth();
 
   const isOwnWorkout = user?.id === workout.user_id;
@@ -169,6 +173,17 @@ export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
     }
   }, [workout.id, deleteSessionFromStore, onDelete]);
 
+  const handleCopyWorkout = useCallback((templateName: string) => {
+    try {
+      const template = convertFeedWorkoutToTemplate(workout, templateName, customExercises);
+      addTemplate(template);
+      toast.success('Workout copied to your plans!');
+    } catch (err) {
+      console.error('Copy error:', err);
+      toast.error('Failed to copy workout');
+    }
+  }, [workout, customExercises, addTemplate]);
+
   return (
     <Card className="overflow-hidden" padding="none">
       {/* Header */}
@@ -196,21 +211,37 @@ export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
               <span>{formatDistanceToNow(new Date(workout.completed_at || workout.started_at), { addSuffix: true })}</span>
             </div>
           </div>
-          {/* Three-dot menu (only for own workouts) */}
-          {isOwnWorkout && (
-            <div className="relative" ref={menuRef}>
-              <button
-                onClick={() => setShowMenu(!showMenu)}
-                className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors"
-                aria-label="More options"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                </svg>
-              </button>
-              {/* Dropdown menu */}
-              {showMenu && (
-                <div className="absolute right-0 top-full mt-1 w-40 bg-background border border-border rounded-lg shadow-lg z-50 py-1">
+          {/* Three-dot menu */}
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={() => setShowMenu(!showMenu)}
+              className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors"
+              aria-label="More options"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+              </svg>
+            </button>
+            {/* Dropdown menu */}
+            {showMenu && (
+              <div className="absolute right-0 top-full mt-1 w-44 bg-background border border-border rounded-lg shadow-lg z-50 py-1">
+                {/* Copy workout - only for other users' workouts */}
+                {!isOwnWorkout && (
+                  <button
+                    onClick={() => {
+                      setShowMenu(false);
+                      setShowCopyModal(true);
+                    }}
+                    className="w-full px-4 py-2 text-left text-sm hover:bg-muted transition-colors flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    Copy to plans
+                  </button>
+                )}
+                {/* Delete workout - owner only */}
+                {isOwnWorkout && (
                   <button
                     onClick={() => {
                       setShowMenu(false);
@@ -223,10 +254,10 @@ export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
                     </svg>
                     Delete workout
                   </button>
-                </div>
-              )}
-            </div>
-          )}
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -519,6 +550,14 @@ export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
           </div>
         </div>
       </Modal>
+
+      {/* Copy Workout Modal */}
+      <CopyWorkoutModal
+        isOpen={showCopyModal}
+        onClose={() => setShowCopyModal(false)}
+        workout={workout}
+        onCopy={handleCopyWorkout}
+      />
     </Card>
   );
 };

@@ -32,6 +32,15 @@ export const PlansSection: FC<PlansSectionProps> = ({
               <p className="text-sm text-muted-foreground">
                 {template.exercises.length} exercises
               </p>
+              {template.copiedFrom && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  From {template.copiedFrom.username ? `@${template.copiedFrom.username}` :
+                    `${template.copiedFrom.firstName || ''} ${template.copiedFrom.lastName || ''}`.trim() || 'a friend'}
+                </p>
+              )}
             </div>
             <Button size="sm" onClick={() => onStartWorkout(template)}>
               Start

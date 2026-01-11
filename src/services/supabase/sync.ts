@@ -72,6 +72,7 @@ export const syncAddTemplate = async (template: WorkoutTemplate): Promise<void> 
       user_id: userId,
       name: template.name,
       template_type: template.templateType,
+      copied_from: template.copiedFrom || null,
       created_at: template.createdAt,
       updated_at: template.updatedAt,
     })
@@ -131,6 +132,7 @@ export const syncUpdateTemplate = async (template: WorkoutTemplate): Promise<voi
     .update({
       name: template.name,
       template_type: template.templateType,
+      copied_from: template.copiedFrom || null,
       updated_at: template.updatedAt,
     })
     .eq('id', template.id)

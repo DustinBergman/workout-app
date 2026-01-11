@@ -1,6 +1,6 @@
 import { supabase } from '../../lib/supabase';
 import { getAuthUser } from './authHelper';
-import type { WorkoutTemplate, TemplateExercise, TemplateType } from '../../types';
+import type { WorkoutTemplate, TemplateExercise, TemplateType, TemplateCopiedFrom } from '../../types';
 
 interface DbTemplateExercise {
   id: string;
@@ -28,6 +28,7 @@ interface DbWorkoutTemplate {
   name: string;
   template_type: TemplateType;
   sort_order: number;
+  copied_from: TemplateCopiedFrom | null;
   created_at: string;
   updated_at: string;
   template_exercises?: DbTemplateExercise[];
@@ -77,6 +78,7 @@ export const createTemplate = async (
       user_id: user.id,
       name: template.name,
       template_type: template.templateType,
+      copied_from: template.copiedFrom || null,
     })
     .select()
     .single();
@@ -203,6 +205,7 @@ const dbTemplateToTemplate = (dbTemplate: DbWorkoutTemplate): WorkoutTemplate =>
   exercises: (dbTemplate.template_exercises || [])
     .sort((a, b) => a.sort_order - b.sort_order)
     .map(dbExerciseToTemplateExercise),
+  copiedFrom: dbTemplate.copied_from ?? undefined,
   createdAt: dbTemplate.created_at,
   updatedAt: dbTemplate.updated_at,
 });
