@@ -1,7 +1,8 @@
 import { FC, useRef, useState } from 'react';
-import { Card, Button, Avatar } from '../ui';
+import { Card, Button, Avatar, Modal } from '../ui';
 import { StepNavigation } from './StepNavigation';
 import { uploadAvatar, validateAvatarFile } from '../../services/supabase/avatar';
+import { ImageCropper } from '../profile/ImageCropper';
 
 export interface ProfilePictureStepProps {
   onBack: () => void;
@@ -16,8 +17,10 @@ export const ProfilePictureStep: FC<ProfilePictureStepProps> = ({
 }) => {
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const libraryInputRef = useRef<HTMLInputElement>(null);
+  const [showCropper, setShowCropper] = useState(false);
+  const [imageToCrop, setImageToCrop] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [croppedBlob, setCroppedBlob] = useState<Blob | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,16 +35,33 @@ export const ProfilePictureStep: FC<ProfilePictureStepProps> = ({
     }
 
     setError(null);
-    setSelectedFile(file);
 
-    // Show preview
+    // Show cropper
     const reader = new FileReader();
-    reader.onload = (e) => setPreviewUrl(e.target?.result as string);
+    reader.onload = (e) => {
+      setImageToCrop(e.target?.result as string);
+      setShowCropper(true);
+    };
     reader.readAsDataURL(file);
   };
 
+  const handleCropComplete = (blob: Blob) => {
+    const url = URL.createObjectURL(blob);
+    setPreviewUrl(url);
+    setCroppedBlob(blob);
+    setShowCropper(false);
+    setImageToCrop(null);
+  };
+
+  const handleCropCancel = () => {
+    setShowCropper(false);
+    setImageToCrop(null);
+    if (cameraInputRef.current) cameraInputRef.current.value = '';
+    if (libraryInputRef.current) libraryInputRef.current.value = '';
+  };
+
   const handleNext = async () => {
-    if (!selectedFile) {
+    if (!croppedBlob) {
       // Skip - no photo selected
       onAvatarUpload(null);
       onNext();
@@ -52,11 +72,16 @@ export const ProfilePictureStep: FC<ProfilePictureStepProps> = ({
     setError(null);
 
     try {
-      const { url, error: uploadError } = await uploadAvatar(selectedFile);
+      const file = new File([croppedBlob], 'avatar.jpg', { type: 'image/jpeg' });
+      const { url, error: uploadError } = await uploadAvatar(file);
       if (uploadError) {
         setError(uploadError.message);
         setIsUploading(false);
       } else {
+        // Clean up preview URL
+        if (previewUrl) {
+          URL.revokeObjectURL(previewUrl);
+        }
         onAvatarUpload(url);
         onNext();
       }
@@ -67,8 +92,11 @@ export const ProfilePictureStep: FC<ProfilePictureStepProps> = ({
   };
 
   const handleRemove = () => {
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
     setPreviewUrl(null);
-    setSelectedFile(null);
+    setCroppedBlob(null);
     setError(null);
     if (cameraInputRef.current) cameraInputRef.current.value = '';
     if (libraryInputRef.current) libraryInputRef.current.value = '';
@@ -164,6 +192,21 @@ export const ProfilePictureStep: FC<ProfilePictureStepProps> = ({
         onChange={handleFileSelect}
         className="hidden"
       />
+
+      {/* Cropper modal */}
+      <Modal
+        isOpen={showCropper}
+        onClose={handleCropCancel}
+        title="Crop Photo"
+      >
+        {imageToCrop && (
+          <ImageCropper
+            imageSrc={imageToCrop}
+            onCropComplete={handleCropComplete}
+            onCancel={handleCropCancel}
+          />
+        )}
+      </Modal>
 
       <StepNavigation
         onBack={onBack}

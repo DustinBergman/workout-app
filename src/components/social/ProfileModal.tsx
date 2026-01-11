@@ -1,4 +1,4 @@
-import { FC } from 'react';
+import { FC, useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { Modal, Button, Avatar } from '../ui';
 import { useProfile, FriendshipStatus } from '../../hooks/useProfile';
@@ -72,6 +72,8 @@ export const ProfileModal: FC<ProfileModalProps> = ({
   onClose,
   userId,
 }) => {
+  const [showFullImage, setShowFullImage] = useState(false);
+
   const {
     profile,
     stats,
@@ -119,6 +121,7 @@ export const ProfileModal: FC<ProfileModalProps> = ({
               name={profile.first_name || profile.username}
               size="lg"
               className="flex-shrink-0"
+              onClick={profile.avatar_url ? () => setShowFullImage(true) : undefined}
             />
             <div className="min-w-0">
               <h2 className="text-lg font-semibold truncate">{displayName}</h2>
@@ -127,6 +130,29 @@ export const ProfileModal: FC<ProfileModalProps> = ({
               )}
             </div>
           </div>
+
+          {/* Full-screen image overlay */}
+          {showFullImage && profile.avatar_url && (
+            <div
+              className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center"
+              onClick={() => setShowFullImage(false)}
+            >
+              <button
+                className="absolute top-4 right-4 p-2 text-white/80 hover:text-white transition-colors"
+                onClick={() => setShowFullImage(false)}
+              >
+                <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+              <img
+                src={profile.avatar_url}
+                alt={displayName}
+                className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg"
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
+          )}
 
           {/* Profile Info Tags */}
           <div className="flex flex-wrap gap-2">

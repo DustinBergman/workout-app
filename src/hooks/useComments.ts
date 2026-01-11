@@ -10,6 +10,7 @@ import {
 import { sendEmailNotification } from '../services/supabase/emailNotifications';
 import { useAuth } from './useAuth';
 import { toast } from '../store/toastStore';
+import { cacheAvatarUrls } from '../services/avatarCache';
 
 interface UseCommentsReturn {
   comments: WorkoutComment[];
@@ -48,6 +49,11 @@ export const useComments = (
 
       if (fetchError) throw fetchError;
 
+      // Cache commenter avatar URLs
+      cacheAvatarUrls(
+        fetchedComments.map((c) => ({ userId: c.user_id, url: c.user.avatar_url }))
+      );
+
       setComments(fetchedComments);
       setCommentCount(fetchedComments.length);
       setHasLoaded(true);
@@ -70,6 +76,11 @@ export const useComments = (
         await getWorkoutComments(workoutId);
 
       if (fetchError) throw fetchError;
+
+      // Cache commenter avatar URLs
+      cacheAvatarUrls(
+        fetchedComments.map((c) => ({ userId: c.user_id, url: c.user.avatar_url }))
+      );
 
       setComments(fetchedComments);
       setCommentCount(fetchedComments.length);

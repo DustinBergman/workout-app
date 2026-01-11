@@ -15,6 +15,7 @@ import { sendEmailNotification } from '../services/supabase/emailNotifications';
 import { getUserStats, PublicUserStats } from '../services/supabase/userStats';
 import { useAuth } from './useAuth';
 import { useAppStore } from '../store/useAppStore';
+import { cacheAvatarUrl } from '../services/avatarCache';
 
 export type FriendshipStatus = 'friends' | 'pending_sent' | 'pending_received' | 'none' | 'self';
 
@@ -60,6 +61,10 @@ export const useProfile = (userId: string): UseProfileReturn => {
         setProfile(profileResult.profile);
         setStats(statsResult.stats);
         setFriendshipStatus('self');
+        // Cache own avatar URL
+        if (profileResult.profile) {
+          cacheAvatarUrl(userId, profileResult.profile.avatar_url);
+        }
         setIsLoading(false);
         return;
       }
@@ -78,6 +83,11 @@ export const useProfile = (userId: string): UseProfileReturn => {
 
       setProfile(profileResult.profile);
       setStats(statsResult.stats);
+
+      // Cache avatar URL
+      if (profileResult.profile) {
+        cacheAvatarUrl(userId, profileResult.profile.avatar_url);
+      }
 
       // Determine friendship status
       if (friendResult.isFriend) {

@@ -193,7 +193,7 @@ export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
           <Avatar
             src={workout.user.avatar_url}
             name={workout.user.first_name || workout.user.username}
-            size="sm"
+            size="md"
             onClick={() => handleUserClick(workout.user_id)}
             className="flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
           />

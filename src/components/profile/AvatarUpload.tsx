@@ -2,6 +2,7 @@ import { FC, useRef, useState } from 'react';
 import { Avatar, Button, Modal } from '../ui';
 import { uploadAvatar, deleteAvatar, validateAvatarFile } from '../../services/supabase/avatar';
 import { toast } from '../../store/toastStore';
+import { ImageCropper } from './ImageCropper';
 
 interface AvatarUploadProps {
   currentAvatarUrl?: string | null;
@@ -20,8 +21,10 @@ export const AvatarUpload: FC<AvatarUploadProps> = ({
   const libraryInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showCropper, setShowCropper] = useState(false);
+  const [imageToCrop, setImageToCrop] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [croppedBlob, setCroppedBlob] = useState<Blob | null>(null);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -34,27 +37,51 @@ export const AvatarUpload: FC<AvatarUploadProps> = ({
       return;
     }
 
-    // Show preview
-    setSelectedFile(file);
+    // Show cropper
     const reader = new FileReader();
-    reader.onload = (e) => setPreviewUrl(e.target?.result as string);
+    reader.onload = (e) => {
+      setImageToCrop(e.target?.result as string);
+      setShowCropper(true);
+    };
     reader.readAsDataURL(file);
   };
 
+  const handleCropComplete = (blob: Blob) => {
+    // Create preview URL from cropped blob
+    const url = URL.createObjectURL(blob);
+    setPreviewUrl(url);
+    setCroppedBlob(blob);
+    setShowCropper(false);
+    setImageToCrop(null);
+  };
+
+  const handleCropCancel = () => {
+    setShowCropper(false);
+    setImageToCrop(null);
+    // Reset file inputs
+    if (cameraInputRef.current) cameraInputRef.current.value = '';
+    if (libraryInputRef.current) libraryInputRef.current.value = '';
+  };
+
   const handleUpload = async () => {
-    if (!selectedFile) return;
+    if (!croppedBlob) return;
 
     setIsUploading(true);
     try {
-      const { url, error } = await uploadAvatar(selectedFile);
+      // Create a File from the cropped blob
+      const file = new File([croppedBlob], 'avatar.jpg', { type: 'image/jpeg' });
+      const { url, error } = await uploadAvatar(file);
       if (error) {
         toast.error(error.message);
       } else if (url) {
         onAvatarChange(url);
         toast.success('Profile picture updated');
-        // Clear preview
+        // Clean up preview URL
+        if (previewUrl) {
+          URL.revokeObjectURL(previewUrl);
+        }
         setPreviewUrl(null);
-        setSelectedFile(null);
+        setCroppedBlob(null);
       }
     } finally {
       setIsUploading(false);
@@ -65,8 +92,12 @@ export const AvatarUpload: FC<AvatarUploadProps> = ({
   };
 
   const handleCancel = () => {
+    // Clean up preview URL
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
     setPreviewUrl(null);
-    setSelectedFile(null);
+    setCroppedBlob(null);
     if (cameraInputRef.current) cameraInputRef.current.value = '';
     if (libraryInputRef.current) libraryInputRef.current.value = '';
   };
@@ -225,6 +256,21 @@ export const AvatarUpload: FC<AvatarUploadProps> = ({
             {isUploading ? 'Removing...' : 'Remove'}
           </Button>
         </div>
+      </Modal>
+
+      {/* Cropper modal */}
+      <Modal
+        isOpen={showCropper}
+        onClose={handleCropCancel}
+        title="Crop Photo"
+      >
+        {imageToCrop && (
+          <ImageCropper
+            imageSrc={imageToCrop}
+            onCropComplete={handleCropComplete}
+            onCancel={handleCropCancel}
+          />
+        )}
       </Modal>
     </div>
   );

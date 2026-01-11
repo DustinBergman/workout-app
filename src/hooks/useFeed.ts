@@ -9,6 +9,7 @@ import {
 } from '../services/supabase/likes';
 import { getBatchCommentCounts, getBatchPreviewComments, WorkoutComment } from '../services/supabase/comments';
 import { toast } from '../store/toastStore';
+import { cacheAvatarUrls } from '../services/avatarCache';
 
 interface UseFeedReturn {
   workouts: FeedWorkout[];
@@ -117,6 +118,11 @@ export const useFeed = (): UseFeedReturn => {
       const newHasMore = newWorkouts.length === PAGE_SIZE;
       const newOffset = newWorkouts.length;
 
+      // Cache avatar URLs for quick access
+      cacheAvatarUrls(
+        newWorkouts.map((w) => ({ userId: w.user_id, url: w.user.avatar_url }))
+      );
+
       setWorkouts(newWorkouts);
       setHasMore(newHasMore);
       setOffset(newOffset);
@@ -161,6 +167,11 @@ export const useFeed = (): UseFeedReturn => {
       const updatedWorkouts = [...workouts, ...newWorkouts];
       const newHasMore = newWorkouts.length === PAGE_SIZE;
       const newOffset = offset + newWorkouts.length;
+
+      // Cache avatar URLs for quick access
+      cacheAvatarUrls(
+        newWorkouts.map((w) => ({ userId: w.user_id, url: w.user.avatar_url }))
+      );
 
       setWorkouts(updatedWorkouts);
       setHasMore(newHasMore);
