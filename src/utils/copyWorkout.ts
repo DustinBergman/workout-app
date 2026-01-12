@@ -50,8 +50,13 @@ export const convertFeedWorkoutToTemplate = (
     if (isUUID(ex.exercise_id)) {
       const existingExercise = getExerciseById(ex.exercise_id, existingCustomExercises);
 
-      // If the exercise doesn't exist for the copying user and we have a name, create it
-      if (!existingExercise && ex.custom_exercise_name) {
+      // If the exercise doesn't exist for the copying user, create a copy
+      if (!existingExercise) {
+        // Custom exercise name must be available - it's fetched via RPC
+        if (!ex.custom_exercise_name) {
+          throw new Error('Unable to copy workout: custom exercise name not found');
+        }
+
         const newExerciseId = crypto.randomUUID();
         exerciseIdMap.set(ex.exercise_id, newExerciseId);
 

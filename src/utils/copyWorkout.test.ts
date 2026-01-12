@@ -473,23 +473,19 @@ describe('convertFeedWorkoutToTemplate', () => {
       expect(result.template.exercises[0].exerciseId).toBe(customExerciseUUID);
     });
 
-    it('does not create custom exercise when custom_exercise_name is missing', () => {
+    it('throws error when custom_exercise_name is missing', () => {
       const workout = createFeedWorkout({
         session_exercises: [
           createStrengthExercise({
             exercise_id: customExerciseUUID,
-            custom_exercise_name: null, // Missing name
+            custom_exercise_name: null, // Missing name - should throw error
           }),
         ],
       });
 
-      const result = convertFeedWorkoutToTemplate(workout, 'Test');
-
-      // Should NOT create a new custom exercise (no name to use)
-      expect(result.newCustomExercises).toHaveLength(0);
-
-      // Template should use the original ID
-      expect(result.template.exercises[0].exerciseId).toBe(customExerciseUUID);
+      expect(() => convertFeedWorkoutToTemplate(workout, 'Test')).toThrow(
+        'Unable to copy workout: custom exercise name not found'
+      );
     });
 
     it('uses original ID for built-in exercises (non-UUID)', () => {
@@ -566,6 +562,23 @@ describe('convertFeedWorkoutToTemplate', () => {
         cardioCategory: 'other',
         targetDurationMinutes: 20,
       });
+    });
+
+    it('throws error for custom cardio exercise when custom_exercise_name is missing', () => {
+      const customCardioUUID = 'cccccccc-dddd-eeee-ffff-111111111111';
+
+      const workout = createFeedWorkout({
+        session_exercises: [
+          createCardioExercise({
+            exercise_id: customCardioUUID,
+            custom_exercise_name: null, // Missing name - should throw error
+          }),
+        ],
+      });
+
+      expect(() => convertFeedWorkoutToTemplate(workout, 'Test')).toThrow(
+        'Unable to copy workout: custom exercise name not found'
+      );
     });
   });
 

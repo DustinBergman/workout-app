@@ -1,7 +1,6 @@
 import { useCallback, useEffect } from 'react';
 import {
   DragEndEvent,
-  DragStartEvent,
   useSensor,
   useSensors,
   MouseSensor,
@@ -117,7 +116,7 @@ export const useActiveWorkoutPage = (): any => {
   );
 
   // Haptic feedback when drag starts
-  const handleDragStart = useCallback((_event: DragStartEvent) => {
+  const handleDragStart = useCallback(() => {
     // Trigger haptic feedback on supported devices
     // Android: Use Vibration API
     if (navigator.vibrate) {
