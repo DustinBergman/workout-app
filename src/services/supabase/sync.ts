@@ -21,6 +21,16 @@ const getUserId = async (): Promise<string | null> => {
 };
 
 // ============================================
+// Sync Locks - Prevent concurrent syncs of the same resource
+// ============================================
+
+// Track in-flight template syncs to prevent race conditions
+const templateSyncsInFlight = new Set<string>();
+
+// Track in-flight session syncs
+const sessionSyncsInFlight = new Set<string>();
+
+// ============================================
 // Profile Sync
 // ============================================
 
@@ -64,92 +74,104 @@ export const syncAddTemplate = async (template: WorkoutTemplate): Promise<void> 
   const userId = await getUserId();
   if (!userId) return;
 
-  // Guard against corrupted data - templates should never have more than 50 exercises
-  // and should never have more than 3 duplicates of the same exercise
-  const exerciseIdCounts = new Map<string, number>();
-  for (const ex of template.exercises) {
-    exerciseIdCounts.set(ex.exerciseId, (exerciseIdCounts.get(ex.exerciseId) || 0) + 1);
-  }
-  const maxDuplicates = Math.max(...exerciseIdCounts.values(), 0);
-
-  if (template.exercises.length > 50 || maxDuplicates > 3) {
-    console.error('[Sync] Detected corrupted template data, skipping sync:', {
-      templateId: template.id,
-      exerciseCount: template.exercises.length,
-      maxDuplicates,
-    });
+  // Prevent concurrent syncs of the same template
+  if (templateSyncsInFlight.has(template.id)) {
+    console.log('[Sync] Template sync already in flight, skipping:', template.id);
     return;
   }
+  templateSyncsInFlight.add(template.id);
 
-  // Check if template already exists (prevent duplicate exercise inserts)
-  const { data: existing } = await supabase
-    .from('workout_templates')
-    .select('id')
-    .eq('id', template.id)
-    .eq('user_id', userId)
-    .maybeSingle();
+  try {
+    // Guard against corrupted data - templates should never have more than 50 exercises
+    // and should never have more than 3 duplicates of the same exercise
+    const exerciseIdCounts = new Map<string, number>();
+    for (const ex of template.exercises) {
+      exerciseIdCounts.set(ex.exerciseId, (exerciseIdCounts.get(ex.exerciseId) || 0) + 1);
+    }
+    const maxDuplicates = Math.max(...exerciseIdCounts.values(), 0);
 
-  if (existing) {
-    // Template already exists, use update instead
-    await syncUpdateTemplate(template);
-    return;
-  }
+    if (template.exercises.length > 50 || maxDuplicates > 3) {
+      console.error('[Sync] Detected corrupted template data, skipping sync:', {
+        templateId: template.id,
+        exerciseCount: template.exercises.length,
+        maxDuplicates,
+      });
+      return;
+    }
 
-  // Insert template
-  const { data: templateData, error: templateError } = await supabase
-    .from('workout_templates')
-    .insert({
-      id: template.id,
-      user_id: userId,
-      name: template.name,
-      template_type: template.templateType,
-      copied_from: template.copiedFrom || null,
-      created_at: template.createdAt,
-      updated_at: template.updatedAt,
-    })
-    .select()
-    .single();
+    // Check if template already exists (prevent duplicate exercise inserts)
+    const { data: existing } = await supabase
+      .from('workout_templates')
+      .select('id')
+      .eq('id', template.id)
+      .eq('user_id', userId)
+      .maybeSingle();
 
-  if (templateError) {
-    console.error('[Sync] Failed to sync template:', templateError.message, templateError.code);
-    throw templateError;
-  }
-  if (!templateData) return;
+    if (existing) {
+      // Template already exists, use update instead (release lock first since syncUpdateTemplate will acquire it)
+      templateSyncsInFlight.delete(template.id);
+      await syncUpdateTemplate(template);
+      return;
+    }
 
-  // Insert exercises
-  if (template.exercises.length > 0) {
-    const exercisesToInsert = template.exercises.map((ex, idx) => {
-      const base = {
-        template_id: templateData.id,
-        exercise_id: ex.exerciseId,
-        type: ex.type,
-        sort_order: idx,
-        rest_seconds: ex.restSeconds ?? null,
-      };
+    // Insert template
+    const { data: templateData, error: templateError } = await supabase
+      .from('workout_templates')
+      .insert({
+        id: template.id,
+        user_id: userId,
+        name: template.name,
+        template_type: template.templateType,
+        copied_from: template.copiedFrom || null,
+        created_at: template.createdAt,
+        updated_at: template.updatedAt,
+      })
+      .select()
+      .single();
 
-      if (ex.type === 'cardio') {
+    if (templateError) {
+      console.error('[Sync] Failed to sync template:', templateError.message, templateError.code);
+      throw templateError;
+    }
+    if (!templateData) return;
+
+    // Insert exercises
+    if (template.exercises.length > 0) {
+      const exercisesToInsert = template.exercises.map((ex, idx) => {
+        const base = {
+          template_id: templateData.id,
+          exercise_id: ex.exerciseId,
+          type: ex.type,
+          sort_order: idx,
+          rest_seconds: ex.restSeconds ?? null,
+        };
+
+        if (ex.type === 'cardio') {
+          return {
+            ...base,
+            cardio_category: ex.cardioCategory,
+            tracking_mode: ex.trackingMode || 'detailed',
+            target_calories: ex.targetCalories ?? null,
+            target_duration_minutes: 'targetDurationMinutes' in ex ? ex.targetDurationMinutes ?? null : null,
+            target_intensity: 'targetIntensity' in ex ? ex.targetIntensity ?? null : null,
+            rounds: 'rounds' in ex ? ex.rounds ?? null : null,
+            work_seconds: 'workSeconds' in ex ? ex.workSeconds ?? null : null,
+            rest_between_rounds_seconds: 'restBetweenRoundsSeconds' in ex ? ex.restBetweenRoundsSeconds ?? null : null,
+            target_laps: 'targetLaps' in ex ? ex.targetLaps ?? null : null,
+          };
+        }
+
         return {
           ...base,
-          cardio_category: ex.cardioCategory,
-          tracking_mode: ex.trackingMode || 'detailed',
-          target_calories: ex.targetCalories ?? null,
-          target_duration_minutes: 'targetDurationMinutes' in ex ? ex.targetDurationMinutes ?? null : null,
-          target_intensity: 'targetIntensity' in ex ? ex.targetIntensity ?? null : null,
-          rounds: 'rounds' in ex ? ex.rounds ?? null : null,
-          work_seconds: 'workSeconds' in ex ? ex.workSeconds ?? null : null,
-          rest_between_rounds_seconds: 'restBetweenRoundsSeconds' in ex ? ex.restBetweenRoundsSeconds ?? null : null,
-          target_laps: 'targetLaps' in ex ? ex.targetLaps ?? null : null,
+          target_sets: ex.targetSets ?? null,
+          target_reps: ex.targetReps ?? null,
         };
-      }
+      });
 
-      return {
-        ...base,
-        target_sets: ex.targetSets ?? null,
-        target_reps: ex.targetReps ?? null,
-      };
-    });
-
-    await supabase.from('template_exercises').insert(exercisesToInsert);
+      await supabase.from('template_exercises').insert(exercisesToInsert);
+    }
+  } finally {
+    templateSyncsInFlight.delete(template.id);
   }
 };
 
@@ -157,83 +179,94 @@ export const syncUpdateTemplate = async (template: WorkoutTemplate): Promise<voi
   const userId = await getUserId();
   if (!userId) return;
 
-  // Guard against corrupted data - templates should never have more than 50 exercises
-  // and should never have more than 3 duplicates of the same exercise
-  const exerciseIdCounts = new Map<string, number>();
-  for (const ex of template.exercises) {
-    exerciseIdCounts.set(ex.exerciseId, (exerciseIdCounts.get(ex.exerciseId) || 0) + 1);
-  }
-  const maxDuplicates = Math.max(...exerciseIdCounts.values(), 0);
-
-  if (template.exercises.length > 50 || maxDuplicates > 3) {
-    console.error('[Sync] Detected corrupted template data, skipping sync:', {
-      templateId: template.id,
-      exerciseCount: template.exercises.length,
-      maxDuplicates,
-    });
+  // Prevent concurrent syncs of the same template
+  if (templateSyncsInFlight.has(template.id)) {
+    console.log('[Sync] Template sync already in flight, skipping:', template.id);
     return;
   }
+  templateSyncsInFlight.add(template.id);
 
-  // Update template metadata
-  await supabase
-    .from('workout_templates')
-    .update({
-      name: template.name,
-      template_type: template.templateType,
-      copied_from: template.copiedFrom || null,
-      updated_at: template.updatedAt,
-    })
-    .eq('id', template.id)
-    .eq('user_id', userId);
+  try {
+    // Guard against corrupted data - templates should never have more than 50 exercises
+    // and should never have more than 3 duplicates of the same exercise
+    const exerciseIdCounts = new Map<string, number>();
+    for (const ex of template.exercises) {
+      exerciseIdCounts.set(ex.exerciseId, (exerciseIdCounts.get(ex.exerciseId) || 0) + 1);
+    }
+    const maxDuplicates = Math.max(...exerciseIdCounts.values(), 0);
 
-  // Delete existing exercises and re-insert
-  const { error: deleteError } = await supabase
-    .from('template_exercises')
-    .delete()
-    .eq('template_id', template.id);
+    if (template.exercises.length > 50 || maxDuplicates > 3) {
+      console.error('[Sync] Detected corrupted template data, skipping sync:', {
+        templateId: template.id,
+        exerciseCount: template.exercises.length,
+        maxDuplicates,
+      });
+      return;
+    }
 
-  if (deleteError) {
-    console.error('[Sync] Failed to delete template exercises:', deleteError.message, deleteError.code);
-    throw deleteError;
-  }
+    // Update template metadata
+    await supabase
+      .from('workout_templates')
+      .update({
+        name: template.name,
+        template_type: template.templateType,
+        copied_from: template.copiedFrom || null,
+        updated_at: template.updatedAt,
+      })
+      .eq('id', template.id)
+      .eq('user_id', userId);
 
-  if (template.exercises.length > 0) {
-    const exercisesToInsert = template.exercises.map((ex, idx) => {
-      const base = {
-        template_id: template.id,
-        exercise_id: ex.exerciseId,
-        type: ex.type,
-        sort_order: idx,
-        rest_seconds: ex.restSeconds ?? null,
-      };
+    // Delete existing exercises and re-insert
+    const { error: deleteError } = await supabase
+      .from('template_exercises')
+      .delete()
+      .eq('template_id', template.id);
 
-      if (ex.type === 'cardio') {
+    if (deleteError) {
+      console.error('[Sync] Failed to delete template exercises:', deleteError.message, deleteError.code);
+      throw deleteError;
+    }
+
+    if (template.exercises.length > 0) {
+      const exercisesToInsert = template.exercises.map((ex, idx) => {
+        const base = {
+          template_id: template.id,
+          exercise_id: ex.exerciseId,
+          type: ex.type,
+          sort_order: idx,
+          rest_seconds: ex.restSeconds ?? null,
+        };
+
+        if (ex.type === 'cardio') {
+          return {
+            ...base,
+            cardio_category: ex.cardioCategory,
+            tracking_mode: ex.trackingMode || 'detailed',
+            target_calories: ex.targetCalories ?? null,
+            target_duration_minutes: 'targetDurationMinutes' in ex ? ex.targetDurationMinutes ?? null : null,
+            target_intensity: 'targetIntensity' in ex ? ex.targetIntensity ?? null : null,
+            rounds: 'rounds' in ex ? ex.rounds ?? null : null,
+            work_seconds: 'workSeconds' in ex ? ex.workSeconds ?? null : null,
+            rest_between_rounds_seconds: 'restBetweenRoundsSeconds' in ex ? ex.restBetweenRoundsSeconds ?? null : null,
+            target_laps: 'targetLaps' in ex ? ex.targetLaps ?? null : null,
+          };
+        }
+
         return {
           ...base,
-          cardio_category: ex.cardioCategory,
-          tracking_mode: ex.trackingMode || 'detailed',
-          target_calories: ex.targetCalories ?? null,
-          target_duration_minutes: 'targetDurationMinutes' in ex ? ex.targetDurationMinutes ?? null : null,
-          target_intensity: 'targetIntensity' in ex ? ex.targetIntensity ?? null : null,
-          rounds: 'rounds' in ex ? ex.rounds ?? null : null,
-          work_seconds: 'workSeconds' in ex ? ex.workSeconds ?? null : null,
-          rest_between_rounds_seconds: 'restBetweenRoundsSeconds' in ex ? ex.restBetweenRoundsSeconds ?? null : null,
-          target_laps: 'targetLaps' in ex ? ex.targetLaps ?? null : null,
+          target_sets: ex.targetSets ?? null,
+          target_reps: ex.targetReps ?? null,
         };
+      });
+
+      const { error: insertError } = await supabase.from('template_exercises').insert(exercisesToInsert);
+      if (insertError) {
+        console.error('[Sync] Failed to insert template exercises:', insertError.message, insertError.code);
+        throw insertError;
       }
-
-      return {
-        ...base,
-        target_sets: ex.targetSets ?? null,
-        target_reps: ex.targetReps ?? null,
-      };
-    });
-
-    const { error: insertError } = await supabase.from('template_exercises').insert(exercisesToInsert);
-    if (insertError) {
-      console.error('[Sync] Failed to insert template exercises:', insertError.message, insertError.code);
-      throw insertError;
     }
+  } finally {
+    templateSyncsInFlight.delete(template.id);
   }
 };
 
@@ -272,88 +305,100 @@ export const syncAddSession = async (session: WorkoutSession): Promise<void> => 
   const userId = await getUserId();
   if (!userId) return;
 
-  // Check if session already exists (prevent duplicate exercise inserts)
-  const { data: existing } = await supabase
-    .from('workout_sessions')
-    .select('id')
-    .eq('id', session.id)
-    .eq('user_id', userId)
-    .maybeSingle();
-
-  if (existing) {
-    // Session already exists, use update instead
-    await syncUpdateSession(session);
+  // Prevent concurrent syncs of the same session
+  if (sessionSyncsInFlight.has(session.id)) {
+    console.log('[Sync] Session sync already in flight, skipping:', session.id);
     return;
   }
+  sessionSyncsInFlight.add(session.id);
 
-  // Insert session
-  const { data: sessionData, error: sessionError } = await supabase
-    .from('workout_sessions')
-    .insert({
-      id: session.id,
-      user_id: userId,
-      template_id: session.templateId || null,
-      name: session.name,
-      custom_title: session.customTitle || null,
-      mood: session.mood || null,
-      progressive_overload_week: session.progressiveOverloadWeek ?? null,
-      workout_goal: session.workoutGoal || null,
-      personal_bests: session.personalBests || null,
-      streak_count: session.streakCount || null,
-      started_at: session.startedAt,
-      completed_at: session.completedAt ?? null,
-      is_active: !session.completedAt,
-    })
-    .select()
-    .single();
+  try {
+    // Check if session already exists (prevent duplicate exercise inserts)
+    const { data: existing } = await supabase
+      .from('workout_sessions')
+      .select('id')
+      .eq('id', session.id)
+      .eq('user_id', userId)
+      .maybeSingle();
 
-  if (sessionError) {
-    console.error('[Sync] Failed to sync session:', sessionError.message, sessionError.code);
-    throw sessionError;
-  }
-  if (!sessionData) return;
+    if (existing) {
+      // Session already exists, use update instead (release lock first since syncUpdateSession will acquire it)
+      sessionSyncsInFlight.delete(session.id);
+      await syncUpdateSession(session);
+      return;
+    }
 
-  // Insert session exercises
-  if (session.exercises.length > 0) {
-    const exercisesToInsert = session.exercises.map((ex, idx) => ({
-      id: ex.id,
-      session_id: sessionData.id,
-      exercise_id: ex.exerciseId,
-      type: ex.type,
-      sort_order: idx,
-      target_sets: ex.type === 'strength' ? ex.targetSets : null,
-      target_reps: ex.type === 'strength' ? ex.targetReps : null,
-      rest_seconds: ex.restSeconds,
-    }));
+    // Insert session
+    const { data: sessionData, error: sessionError } = await supabase
+      .from('workout_sessions')
+      .insert({
+        id: session.id,
+        user_id: userId,
+        template_id: session.templateId || null,
+        name: session.name,
+        custom_title: session.customTitle || null,
+        mood: session.mood || null,
+        progressive_overload_week: session.progressiveOverloadWeek ?? null,
+        workout_goal: session.workoutGoal || null,
+        personal_bests: session.personalBests || null,
+        streak_count: session.streakCount || null,
+        started_at: session.startedAt,
+        completed_at: session.completedAt ?? null,
+        is_active: !session.completedAt,
+      })
+      .select()
+      .single();
 
-    const { data: exercisesData } = await supabase
-      .from('session_exercises')
-      .insert(exercisesToInsert)
-      .select();
+    if (sessionError) {
+      console.error('[Sync] Failed to sync session:', sessionError.message, sessionError.code);
+      throw sessionError;
+    }
+    if (!sessionData) return;
 
-    // Insert completed sets
-    if (exercisesData) {
-      for (let i = 0; i < session.exercises.length; i++) {
-        const ex = session.exercises[i];
-        const dbExId = exercisesData[i]?.id;
+    // Insert session exercises
+    if (session.exercises.length > 0) {
+      const exercisesToInsert = session.exercises.map((ex, idx) => ({
+        id: ex.id,
+        session_id: sessionData.id,
+        exercise_id: ex.exerciseId,
+        type: ex.type,
+        sort_order: idx,
+        target_sets: ex.type === 'strength' ? ex.targetSets : null,
+        target_reps: ex.type === 'strength' ? ex.targetReps : null,
+        rest_seconds: ex.restSeconds,
+      }));
 
-        if (dbExId && ex.sets.length > 0) {
-          const setsToInsert = ex.sets.map((set) => ({
-            session_exercise_id: dbExId,
-            type: set.type,
-            reps: set.type === 'strength' ? set.reps : null,
-            weight: set.type === 'strength' ? set.weight : null,
-            weight_unit: set.type === 'strength' ? set.unit : null,
-            distance: set.type === 'cardio' ? set.distance : null,
-            distance_unit: set.type === 'cardio' ? set.distanceUnit : null,
-            duration_seconds: set.type === 'cardio' ? set.durationSeconds : null,
-            completed_at: set.completedAt,
-          }));
+      const { data: exercisesData } = await supabase
+        .from('session_exercises')
+        .insert(exercisesToInsert)
+        .select();
 
-          await supabase.from('completed_sets').insert(setsToInsert);
+      // Insert completed sets
+      if (exercisesData) {
+        for (let i = 0; i < session.exercises.length; i++) {
+          const ex = session.exercises[i];
+          const dbExId = exercisesData[i]?.id;
+
+          if (dbExId && ex.sets.length > 0) {
+            const setsToInsert = ex.sets.map((set) => ({
+              session_exercise_id: dbExId,
+              type: set.type,
+              reps: set.type === 'strength' ? set.reps : null,
+              weight: set.type === 'strength' ? set.weight : null,
+              weight_unit: set.type === 'strength' ? set.unit : null,
+              distance: set.type === 'cardio' ? set.distance : null,
+              distance_unit: set.type === 'cardio' ? set.distanceUnit : null,
+              duration_seconds: set.type === 'cardio' ? set.durationSeconds : null,
+              completed_at: set.completedAt,
+            }));
+
+            await supabase.from('completed_sets').insert(setsToInsert);
+          }
         }
       }
     }
+  } finally {
+    sessionSyncsInFlight.delete(session.id);
   }
 };
 
@@ -361,73 +406,84 @@ export const syncUpdateSession = async (session: WorkoutSession): Promise<void> 
   const userId = await getUserId();
   if (!userId) return;
 
-  // For active session updates, we need to sync the full state
-  // This includes updating exercises and sets
-
-  const { error: updateError } = await supabase
-    .from('workout_sessions')
-    .update({
-      name: session.name,
-      custom_title: session.customTitle || null,
-      mood: session.mood || null,
-      progressive_overload_week: session.progressiveOverloadWeek ?? null,
-      workout_goal: session.workoutGoal || null,
-      personal_bests: session.personalBests || null,
-      streak_count: session.streakCount || null,
-      completed_at: session.completedAt ?? null,
-      is_active: !session.completedAt,
-    })
-    .eq('id', session.id)
-    .eq('user_id', userId);
-
-  if (updateError) {
-    console.error('[Sync] Failed to update session:', updateError.message, updateError.code);
-    throw updateError;
+  // Prevent concurrent syncs of the same session
+  if (sessionSyncsInFlight.has(session.id)) {
+    console.log('[Sync] Session sync already in flight, skipping:', session.id);
+    return;
   }
+  sessionSyncsInFlight.add(session.id);
 
-  // For completed sessions, also ensure all sets are synced
-  // Delete and re-insert exercises + sets for simplicity
-  await supabase.from('session_exercises').delete().eq('session_id', session.id);
+  try {
+    // For active session updates, we need to sync the full state
+    // This includes updating exercises and sets
 
-  if (session.exercises.length > 0) {
-    const exercisesToInsert = session.exercises.map((ex, idx) => ({
-      id: ex.id || `${session.id}-ex-${idx}`,
-      session_id: session.id,
-      exercise_id: ex.exerciseId,
-      type: ex.type,
-      sort_order: idx,
-      target_sets: ex.type === 'strength' ? ex.targetSets : null,
-      target_reps: ex.type === 'strength' ? ex.targetReps : null,
-      rest_seconds: ex.restSeconds,
-    }));
+    const { error: updateError } = await supabase
+      .from('workout_sessions')
+      .update({
+        name: session.name,
+        custom_title: session.customTitle || null,
+        mood: session.mood || null,
+        progressive_overload_week: session.progressiveOverloadWeek ?? null,
+        workout_goal: session.workoutGoal || null,
+        personal_bests: session.personalBests || null,
+        streak_count: session.streakCount || null,
+        completed_at: session.completedAt ?? null,
+        is_active: !session.completedAt,
+      })
+      .eq('id', session.id)
+      .eq('user_id', userId);
 
-    const { data: exercisesData } = await supabase
-      .from('session_exercises')
-      .insert(exercisesToInsert)
-      .select();
+    if (updateError) {
+      console.error('[Sync] Failed to update session:', updateError.message, updateError.code);
+      throw updateError;
+    }
 
-    if (exercisesData) {
-      for (let i = 0; i < session.exercises.length; i++) {
-        const ex = session.exercises[i];
-        const dbExId = exercisesData[i]?.id;
+    // For completed sessions, also ensure all sets are synced
+    // Delete and re-insert exercises + sets for simplicity
+    await supabase.from('session_exercises').delete().eq('session_id', session.id);
 
-        if (dbExId && ex.sets.length > 0) {
-          const setsToInsert = ex.sets.map((set) => ({
-            session_exercise_id: dbExId,
-            type: set.type,
-            reps: set.type === 'strength' ? set.reps : null,
-            weight: set.type === 'strength' ? set.weight : null,
-            weight_unit: set.type === 'strength' ? set.unit : null,
-            distance: set.type === 'cardio' ? set.distance : null,
-            distance_unit: set.type === 'cardio' ? set.distanceUnit : null,
-            duration_seconds: set.type === 'cardio' ? set.durationSeconds : null,
-            completed_at: set.completedAt,
-          }));
+    if (session.exercises.length > 0) {
+      const exercisesToInsert = session.exercises.map((ex, idx) => ({
+        id: ex.id || `${session.id}-ex-${idx}`,
+        session_id: session.id,
+        exercise_id: ex.exerciseId,
+        type: ex.type,
+        sort_order: idx,
+        target_sets: ex.type === 'strength' ? ex.targetSets : null,
+        target_reps: ex.type === 'strength' ? ex.targetReps : null,
+        rest_seconds: ex.restSeconds,
+      }));
 
-          await supabase.from('completed_sets').insert(setsToInsert);
+      const { data: exercisesData } = await supabase
+        .from('session_exercises')
+        .insert(exercisesToInsert)
+        .select();
+
+      if (exercisesData) {
+        for (let i = 0; i < session.exercises.length; i++) {
+          const ex = session.exercises[i];
+          const dbExId = exercisesData[i]?.id;
+
+          if (dbExId && ex.sets.length > 0) {
+            const setsToInsert = ex.sets.map((set) => ({
+              session_exercise_id: dbExId,
+              type: set.type,
+              reps: set.type === 'strength' ? set.reps : null,
+              weight: set.type === 'strength' ? set.weight : null,
+              weight_unit: set.type === 'strength' ? set.unit : null,
+              distance: set.type === 'cardio' ? set.distance : null,
+              distance_unit: set.type === 'cardio' ? set.distanceUnit : null,
+              duration_seconds: set.type === 'cardio' ? set.durationSeconds : null,
+              completed_at: set.completedAt,
+            }));
+
+            await supabase.from('completed_sets').insert(setsToInsert);
+          }
         }
       }
     }
+  } finally {
+    sessionSyncsInFlight.delete(session.id);
   }
 };
 

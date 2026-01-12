@@ -13,3 +13,7 @@ export { getPreWorkoutSuggestions } from './suggestions';
 export { getWorkoutScore } from './scoring';
 export { generateWorkoutPlan, generateCardioPlan, createTemplateFromPlan, createCardioTemplateFromPlan, WORKOUT_TYPE_MUSCLES } from './planGenerator';
 export type { WorkoutType, GeneratePlanInput, GeneratedPlan, GeneratedCardioPlan } from './planGenerator';
+
+// PT Summary
+export { getPTSummary, hasValidPTSummaryCache, clearPTSummaryCache } from './ptSummary';
+export type { PTSummaryResponse, PTComponent, StatCardComponent, ProgressIndicatorComponent, HighlightBadgeComponent, TipComponent } from './ptSummary';

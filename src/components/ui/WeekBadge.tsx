@@ -54,39 +54,32 @@ export const WeekBadge: FC<WeekBadgeProps> = ({
       <button
         onClick={onClick}
         className={cn(
-          'w-full rounded-xl border p-4 text-left transition-all',
+          'w-full rounded-xl border px-3 py-2 text-left transition-all',
           'backdrop-blur-lg',
           colors.bg,
           colors.border,
-          onClick && 'hover:scale-[1.02] active:scale-[0.98] cursor-pointer',
+          onClick && 'hover:scale-[1.01] active:scale-[0.99] cursor-pointer',
           className
         )}
       >
-        <div className="flex items-center justify-between mb-2">
-          <span className={cn('text-sm font-semibold', colors.text)}>
-            Week {week + 1}
-          </span>
-          <span className={cn('text-xs font-medium px-2 py-0.5 rounded-full', colors.bg, colors.text)}>
-            {weekInfo.weightAdjustment}
-          </span>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className={cn('text-sm font-bold whitespace-nowrap', colors.text)}>
+              Week {week + 1}
+            </span>
+            <span className={cn('text-sm font-medium truncate', colors.text)}>
+              {weekInfo.name}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <span className={cn('text-xs px-2 py-0.5 rounded-full', colors.bg, colors.text, 'border', colors.border)}>
+              {weekInfo.weightAdjustment}
+            </span>
+            <svg className={cn('w-4 h-4', colors.text)} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </div>
         </div>
-        <h3 className={cn('text-lg font-bold mb-1', colors.text)}>
-          {weekInfo.name}
-        </h3>
-        <p className="text-sm text-muted-foreground mb-2">
-          {weekInfo.description}
-        </p>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-          </svg>
-          <span>Target: {weekInfo.repRange}</span>
-        </div>
-        {onClick && (
-          <p className="text-xs text-muted-foreground mt-3 italic">
-            Tap to change week
-          </p>
-        )}
       </button>
     );
   }

@@ -43,28 +43,11 @@ describe('WeekBadge', () => {
       render(<WeekBadge week={0} workoutGoal="build" showDetails />);
       expect(screen.getByText('Week 1')).toBeInTheDocument();
       expect(screen.getByText('Baseline')).toBeInTheDocument();
-      expect(screen.getByText('Establish your current working weights')).toBeInTheDocument();
     });
 
-    it('shows weight adjustment', () => {
+    it('shows weight adjustment badge', () => {
       render(<WeekBadge week={1} workoutGoal="build" showDetails />);
       expect(screen.getByText('Progression-based increase')).toBeInTheDocument();
-    });
-
-    it('shows target rep range', () => {
-      render(<WeekBadge week={0} workoutGoal="build" showDetails />);
-      expect(screen.getByText('Target: 8-10 reps')).toBeInTheDocument();
-    });
-
-    it('shows "Tap to change week" when onClick is provided', () => {
-      const handleClick = vi.fn();
-      render(<WeekBadge week={0} workoutGoal="build" showDetails onClick={handleClick} />);
-      expect(screen.getByText('Tap to change week')).toBeInTheDocument();
-    });
-
-    it('does not show "Tap to change week" when onClick is not provided', () => {
-      render(<WeekBadge week={0} workoutGoal="build" showDetails />);
-      expect(screen.queryByText('Tap to change week')).not.toBeInTheDocument();
     });
 
     it('calls onClick when clicked in detailed mode', () => {

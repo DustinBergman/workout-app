@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useAppStore } from '../store/useAppStore';
-import { getProgressiveOverloadRecommendations, createSessionsHash, hasValidRecommendationsCache } from '../services/openai';
+import { getPTSummary, hasValidPTSummaryCache, PTSummaryResponse } from '../services/openai';
 import {
   WorkoutTemplate,
   WorkoutSession,
@@ -8,7 +8,6 @@ import {
   ProgressiveOverloadWeek,
   WorkoutGoal,
   GoalInfo,
-  WorkoutRecommendation,
   WeightEntry,
   WORKOUT_GOALS,
 } from '../types';
@@ -35,9 +34,9 @@ export interface UseHomeReturn {
   showWeightModal: boolean;
   setShowWeightModal: (show: boolean) => void;
 
-  // Recommendations
-  recommendations: WorkoutRecommendation[];
-  loadingRecommendations: boolean;
+  // PT Summary
+  ptSummary: PTSummaryResponse | null;
+  loadingPTSummary: boolean;
 
   // Week selector modal
   showWeekSelector: boolean;
@@ -63,8 +62,8 @@ export const useHome = (): UseHomeReturn => {
   // Local state
   const [showWeekSelector, setShowWeekSelector] = useState(false);
   const [showWeightModal, setShowWeightModal] = useState(false);
-  const [recommendations, setRecommendations] = useState<WorkoutRecommendation[]>([]);
-  const [loadingRecommendations, setLoadingRecommendations] = useState(false);
+  const [ptSummary, setPTSummary] = useState<PTSummaryResponse | null>(null);
+  const [loadingPTSummary, setLoadingPTSummary] = useState(false);
 
   // Computed values
   const hasApiKey = !!preferences.openaiApiKey;
@@ -136,40 +135,45 @@ export const useHome = (): UseHomeReturn => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Create stable sessions hash for dependency tracking
-  const sessionsHash = useMemo(() => createSessionsHash(sessions), [sessions]);
+  // Create stable sessions count for dependency tracking
+  const completedSessionCount = useMemo(
+    () => sessions.filter(s => s.completedAt).length,
+    [sessions]
+  );
 
-  // Load progressive overload recommendations
+  // Load PT Summary
   useEffect(() => {
-    const loadRecommendations = async () => {
-      if (!preferences.openaiApiKey || sessions.length < 2) return;
+    const loadPTSummary = async () => {
+      if (!preferences.openaiApiKey || completedSessionCount < 2) return;
 
       // Only show loading spinner if cache is not valid (will actually fetch from AI)
-      const hasCachedResults = hasValidRecommendationsCache(sessions);
+      const hasCachedResults = hasValidPTSummaryCache(sessions);
       if (!hasCachedResults) {
-        setLoadingRecommendations(true);
+        setLoadingPTSummary(true);
       }
 
       try {
-        const recs = await getProgressiveOverloadRecommendations(
+        const summary = await getPTSummary(
           preferences.openaiApiKey,
           sessions,
-          preferences.weightUnit,
+          weightEntries,
           customExercises,
-          experienceLevel,
-          workoutGoal
+          preferences.firstName,
+          experienceLevel || 'intermediate',
+          workoutGoal,
+          currentWeek
         );
-        setRecommendations(recs);
+        setPTSummary(summary);
       } catch (err) {
-        console.error('Failed to load recommendations:', err);
+        console.error('Failed to load PT summary:', err);
       } finally {
-        setLoadingRecommendations(false);
+        setLoadingPTSummary(false);
       }
     };
 
-    loadRecommendations();
+    loadPTSummary();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [preferences.openaiApiKey, sessionsHash, preferences.weightUnit, customExercises, experienceLevel, workoutGoal]);
+  }, [preferences.openaiApiKey, completedSessionCount, customExercises, experienceLevel, workoutGoal, currentWeek]);
 
   // Select week and close modal
   const selectWeek = useCallback(
@@ -202,9 +206,9 @@ export const useHome = (): UseHomeReturn => {
     showWeightModal,
     setShowWeightModal,
 
-    // Recommendations
-    recommendations,
-    loadingRecommendations,
+    // PT Summary
+    ptSummary,
+    loadingPTSummary,
 
     // Week selector modal
     showWeekSelector,

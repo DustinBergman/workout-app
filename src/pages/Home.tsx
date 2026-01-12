@@ -7,7 +7,7 @@ import {
   FloatingOrbsBackground,
   ApiKeyBanner,
   WeightReminderBanner,
-  RecommendationsCard,
+  PTSummaryCard,
   ActiveWorkoutBanner,
   QuickStartSection,
   ActivitySection,
@@ -36,8 +36,8 @@ export const Home: FC = () => {
     shouldShowWeightReminder,
     showWeightModal,
     setShowWeightModal,
-    recommendations,
-    loadingRecommendations,
+    ptSummary,
+    loadingPTSummary,
     showWeekSelector,
     setShowWeekSelector,
     selectWeek,
@@ -72,22 +72,11 @@ export const Home: FC = () => {
           <WeightReminderBanner onClick={() => setShowWeightModal(true)} />
         )}
 
-        {/* Training Week Card */}
-        <section className="mb-6">
-          <WeekBadge
-            week={currentWeek}
-            workoutGoal={workoutGoal}
-            showDetails
-            onClick={() => setShowWeekSelector(true)}
-          />
-        </section>
-
-        {/* Progressive Overload Recommendations */}
-        {hasApiKey && sessions.length >= 2 && recommendations.length > 0 && (
-          <RecommendationsCard
-            recommendations={recommendations}
-            loadingRecommendations={loadingRecommendations}
-            weightUnit={preferences.weightUnit}
+        {/* PT Summary */}
+        {hasApiKey && sessions.length >= 2 && (
+          <PTSummaryCard
+            summary={ptSummary}
+            loading={loadingPTSummary}
           />
         )}
 

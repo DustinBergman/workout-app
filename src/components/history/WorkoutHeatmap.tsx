@@ -114,7 +114,7 @@ export const WorkoutHeatmap: FC<WorkoutHeatmapProps> = ({ sessions, onDayClick }
 
     switch (workoutType) {
       case 'none':
-        return <div className={`${baseClasses} bg-gray-100 dark:bg-gray-800`} />;
+        return <div className={`${baseClasses} bg-gray-200 dark:bg-gray-700`} />;
       case 'strength':
         return <div className={`${baseClasses} bg-blue-500 dark:bg-blue-600`} />;
       case 'cardio':

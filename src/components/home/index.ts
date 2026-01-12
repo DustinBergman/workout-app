@@ -1,7 +1,7 @@
 export { FloatingOrbsBackground } from './FloatingOrbsBackground';
 export { ApiKeyBanner } from './ApiKeyBanner';
 export { WeightReminderBanner } from './WeightReminderBanner';
-export { RecommendationsCard } from './RecommendationsCard';
+export { PTSummaryCard } from './PTSummaryCard';
 export { ActiveWorkoutBanner } from './ActiveWorkoutBanner';
 export { QuickStartSection } from './QuickStartSection';
 export { ActivitySection } from './ActivitySection';
