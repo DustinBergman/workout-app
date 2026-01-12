@@ -198,6 +198,40 @@ describe('useAppStore', () => {
 
       expect(useAppStore.getState().customExercises).toHaveLength(2);
     });
+
+    it('should update a custom exercise name', () => {
+      const exercise = createMockExercise({ id: 'custom-1', name: 'Original Name' });
+      useAppStore.getState().addCustomExercise(exercise);
+
+      useAppStore.getState().updateCustomExercise('custom-1', { name: 'Updated Name' });
+
+      const state = useAppStore.getState();
+      expect(state.customExercises[0].name).toBe('Updated Name');
+    });
+
+    it('should not modify other custom exercises when updating one', () => {
+      const exercise1 = createMockExercise({ id: 'custom-1', name: 'Exercise 1' });
+      const exercise2 = createMockExercise({ id: 'custom-2', name: 'Exercise 2' });
+      useAppStore.getState().addCustomExercise(exercise1);
+      useAppStore.getState().addCustomExercise(exercise2);
+
+      useAppStore.getState().updateCustomExercise('custom-1', { name: 'Updated 1' });
+
+      const state = useAppStore.getState();
+      expect(state.customExercises[0].name).toBe('Updated 1');
+      expect(state.customExercises[1].name).toBe('Exercise 2');
+    });
+
+    it('should do nothing when updating non-existent exercise', () => {
+      const exercise = createMockExercise({ id: 'custom-1', name: 'Exercise' });
+      useAppStore.getState().addCustomExercise(exercise);
+
+      useAppStore.getState().updateCustomExercise('non-existent', { name: 'New Name' });
+
+      const state = useAppStore.getState();
+      expect(state.customExercises).toHaveLength(1);
+      expect(state.customExercises[0].name).toBe('Exercise');
+    });
   });
 
   describe('Dark Mode Subscription', () => {

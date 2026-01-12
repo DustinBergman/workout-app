@@ -250,9 +250,11 @@ interface TemplateExerciseCardProps {
   exercise: TemplateExercise;
   index: number;
   exerciseName: string;
+  isOwnCustomExercise?: boolean;
   onUpdate: (index: number, updates: Partial<TemplateExercise>) => void;
   onRemove: (index: number) => void;
   onMove: (index: number, direction: 'up' | 'down') => void;
+  onEditCustomExercise?: (exerciseId: string, exerciseName: string) => void;
   isFirst: boolean;
   isLast: boolean;
 }
@@ -261,9 +263,11 @@ export const TemplateExerciseCard: FC<TemplateExerciseCardProps> = ({
   exercise,
   index,
   exerciseName,
+  isOwnCustomExercise,
   onUpdate,
   onRemove,
   onMove,
+  onEditCustomExercise,
   isFirst,
   isLast,
 }) => {
@@ -296,6 +300,17 @@ export const TemplateExerciseCard: FC<TemplateExerciseCardProps> = ({
             <p className="font-medium text-gray-900 dark:text-gray-100">
               {exerciseName}
             </p>
+            {isOwnCustomExercise && onEditCustomExercise && (
+              <button
+                onClick={() => onEditCustomExercise(exercise.exerciseId, exerciseName)}
+                className="p-1 text-gray-400 hover:text-blue-500 transition-colors"
+                aria-label="Edit exercise name"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+              </button>
+            )}
             {exercise.type === 'cardio' && (
               <span className="text-xs px-2 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400">
                 Cardio

@@ -43,6 +43,7 @@ interface AppState {
 
   // Custom exercise actions
   addCustomExercise: (exercise: Exercise) => void;
+  updateCustomExercise: (exerciseId: string, updates: Partial<Exercise>) => void;
 
   // Progressive overload week actions
   setCurrentWeek: (week: ProgressiveOverloadWeek) => void;
@@ -143,6 +144,13 @@ export const useAppStore = create<AppState>()(
         addCustomExercise: (exercise) =>
           set((state) => ({
             customExercises: [...state.customExercises, exercise],
+          })),
+
+        updateCustomExercise: (exerciseId, updates) =>
+          set((state) => ({
+            customExercises: state.customExercises.map((ex) =>
+              ex.id === exerciseId ? { ...ex, ...updates } as Exercise : ex
+            ),
           })),
 
         // Progressive overload week actions

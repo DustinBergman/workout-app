@@ -56,6 +56,12 @@ export const WorkoutPlans: FC = () => {
     // Drag-drop
     sensors,
     handleDragEnd,
+    // Custom exercise editing
+    editingCustomExercise,
+    isOwnCustomExercise,
+    openEditCustomExercise,
+    saveCustomExerciseName,
+    closeEditCustomExercise,
     // Constants
     MUSCLE_GROUPS,
     EQUIPMENT_OPTIONS,
@@ -79,6 +85,8 @@ export const WorkoutPlans: FC = () => {
         filteredExercises={filteredExercises}
         muscleGroups={MUSCLE_GROUPS}
         equipmentOptions={EQUIPMENT_OPTIONS}
+        editingCustomExercise={editingCustomExercise}
+        isOwnCustomExercise={isOwnCustomExercise}
         onBack={resetForm}
         onNameChange={setTemplateName}
         onTemplateTypeChange={setTemplateType}
@@ -101,6 +109,9 @@ export const WorkoutPlans: FC = () => {
         onNewExerciseEquipmentChange={setNewExerciseEquipment}
         onToggleMuscle={toggleMuscleGroup}
         onCreateExercise={handleCreateExercise}
+        onEditCustomExercise={openEditCustomExercise}
+        onSaveCustomExerciseName={saveCustomExerciseName}
+        onCloseEditCustomExercise={closeEditCustomExercise}
       />
     );
   }

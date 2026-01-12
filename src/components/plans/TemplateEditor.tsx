@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button, Card, Input } from '../ui';
 import { TemplateExerciseCard } from './TemplateExerciseCard';
 import { ExercisePickerModal } from './ExercisePickerModal';
+import { EditCustomExerciseModal } from './EditCustomExerciseModal';
 import { WorkoutTemplate, TemplateExercise, Exercise, MuscleGroup, Equipment, TemplateType } from '../../types';
 
 interface TemplateEditorProps {
@@ -19,6 +20,9 @@ interface TemplateEditorProps {
   filteredExercises: Exercise[];
   muscleGroups: MuscleGroup[];
   equipmentOptions: Equipment[];
+  // Custom exercise editing
+  editingCustomExercise: { id: string; name: string } | null;
+  isOwnCustomExercise: (exerciseId: string) => boolean;
   // Actions
   onBack: () => void;
   onNameChange: (name: string) => void;
@@ -32,13 +36,17 @@ interface TemplateEditorProps {
   onMoveExercise: (index: number, direction: 'up' | 'down') => void;
   onSave: () => void;
   getExerciseName: (id: string) => string;
-  // Custom exercise
+  // Custom exercise creation
   onStartCreatingExercise: () => void;
   onCancelCreatingExercise: () => void;
   onNewExerciseNameChange: (name: string) => void;
   onNewExerciseEquipmentChange: (equipment: Equipment) => void;
   onToggleMuscle: (muscle: MuscleGroup) => void;
   onCreateExercise: () => void;
+  // Custom exercise editing
+  onEditCustomExercise: (exerciseId: string, exerciseName: string) => void;
+  onSaveCustomExerciseName: (exerciseId: string, newName: string) => void;
+  onCloseEditCustomExercise: () => void;
 }
 
 export const TemplateEditor: FC<TemplateEditorProps> = ({
@@ -55,6 +63,8 @@ export const TemplateEditor: FC<TemplateEditorProps> = ({
   filteredExercises,
   muscleGroups,
   equipmentOptions,
+  editingCustomExercise,
+  isOwnCustomExercise,
   onBack,
   onNameChange,
   onTemplateTypeChange,
@@ -73,6 +83,9 @@ export const TemplateEditor: FC<TemplateEditorProps> = ({
   onNewExerciseEquipmentChange,
   onToggleMuscle,
   onCreateExercise,
+  onEditCustomExercise,
+  onSaveCustomExerciseName,
+  onCloseEditCustomExercise,
 }) => {
   const navigate = useNavigate();
 
@@ -194,9 +207,11 @@ export const TemplateEditor: FC<TemplateEditorProps> = ({
                   exercise={exercise}
                   index={index}
                   exerciseName={getExerciseName(exercise.exerciseId)}
+                  isOwnCustomExercise={isOwnCustomExercise(exercise.exerciseId)}
                   onUpdate={onUpdateExercise}
                   onRemove={onRemoveExercise}
                   onMove={onMoveExercise}
+                  onEditCustomExercise={onEditCustomExercise}
                   isFirst={index === 0}
                   isLast={index === templateExercises.length - 1}
                 />
@@ -235,6 +250,14 @@ export const TemplateEditor: FC<TemplateEditorProps> = ({
         onToggleMuscle={onToggleMuscle}
         onCreateExercise={onCreateExercise}
         onCancelCreateExercise={onCancelCreatingExercise}
+      />
+
+      <EditCustomExerciseModal
+        isOpen={editingCustomExercise !== null}
+        onClose={onCloseEditCustomExercise}
+        exerciseId={editingCustomExercise?.id || ''}
+        currentName={editingCustomExercise?.name || ''}
+        onSave={onSaveCustomExerciseName}
       />
     </div>
   );

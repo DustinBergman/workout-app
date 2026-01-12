@@ -45,6 +45,7 @@ export const useWorkoutPlans = () => {
   const deleteTemplate = useAppStore((state) => state.deleteTemplate);
   const reorderTemplates = useAppStore((state) => state.reorderTemplates);
   const addCustomExercise = useAppStore((state) => state.addCustomExercise);
+  const updateCustomExercise = useAppStore((state) => state.updateCustomExercise);
 
   // Template editor state
   const [isCreating, setIsCreating] = useState(false);
@@ -62,6 +63,9 @@ export const useWorkoutPlans = () => {
   const [newExerciseName, setNewExerciseName] = useState('');
   const [newExerciseMuscles, setNewExerciseMuscles] = useState<MuscleGroup[]>([]);
   const [newExerciseEquipment, setNewExerciseEquipment] = useState<Equipment>('other');
+
+  // Edit custom exercise modal state
+  const [editingCustomExercise, setEditingCustomExercise] = useState<{ id: string; name: string } | null>(null);
 
   // Drag and drop sensors
   const sensors = useSensors(
@@ -277,6 +281,27 @@ export const useWorkoutPlans = () => {
     );
   };
 
+  // Check if an exercise is the user's own custom exercise
+  const isOwnCustomExercise = (exerciseId: string): boolean => {
+    return customExercises.some((ex) => ex.id === exerciseId);
+  };
+
+  // Open the edit custom exercise modal
+  const openEditCustomExercise = (exerciseId: string, exerciseName: string) => {
+    setEditingCustomExercise({ id: exerciseId, name: exerciseName });
+  };
+
+  // Save custom exercise name
+  const saveCustomExerciseName = (exerciseId: string, newName: string) => {
+    updateCustomExercise(exerciseId, { name: newName });
+    setEditingCustomExercise(null);
+  };
+
+  // Close the edit custom exercise modal
+  const closeEditCustomExercise = () => {
+    setEditingCustomExercise(null);
+  };
+
   // Drag and drop
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -340,6 +365,13 @@ export const useWorkoutPlans = () => {
     // Drag-drop
     sensors,
     handleDragEnd,
+
+    // Custom exercise editing
+    editingCustomExercise,
+    isOwnCustomExercise,
+    openEditCustomExercise,
+    saveCustomExerciseName,
+    closeEditCustomExercise,
 
     // Constants
     MUSCLE_GROUPS,
