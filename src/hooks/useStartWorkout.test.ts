@@ -150,4 +150,166 @@ describe('useStartWorkout', () => {
     expect(useCurrentWorkoutStore.getState().suggestions).toEqual([]);
     expect(mockNavigate).toHaveBeenCalledWith('/workout');
   });
+
+  it('should not fetch suggestions when in baseline week (week 0)', async () => {
+    const { getPreWorkoutSuggestions } = await import('../services/openai');
+
+    // Set up store with API key, sessions, but week 0 (baseline)
+    useAppStore.setState({
+      preferences: {
+        weightUnit: 'lbs',
+        distanceUnit: 'mi',
+        defaultRestSeconds: 90,
+        darkMode: false,
+        openaiApiKey: 'test-api-key',
+      },
+      sessions: [{
+        id: 'session-1',
+        name: 'Previous Workout',
+        startedAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+        exercises: [],
+      }],
+      currentWeek: 0, // Baseline week
+    });
+
+    const template = createMockTemplate();
+    const { result } = renderHook(() => useStartWorkout());
+
+    await act(async () => {
+      await result.current.startWorkout(template);
+    });
+
+    // Should not call AI suggestions in baseline week
+    expect(getPreWorkoutSuggestions).not.toHaveBeenCalled();
+    expect(useCurrentWorkoutStore.getState().suggestions).toEqual([]);
+  });
+
+  it('should fetch suggestions when not in baseline week', async () => {
+    const { getPreWorkoutSuggestions } = await import('../services/openai');
+
+    // Set up store with API key, sessions, and week 1 (not baseline)
+    useAppStore.setState({
+      preferences: {
+        weightUnit: 'lbs',
+        distanceUnit: 'mi',
+        defaultRestSeconds: 90,
+        darkMode: false,
+        openaiApiKey: 'test-api-key',
+      },
+      sessions: [{
+        id: 'session-1',
+        name: 'Previous Workout',
+        startedAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+        exercises: [],
+      }],
+      currentWeek: 1, // Not baseline week
+      workoutGoal: 'build',
+    });
+
+    const template = createMockTemplate();
+    const { result } = renderHook(() => useStartWorkout());
+
+    await act(async () => {
+      await result.current.startWorkout(template);
+    });
+
+    // Should call AI suggestions when not in baseline week
+    expect(getPreWorkoutSuggestions).toHaveBeenCalled();
+  });
+
+  it('should proceed with workout even if suggestions request times out', async () => {
+    vi.useFakeTimers();
+    const { getPreWorkoutSuggestions } = await import('../services/openai');
+
+    // Mock a slow API that never resolves
+    vi.mocked(getPreWorkoutSuggestions).mockImplementation(
+      () => new Promise(() => {}) // Never resolves
+    );
+
+    // Set up store with API key, sessions, and week 1
+    useAppStore.setState({
+      preferences: {
+        weightUnit: 'lbs',
+        distanceUnit: 'mi',
+        defaultRestSeconds: 90,
+        darkMode: false,
+        openaiApiKey: 'test-api-key',
+      },
+      sessions: [{
+        id: 'session-1',
+        name: 'Previous Workout',
+        startedAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+        exercises: [],
+      }],
+      currentWeek: 1,
+      workoutGoal: 'build',
+    });
+
+    const template = createMockTemplate();
+    const { result } = renderHook(() => useStartWorkout());
+
+    // Start the workout (don't await yet)
+    let workoutPromise: Promise<void>;
+    act(() => {
+      workoutPromise = result.current.startWorkout(template);
+    });
+
+    // Fast-forward past the 30 second timeout
+    await act(async () => {
+      vi.advanceTimersByTime(30000);
+    });
+
+    // Wait for the workout to complete
+    await act(async () => {
+      await workoutPromise;
+    });
+
+    // Workout should still start with empty suggestions
+    expect(useCurrentWorkoutStore.getState().suggestions).toEqual([]);
+    expect(mockNavigate).toHaveBeenCalledWith('/workout');
+
+    vi.useRealTimers();
+  });
+
+  it('should proceed with workout if API returns an error', async () => {
+    const { getPreWorkoutSuggestions } = await import('../services/openai');
+
+    // Mock API error (e.g., out of credits)
+    vi.mocked(getPreWorkoutSuggestions).mockRejectedValue(new Error('Insufficient credits'));
+
+    // Set up store with API key, sessions, and week 1
+    useAppStore.setState({
+      preferences: {
+        weightUnit: 'lbs',
+        distanceUnit: 'mi',
+        defaultRestSeconds: 90,
+        darkMode: false,
+        openaiApiKey: 'test-api-key',
+      },
+      sessions: [{
+        id: 'session-1',
+        name: 'Previous Workout',
+        startedAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+        exercises: [],
+      }],
+      currentWeek: 1,
+      workoutGoal: 'build',
+    });
+
+    const template = createMockTemplate();
+    const { result } = renderHook(() => useStartWorkout());
+
+    await act(async () => {
+      await result.current.startWorkout(template);
+    });
+
+    // Workout should still start with empty suggestions
+    expect(useCurrentWorkoutStore.getState().suggestions).toEqual([]);
+    expect(mockNavigate).toHaveBeenCalledWith('/workout');
+    expect(result.current.isLoadingSuggestions).toBe(false);
+  });
 });

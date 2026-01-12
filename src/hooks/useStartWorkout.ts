@@ -55,24 +55,33 @@ export const useStartWorkout = (): UseStartWorkoutReturn => {
     };
     setActiveSession(session);
 
-    // Get AI suggestions if API key exists and there's workout history
-    if (preferences.openaiApiKey && sessions.length > 0) {
+    // Get AI suggestions if API key exists, there's workout history, and not in baseline week
+    // Week 0 is the baseline week - no AI suggestions needed since we're establishing baseline performance
+    if (preferences.openaiApiKey && sessions.length > 0 && currentWeek !== 0) {
       setIsLoadingSuggestions(true);
       try {
-        const suggestions = await getPreWorkoutSuggestions(
-          preferences.openaiApiKey,
-          template,
-          sessions,
-          preferences.weightUnit,
-          currentWeek,
-          workoutGoal,
-          weightEntries,
-          preferences.experienceLevel || 'intermediate'
+        // Add timeout to ensure workout starts even if API is slow/hanging
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Suggestions request timed out')), 30000)
         );
+
+        const suggestions = await Promise.race([
+          getPreWorkoutSuggestions(
+            preferences.openaiApiKey,
+            template,
+            sessions,
+            preferences.weightUnit,
+            currentWeek,
+            workoutGoal,
+            weightEntries,
+            preferences.experienceLevel || 'intermediate'
+          ),
+          timeoutPromise,
+        ]);
         setSuggestions(suggestions);
       } catch (err) {
         console.error('Failed to get suggestions:', err);
-        // Continue without suggestions on error
+        // Continue without suggestions on error (API failure, timeout, out of credits, etc.)
         setSuggestions([]);
       } finally {
         setIsLoadingSuggestions(false);
