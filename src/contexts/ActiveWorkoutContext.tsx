@@ -1,5 +1,6 @@
 import { createContext, useContext, ReactNode, FC } from 'react';
 import { WorkoutSession, WeightUnit, DistanceUnit, ExerciseSuggestion, Exercise } from '../types';
+import { LogCardioParams } from '../hooks/useExerciseManagement';
 import { useActiveWorkoutPage } from '../hooks/useActiveWorkoutPage';
 import { useAppStore } from '../store/useAppStore';
 import { useActiveWorkout } from '../hooks/useActiveWorkout';
@@ -20,7 +21,7 @@ export interface ActiveWorkoutContextValue {
 
   // Exercise operations (by index in session.exercises)
   logSetForExercise: (index: number, reps: number, weight: number) => void;
-  logCardioForExercise: (index: number, distance: number, unit: DistanceUnit, durationSeconds: number) => void;
+  logCardioForExercise: (index: number, params: LogCardioParams) => void;
   removeLastSetForExercise: (index: number) => void;
   removeSetForExercise: (exerciseIndex: number, setIndex: number) => void;
   updateSetForExercise: (exerciseIndex: number, setIndex: number, reps: number, weight: number) => void;

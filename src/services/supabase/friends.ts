@@ -7,6 +7,7 @@ export interface FriendProfile {
   first_name: string | null;
   last_name: string | null;
   username: string | null;
+  avatar_url: string | null;
 }
 
 export interface FriendRequest {
@@ -96,7 +97,7 @@ export const getPendingRequests = async (): Promise<{
     .select(`
       *,
       from_user:profiles!friend_requests_from_user_id_fkey (
-        id, first_name, last_name, username
+        id, first_name, last_name, username, avatar_url
       )
     `)
     .eq('to_user_id', user.id)
@@ -127,7 +128,7 @@ export const getSentRequests = async (): Promise<{
     .select(`
       *,
       to_user:profiles!friend_requests_to_user_id_fkey (
-        id, first_name, last_name, username
+        id, first_name, last_name, username, avatar_url
       )
     `)
     .eq('from_user_id', user.id)
@@ -177,7 +178,7 @@ export const getFriends = async (): Promise<{
     .from('friendships')
     .select(`
       friend:profiles!friendships_friend_id_fkey (
-        id, first_name, last_name, username
+        id, first_name, last_name, username, avatar_url
       )
     `)
     .eq('user_id', user.id);

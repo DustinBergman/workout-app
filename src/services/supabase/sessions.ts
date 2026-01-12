@@ -19,6 +19,7 @@ interface DbCompletedSet {
   weight_unit: 'lbs' | 'kg' | null;
   distance: number | null;
   distance_unit: 'mi' | 'km' | null;
+  calories: number | null;
   duration_seconds: number | null;
   completed_at: string;
 }
@@ -370,8 +371,13 @@ const dbSetToCompletedSet = (dbSet: DbCompletedSet): CompletedSet => {
   if (dbSet.type === 'cardio') {
     return {
       type: 'cardio',
-      distance: dbSet.distance ?? 0,
-      distanceUnit: dbSet.distance_unit ?? 'mi',
+      ...(dbSet.distance != null && dbSet.distance > 0 && {
+        distance: dbSet.distance,
+        distanceUnit: dbSet.distance_unit ?? 'mi',
+      }),
+      ...(dbSet.calories != null && dbSet.calories > 0 && {
+        calories: dbSet.calories,
+      }),
       durationSeconds: dbSet.duration_seconds ?? 0,
       completedAt: dbSet.completed_at,
     };
@@ -412,8 +418,9 @@ const completedSetToDbSet = (
   reps: set.type === 'strength' ? set.reps : null,
   weight: set.type === 'strength' ? set.weight : null,
   weight_unit: set.type === 'strength' ? set.unit : null,
-  distance: set.type === 'cardio' ? set.distance : null,
-  distance_unit: set.type === 'cardio' ? set.distanceUnit : null,
+  distance: set.type === 'cardio' ? (set.distance ?? null) : null,
+  distance_unit: set.type === 'cardio' ? (set.distanceUnit ?? null) : null,
+  calories: set.type === 'cardio' ? (set.calories ?? null) : null,
   duration_seconds: set.type === 'cardio' ? set.durationSeconds : null,
   completed_at: set.completedAt,
 });

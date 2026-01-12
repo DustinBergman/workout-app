@@ -70,8 +70,9 @@ export interface StrengthHistorySet {
 
 export interface CardioHistorySet {
   type: 'cardio';
-  distance: number;
-  distanceUnit: DistanceUnit;
+  distance?: number;
+  distanceUnit?: DistanceUnit;
+  calories?: number;
   durationSeconds: number;
 }
 
@@ -99,8 +100,8 @@ export const extractExerciseHistory = (
           if (set.type === 'cardio') {
             return {
               type: 'cardio' as const,
-              distance: set.distance,
-              distanceUnit: set.distanceUnit,
+              ...(set.distance !== undefined && { distance: set.distance, distanceUnit: set.distanceUnit }),
+              ...(set.calories !== undefined && { calories: set.calories }),
               durationSeconds: set.durationSeconds,
             };
           }

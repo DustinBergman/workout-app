@@ -1,9 +1,12 @@
 import { useState, useEffect, FC, DOMAttributes } from 'react';
 import { DraggableAttributes } from '@dnd-kit/core';
-import { CardioSessionExercise, CardioExercise, DistanceUnit } from '../../types';
+import { CardioSessionExercise, CardioExercise } from '../../types';
 import { Card, Button } from '../ui';
 import { formatCardioDuration, calculatePace } from '../../utils/workoutUtils';
 import { useActiveWorkoutContext } from '../../contexts/ActiveWorkoutContext';
+import { LogCardioParams } from '../../hooks/useExerciseManagement';
+
+type CardioTrackingType = 'distance' | 'calories';
 
 interface CardioAccordionProps {
   exercise: CardioSessionExercise;
@@ -34,8 +37,11 @@ export const CardioAccordion: FC<CardioAccordionProps> = ({
   // Find the index of this exercise in the session
   const index = session?.exercises.findIndex(ex => ex.id === exercise.id) ?? -1;
 
+  // Check if this is an interval-based cardio (HIIT, Boxing)
+  const isIntervalCardio = exerciseInfo?.cardioType === 'hiit' || exerciseInfo?.cardioType === 'boxing';
+
   // Wrapped handlers that include the index
-  const wrappedLogCardio = (distance: number, unit: DistanceUnit, durationSeconds: number) => logCardioForExercise(index, distance, unit, durationSeconds);
+  const wrappedLogCardio = (params: LogCardioParams) => logCardioForExercise(index, params);
   const wrappedRemoveLastSet = () => removeLastSetForExercise(index);
   const wrappedRemoveExercise = () => removeExercise(index);
   const wrappedShowHistory = () => handleShowHistory(exercise.exerciseId, exerciseInfo?.name || 'Unknown');
@@ -44,7 +50,12 @@ export const CardioAccordion: FC<CardioAccordionProps> = ({
   const isExpanded = expandedIndex === index;
   const onToggle = () => setExpandedIndex(isExpanded ? null : index);
 
+  // Tracking mode - interval cardio defaults to calories, others to distance
+  const [trackingType, setTrackingType] = useState<CardioTrackingType>(
+    isIntervalCardio ? 'calories' : 'distance'
+  );
   const [distanceInput, setDistanceInput] = useState('');
+  const [caloriesInput, setCaloriesInput] = useState('');
   const [minutesInput, setMinutesInput] = useState('');
   const [secondsInput, setSecondsInput] = useState('');
 
@@ -52,7 +63,11 @@ export const CardioAccordion: FC<CardioAccordionProps> = ({
 
   // Calculate totals for display
   const totalDistance = exercise.sets.reduce((sum, s) => {
-    if (s.type === 'cardio') return sum + s.distance;
+    if (s.type === 'cardio' && s.distance !== undefined) return sum + s.distance;
+    return sum;
+  }, 0);
+  const totalCalories = exercise.sets.reduce((sum, s) => {
+    if (s.type === 'cardio' && s.calories !== undefined) return sum + s.calories;
     return sum;
   }, 0);
   const totalDuration = exercise.sets.reduce((sum, s) => {
@@ -65,7 +80,12 @@ export const CardioAccordion: FC<CardioAccordionProps> = ({
     if (isExpanded && exercise.sets.length > 0) {
       const lastSet = exercise.sets[exercise.sets.length - 1];
       if (lastSet.type === 'cardio') {
-        setDistanceInput(lastSet.distance.toString());
+        if (lastSet.distance !== undefined) {
+          setDistanceInput(lastSet.distance.toString());
+        }
+        if (lastSet.calories !== undefined) {
+          setCaloriesInput(lastSet.calories.toString());
+        }
         const mins = Math.floor(lastSet.durationSeconds / 60);
         const secs = lastSet.durationSeconds % 60;
         setMinutesInput(mins.toString());
@@ -75,14 +95,21 @@ export const CardioAccordion: FC<CardioAccordionProps> = ({
   }, [isExpanded, exercise]);
 
   const handleLogCardio = () => {
-    const distance = parseFloat(distanceInput) || 0;
     const minutes = parseInt(minutesInput) || 0;
     const seconds = parseInt(secondsInput) || 0;
     const durationSeconds = minutes * 60 + seconds;
 
-    if (distance <= 0 || durationSeconds <= 0) return;
+    if (durationSeconds <= 0) return;
 
-    wrappedLogCardio(distance, distanceUnit, durationSeconds);
+    if (trackingType === 'distance') {
+      const distance = parseFloat(distanceInput) || 0;
+      if (distance <= 0) return;
+      wrappedLogCardio({ distance, distanceUnit, durationSeconds });
+    } else {
+      const calories = parseInt(caloriesInput) || 0;
+      if (calories <= 0) return;
+      wrappedLogCardio({ calories, durationSeconds });
+    }
   };
 
   return (
@@ -126,7 +153,11 @@ export const CardioAccordion: FC<CardioAccordionProps> = ({
             </h3>
             <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
               {hasLogs
-                ? `${totalDistance.toFixed(2)} ${distanceUnit} in ${formatCardioDuration(totalDuration)}`
+                ? totalCalories > 0 && totalDistance === 0
+                  ? `${totalCalories} cal in ${formatCardioDuration(totalDuration)}`
+                  : totalDistance > 0 && totalCalories === 0
+                    ? `${totalDistance.toFixed(2)} ${distanceUnit} in ${formatCardioDuration(totalDuration)}`
+                    : `${totalDistance.toFixed(2)} ${distanceUnit} + ${totalCalories} cal in ${formatCardioDuration(totalDuration)}`
                 : 'Cardio exercise'}
             </p>
           </div>
@@ -193,24 +224,34 @@ export const CardioAccordion: FC<CardioAccordionProps> = ({
                 </button>
               </div>
               <div className="space-y-1">
-                {exercise.sets.map((set, index) => {
+                {exercise.sets.map((set, setIndex) => {
                   if (set.type !== 'cardio') return null;
-                  const pace = calculatePace(set.distance, set.durationSeconds, set.distanceUnit);
+                  const hasDistance = set.distance !== undefined && set.distance > 0;
+                  const hasCalories = set.calories !== undefined && set.calories > 0;
+                  const pace = hasDistance && set.distanceUnit
+                    ? calculatePace(set.distance!, set.durationSeconds, set.distanceUnit)
+                    : null;
                   return (
                     <div
-                      key={index}
+                      key={setIndex}
                       className="flex items-center justify-between p-2 bg-green-100 dark:bg-green-900/20 rounded-lg"
                     >
                       <span className="text-sm font-medium text-green-700 dark:text-green-300">
-                        Entry {index + 1}
+                        Entry {setIndex + 1}
                       </span>
                       <div className="text-right">
                         <span className="text-sm text-green-600 dark:text-green-400">
-                          {set.distance.toFixed(2)} {set.distanceUnit} in {formatCardioDuration(set.durationSeconds)}
+                          {hasCalories && !hasDistance
+                            ? `${set.calories} cal in ${formatCardioDuration(set.durationSeconds)}`
+                            : hasDistance && !hasCalories
+                              ? `${set.distance!.toFixed(2)} ${set.distanceUnit} in ${formatCardioDuration(set.durationSeconds)}`
+                              : `${set.distance!.toFixed(2)} ${set.distanceUnit} + ${set.calories} cal in ${formatCardioDuration(set.durationSeconds)}`}
                         </span>
-                        <span className="text-xs text-green-500 dark:text-green-500 block">
-                          Pace: {pace}
-                        </span>
+                        {pace && (
+                          <span className="text-xs text-green-500 dark:text-green-500 block">
+                            Pace: {pace}
+                          </span>
+                        )}
                       </div>
                     </div>
                   );
@@ -225,34 +266,94 @@ export const CardioAccordion: FC<CardioAccordionProps> = ({
               Log Cardio
             </p>
 
-            {/* Distance input */}
-            <div className="mb-4">
-              <label className="text-xs text-gray-500 mb-1 block">
-                Distance ({distanceUnit})
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                value={distanceInput}
-                onChange={(e) => setDistanceInput(e.target.value)}
-                placeholder="0.00"
-                className="w-full px-4 py-3 text-lg text-center rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-              />
-              <div className="flex gap-1 mt-2">
-                {[0.25, 0.5, 1, -0.25].map((delta) => (
+            {/* Tracking type toggle for interval cardio */}
+            {isIntervalCardio && (
+              <div className="mb-4">
+                <div className="flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden">
                   <button
-                    key={delta}
-                    onClick={() => {
-                      const current = parseFloat(distanceInput) || 0;
-                      setDistanceInput(Math.max(0, current + delta).toFixed(2));
-                    }}
-                    className="flex-1 py-1 text-xs rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
+                    onClick={() => setTrackingType('calories')}
+                    className={`flex-1 py-2 text-sm font-medium transition-colors ${
+                      trackingType === 'calories'
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'
+                    }`}
                   >
-                    {delta > 0 ? '+' : ''}{delta}
+                    Calories
                   </button>
-                ))}
+                  <button
+                    onClick={() => setTrackingType('distance')}
+                    className={`flex-1 py-2 text-sm font-medium transition-colors ${
+                      trackingType === 'distance'
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'
+                    }`}
+                  >
+                    Distance
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* Distance input */}
+            {trackingType === 'distance' && (
+              <div className="mb-4">
+                <label className="text-xs text-gray-500 mb-1 block">
+                  Distance ({distanceUnit})
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={distanceInput}
+                  onChange={(e) => setDistanceInput(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full px-4 py-3 text-lg text-center rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                />
+                <div className="flex gap-1 mt-2">
+                  {[0.25, 0.5, 1, -0.25].map((delta) => (
+                    <button
+                      key={delta}
+                      onClick={() => {
+                        const current = parseFloat(distanceInput) || 0;
+                        setDistanceInput(Math.max(0, current + delta).toFixed(2));
+                      }}
+                      className="flex-1 py-1 text-xs rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
+                    >
+                      {delta > 0 ? '+' : ''}{delta}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Calories input */}
+            {trackingType === 'calories' && (
+              <div className="mb-4">
+                <label className="text-xs text-gray-500 mb-1 block">
+                  Calories Burned
+                </label>
+                <input
+                  type="number"
+                  value={caloriesInput}
+                  onChange={(e) => setCaloriesInput(e.target.value)}
+                  placeholder="0"
+                  className="w-full px-4 py-3 text-lg text-center rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                />
+                <div className="flex gap-1 mt-2">
+                  {[25, 50, 100, -25].map((delta) => (
+                    <button
+                      key={delta}
+                      onClick={() => {
+                        const current = parseInt(caloriesInput) || 0;
+                        setCaloriesInput(Math.max(0, current + delta).toString());
+                      }}
+                      className="flex-1 py-1 text-xs rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
+                    >
+                      {delta > 0 ? '+' : ''}{delta}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Duration input (minutes and seconds) */}
             <div className="mb-4">
@@ -298,8 +399,8 @@ export const CardioAccordion: FC<CardioAccordionProps> = ({
               </div>
             </div>
 
-            {/* Pace preview */}
-            {distanceInput && (minutesInput || secondsInput) && (
+            {/* Pace preview (only for distance tracking) */}
+            {trackingType === 'distance' && distanceInput && (minutesInput || secondsInput) && (
               <div className="mb-4 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-center">
                 <span className="text-sm text-blue-700 dark:text-blue-300">
                   Pace: {calculatePace(
@@ -311,11 +412,22 @@ export const CardioAccordion: FC<CardioAccordionProps> = ({
               </div>
             )}
 
+            {/* Calories/hour preview (only for calories tracking) */}
+            {trackingType === 'calories' && caloriesInput && (minutesInput || secondsInput) && (
+              <div className="mb-4 p-2 bg-orange-50 dark:bg-orange-900/20 rounded-lg text-center">
+                <span className="text-sm text-orange-700 dark:text-orange-300">
+                  {Math.round(
+                    ((parseInt(caloriesInput) || 0) / ((parseInt(minutesInput) || 0) + (parseInt(secondsInput) || 0) / 60)) * 60
+                  )} cal/hour
+                </span>
+              </div>
+            )}
+
             <Button
               onClick={handleLogCardio}
               disabled={
-                !distanceInput ||
-                parseFloat(distanceInput) <= 0 ||
+                (trackingType === 'distance' && (!distanceInput || parseFloat(distanceInput) <= 0)) ||
+                (trackingType === 'calories' && (!caloriesInput || parseInt(caloriesInput) <= 0)) ||
                 (!minutesInput && !secondsInput)
               }
               className="w-full"

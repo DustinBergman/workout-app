@@ -67,11 +67,17 @@ export const SessionDetailModal: FC<SessionDetailModalProps> = ({
                       <span className="text-gray-900 dark:text-gray-100">
                         {set.type === 'cardio' ? (
                           <>
-                            {set.distance.toFixed(2)} {set.distanceUnit} in{' '}
-                            {formatCardioDuration(set.durationSeconds)}
-                            <span className="text-xs text-gray-500 ml-2">
-                              ({calculatePace(set.distance, set.durationSeconds, set.distanceUnit)})
-                            </span>
+                            {set.calories !== undefined && set.distance === undefined
+                              ? `${set.calories} cal`
+                              : set.distance !== undefined
+                                ? `${set.distance.toFixed(2)} ${set.distanceUnit}`
+                                : ''}{' '}
+                            in {formatCardioDuration(set.durationSeconds)}
+                            {set.distance !== undefined && set.distanceUnit && (
+                              <span className="text-xs text-gray-500 ml-2">
+                                ({calculatePace(set.distance, set.durationSeconds, set.distanceUnit)})
+                              </span>
+                            )}
                           </>
                         ) : (
                           <>

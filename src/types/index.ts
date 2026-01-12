@@ -408,10 +408,12 @@ export interface StrengthCompletedSet {
 }
 
 // Cardio Completed Set (during an active workout)
+// Can track either distance or calories (for HIIT/interval workouts)
 export interface CardioCompletedSet {
   type: 'cardio';
-  distance: number;
-  distanceUnit: DistanceUnit;
+  distance?: number;        // Optional - used for distance-based cardio
+  distanceUnit?: DistanceUnit; // Optional - only needed when distance is set
+  calories?: number;        // Optional - used for HIIT/interval cardio
   durationSeconds: number;
   completedAt: string;
 }

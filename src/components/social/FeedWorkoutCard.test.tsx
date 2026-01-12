@@ -124,6 +124,7 @@ describe('FeedWorkoutCard', () => {
             weight_unit: 'lbs' as const,
             distance: null,
             distance_unit: null,
+            calories: null,
             duration_seconds: null,
             completed_at: '2024-01-01T08:10:00Z',
           },
@@ -469,6 +470,162 @@ describe('FeedWorkoutCard', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
       expect(screen.queryByText('Copy Workout to Plans')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('cardio display', () => {
+    it('should show calories chip for HIIT workouts with calories tracked', () => {
+      const hiitWorkout = {
+        ...mockWorkout,
+        session_exercises: [
+          {
+            id: 'ex-1',
+            exercise_id: 'hiit',
+            custom_exercise_name: null,
+            type: 'cardio' as const,
+            sort_order: 0,
+            target_sets: null,
+            target_reps: null,
+            rest_seconds: 60,
+            completed_sets: [
+              {
+                id: 'set-1',
+                type: 'cardio' as const,
+                reps: null,
+                weight: null,
+                weight_unit: null,
+                distance: null,
+                distance_unit: null,
+                calories: 350,
+                duration_seconds: 1200,
+                completed_at: '2024-01-01T08:30:00Z',
+              },
+            ],
+          },
+        ],
+      };
+
+      render(<FeedWorkoutCard workout={hiitWorkout} />);
+
+      expect(screen.getByText('🔥 350 cal')).toBeInTheDocument();
+    });
+
+    it('should show distance chip for cardio with distance tracked', () => {
+      const runWorkout = {
+        ...mockWorkout,
+        session_exercises: [
+          {
+            id: 'ex-1',
+            exercise_id: 'outdoor-run',
+            custom_exercise_name: null,
+            type: 'cardio' as const,
+            sort_order: 0,
+            target_sets: null,
+            target_reps: null,
+            rest_seconds: 60,
+            completed_sets: [
+              {
+                id: 'set-1',
+                type: 'cardio' as const,
+                reps: null,
+                weight: null,
+                weight_unit: null,
+                distance: 5.0,
+                distance_unit: 'mi' as const,
+                calories: null,
+                duration_seconds: 2400,
+                completed_at: '2024-01-01T08:30:00Z',
+              },
+            ],
+          },
+        ],
+      };
+
+      render(<FeedWorkoutCard workout={runWorkout} />);
+
+      expect(screen.getByText('🏃 5.0 mi')).toBeInTheDocument();
+    });
+
+    it('should show calories in expanded view for HIIT workouts', () => {
+      const hiitWorkout = {
+        ...mockWorkout,
+        session_exercises: [
+          {
+            id: 'ex-1',
+            exercise_id: 'hiit',
+            custom_exercise_name: null,
+            type: 'cardio' as const,
+            sort_order: 0,
+            target_sets: null,
+            target_reps: null,
+            rest_seconds: 60,
+            completed_sets: [
+              {
+                id: 'set-1',
+                type: 'cardio' as const,
+                reps: null,
+                weight: null,
+                weight_unit: null,
+                distance: null,
+                distance_unit: null,
+                calories: 200,
+                duration_seconds: 1200,
+                completed_at: '2024-01-01T08:30:00Z',
+              },
+            ],
+          },
+        ],
+      };
+
+      render(<FeedWorkoutCard workout={hiitWorkout} />);
+
+      // Expand the workout
+      fireEvent.click(screen.getByText('Morning Push Day'));
+
+      // Should show calories display in expanded view
+      expect(screen.getByText(/200 cal.*in 20m/)).toBeInTheDocument();
+    });
+
+    it('should not show 0 distance for cardio with no distance tracked', () => {
+      const hiitWorkout = {
+        ...mockWorkout,
+        session_exercises: [
+          {
+            id: 'ex-1',
+            exercise_id: 'hiit',
+            custom_exercise_name: null,
+            type: 'cardio' as const,
+            sort_order: 0,
+            target_sets: null,
+            target_reps: null,
+            rest_seconds: 60,
+            completed_sets: [
+              {
+                id: 'set-1',
+                type: 'cardio' as const,
+                reps: null,
+                weight: null,
+                weight_unit: null,
+                distance: 0,
+                distance_unit: 'km' as const,
+                calories: 150,
+                duration_seconds: 900,
+                completed_at: '2024-01-01T08:30:00Z',
+              },
+            ],
+          },
+        ],
+      };
+
+      render(<FeedWorkoutCard workout={hiitWorkout} />);
+
+      // Expand the workout
+      fireEvent.click(screen.getByText('Morning Push Day'));
+
+      // Should NOT show "0 km"
+      expect(screen.queryByText(/0 km/)).not.toBeInTheDocument();
+      // Should show calories instead
+      expect(screen.getByText(/150 cal.*in 15m/)).toBeInTheDocument();
     });
   });
 });

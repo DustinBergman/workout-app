@@ -11,9 +11,16 @@ import {
   DistanceUnit,
 } from '../types';
 
+export interface LogCardioParams {
+  distance?: number;
+  distanceUnit?: DistanceUnit;
+  calories?: number;
+  durationSeconds: number;
+}
+
 interface UseExerciseManagementReturn {
   logSetForExercise: (exerciseIndex: number, reps: number, weight: number) => void;
-  logCardioForExercise: (exerciseIndex: number, distance: number, distanceUnit: DistanceUnit, durationSeconds: number) => void;
+  logCardioForExercise: (exerciseIndex: number, params: LogCardioParams) => void;
   removeLastSetForExercise: (exerciseIndex: number) => void;
   removeSetForExercise: (exerciseIndex: number, setIndex: number) => void;
   updateSetForExercise: (exerciseIndex: number, setIndex: number, reps: number, weight: number) => void;
@@ -88,18 +95,18 @@ export const useExerciseManagement = (): UseExerciseManagementReturn => {
   // Log a cardio set
   const logCardioForExercise = useCallback((
     exerciseIndex: number,
-    distance: number,
-    distanceUnit: DistanceUnit,
-    durationSeconds: number
+    params: LogCardioParams
   ) => {
     if (!session) return;
     const exercise = session.exercises[exerciseIndex];
     if (exercise.type !== 'cardio') return;
 
+    const { distance, distanceUnit, calories, durationSeconds } = params;
+
     const newSet: CardioCompletedSet = {
       type: 'cardio',
-      distance,
-      distanceUnit,
+      ...(distance !== undefined && { distance, distanceUnit }),
+      ...(calories !== undefined && { calories }),
       durationSeconds,
       completedAt: new Date().toISOString(),
     };

@@ -37,6 +37,7 @@ export const Home: FC = () => {
     hasApiKey,
     recentSessions,
     nextWorkout,
+    memberSince,
     shouldShowWeightReminder,
     ptSummary,
     loadingPTSummary,
@@ -105,7 +106,7 @@ export const Home: FC = () => {
 
         {/* Activity Heatmap */}
         {sessions.length > 0 && (
-          <ActivitySection sessions={sessions} />
+          <ActivitySection sessions={sessions} memberSince={memberSince} />
         )}
 
         {/* Your Plans */}

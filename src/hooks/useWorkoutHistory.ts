@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useRef, RefObject } from 'react';
 import { useAppStore } from '../store/useAppStore';
+import { useAuth } from './useAuth';
 import { WorkoutSession } from '../types';
 
 export interface GroupedSessions {
@@ -37,8 +38,12 @@ export const formatHistoryDate = (dateString: string): string => {
 };
 
 export const useWorkoutHistory = () => {
+  const { user } = useAuth();
   const sessions = useAppStore((state) => state.sessions);
   const preferences = useAppStore((state) => state.preferences);
+
+  // Get member since date from user's created_at
+  const memberSince = useMemo(() => user?.created_at || undefined, [user?.created_at]);
 
   // State
   const [viewMode, setViewMode] = useState<'list' | 'heatmap'>('heatmap');
@@ -102,6 +107,7 @@ export const useWorkoutHistory = () => {
   return {
     // Store data
     preferences,
+    memberSince,
     // State
     viewMode,
     selectedDate,

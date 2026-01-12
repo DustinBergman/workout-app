@@ -1,4 +1,4 @@
-import { useState, FC } from 'react';
+import { useState, useEffect, FC } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import {
@@ -17,6 +17,7 @@ import {
 import { exportAllData, importAllData, clearAllData } from '../services/storage';
 import { WorkoutGoal, WORKOUT_GOALS, ExperienceLevel, ProgressiveOverloadWeek } from '../types';
 import { useAuth } from '../hooks/useAuth';
+import { getProfile, updateUsername, checkUsernameAvailability } from '../services/supabase/profiles';
 
 export const Settings: FC = () => {
   const navigate = useNavigate();
@@ -34,6 +35,62 @@ export const Settings: FC = () => {
   const [showGoalConfirm, setShowGoalConfirm] = useState(false);
   const [pendingGoal, setPendingGoal] = useState<WorkoutGoal | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [username, setUsername] = useState('');
+  const [usernameInput, setUsernameInput] = useState('');
+  const [usernameError, setUsernameError] = useState('');
+  const [usernameSaving, setUsernameSaving] = useState(false);
+  const [usernameSaved, setUsernameSaved] = useState(false);
+
+  // Load current username on mount
+  useEffect(() => {
+    const loadUsername = async () => {
+      if (!isAuthenticated) return;
+      const { profile } = await getProfile();
+      if (profile?.username) {
+        setUsername(profile.username);
+        setUsernameInput(profile.username);
+      }
+    };
+    loadUsername();
+  }, [isAuthenticated]);
+
+  const handleSaveUsername = async () => {
+    const trimmed = usernameInput.trim().toLowerCase();
+
+    if (trimmed === username) {
+      return;
+    }
+
+    setUsernameError('');
+    setUsernameSaving(true);
+
+    // Check availability
+    const { available, error: checkError } = await checkUsernameAvailability(trimmed);
+    if (checkError) {
+      setUsernameError(checkError.message);
+      setUsernameSaving(false);
+      return;
+    }
+    if (!available) {
+      setUsernameError('Username is already taken');
+      setUsernameSaving(false);
+      return;
+    }
+
+    // Update username
+    const { error: updateError } = await updateUsername(trimmed);
+    if (updateError) {
+      setUsernameError(updateError.message);
+      setUsernameSaving(false);
+      return;
+    }
+
+    setUsername(trimmed);
+    setUsernameInput(trimmed);
+    setUsernameSaving(false);
+    setUsernameSaved(true);
+    setTimeout(() => setUsernameSaved(false), 2000);
+  };
 
   const handleSignOut = async () => {
     setIsSigningOut(true);
@@ -122,26 +179,54 @@ export const Settings: FC = () => {
           Account
         </h2>
 
-        <Card>
+        <Card className="space-y-4">
           {isAuthenticated ? (
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-foreground">{user?.email}</p>
-                <p className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  Synced to cloud
-                </p>
+            <>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium text-foreground">{user?.email}</p>
+                  <p className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    Synced to cloud
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={handleSignOut}
+                  disabled={isSigningOut}
+                >
+                  {isSigningOut ? 'Signing out...' : 'Sign Out'}
+                </Button>
               </div>
-              <Button
-                variant="outline"
-                onClick={handleSignOut}
-                disabled={isSigningOut}
-              >
-                {isSigningOut ? 'Signing out...' : 'Sign Out'}
-              </Button>
-            </div>
+
+              {/* Nickname/Username */}
+              <div className="pt-4 border-t border-border">
+                <div className="flex items-center justify-between">
+                  <Label className="font-medium text-foreground">Nickname</Label>
+                  <div className="flex items-center gap-2">
+                    <div className="flex flex-col items-end">
+                      <Input
+                        value={usernameInput}
+                        onChange={(e) => setUsernameInput(e.target.value)}
+                        placeholder="Enter nickname"
+                        className="w-40"
+                      />
+                      {usernameError && (
+                        <p className="text-xs text-destructive mt-1">{usernameError}</p>
+                      )}
+                    </div>
+                    <Button
+                      onClick={handleSaveUsername}
+                      disabled={usernameSaving || usernameInput === username}
+                    >
+                      {usernameSaving ? 'Saving...' : usernameSaved ? 'Saved!' : 'Save'}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </>
           ) : (
             <div className="flex items-center justify-between">
               <div>

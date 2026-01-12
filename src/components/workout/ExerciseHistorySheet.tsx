@@ -80,10 +80,17 @@ export const ExerciseHistorySheet: FC<ExerciseHistorySheetProps> = ({
                       <span>
                         {set.type === 'cardio' ? (
                           <>
-                            {set.distance.toFixed(2)} {set.distanceUnit} in {formatCardioDuration(set.durationSeconds)}
-                            <span className="text-gray-400 ml-1">
-                              ({calculatePace(set.distance, set.durationSeconds, set.distanceUnit)})
-                            </span>
+                            {set.calories !== undefined && set.distance === undefined
+                              ? `${set.calories} cal`
+                              : set.distance !== undefined
+                                ? `${set.distance.toFixed(2)} ${set.distanceUnit}`
+                                : ''}{' '}
+                            in {formatCardioDuration(set.durationSeconds)}
+                            {set.distance !== undefined && set.distanceUnit && (
+                              <span className="text-gray-400 ml-1">
+                                ({calculatePace(set.distance, set.durationSeconds, set.distanceUnit)})
+                              </span>
+                            )}
                           </>
                         ) : (
                           <>

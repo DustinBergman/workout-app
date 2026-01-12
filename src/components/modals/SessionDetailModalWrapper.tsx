@@ -64,9 +64,13 @@ export const SessionDetailModalWrapper: FC<SessionDetailModalWrapperProps> = ({ 
                       </span>
                     ) : (
                       <span>
-                        {set.distance} {set.distanceUnit} in{' '}
-                        {formatCardioDuration(set.durationSeconds)}
-                        {set.distance > 0 && (
+                        {set.calories !== undefined && set.distance === undefined
+                          ? `${set.calories} cal`
+                          : set.distance !== undefined
+                            ? `${set.distance} ${set.distanceUnit}`
+                            : ''}{' '}
+                        in {formatCardioDuration(set.durationSeconds)}
+                        {set.distance !== undefined && set.distance > 0 && set.distanceUnit && (
                           <span className="text-gray-500 dark:text-gray-500 ml-2">
                             ({calculatePace(set.durationSeconds, set.distance, set.distanceUnit)})
                           </span>

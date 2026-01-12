@@ -14,7 +14,7 @@ const processSet = (set: CompletedSet) => {
     return {
       volume: 0,
       reps: 0,
-      distance: set.distance,
+      distance: set.distance ?? 0,
       duration: set.durationSeconds,
     };
   }

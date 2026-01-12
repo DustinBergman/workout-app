@@ -294,11 +294,20 @@ export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
         {(() => {
           const chips: React.ReactNode[] = [];
 
-          // Calculate cardio distance
+          // Calculate cardio distance and calories
           const totalCardioDistance = workout.session_exercises.reduce((sum, ex) => {
             if (ex.type === 'cardio') {
               return sum + ex.completed_sets.reduce((setSum, set) => {
                 return setSum + (set.distance || 0);
+              }, 0);
+            }
+            return sum;
+          }, 0);
+
+          const totalCardioCalories = workout.session_exercises.reduce((sum, ex) => {
+            if (ex.type === 'cardio') {
+              return sum + ex.completed_sets.reduce((setSum, set) => {
+                return setSum + (set.calories || 0);
               }, 0);
             }
             return sum;
@@ -358,11 +367,17 @@ export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
             }
           }
 
-          // 5. Cardio distance chip (if significant cardio)
+          // 5. Cardio chip (if significant cardio - show distance or calories)
           if (totalCardioDistance >= 1) {
             chips.push(
               <span key="cardio" className="px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-300 text-xs">
                 🏃 {totalCardioDistance.toFixed(1)} {distanceUnit}
+              </span>
+            );
+          } else if (totalCardioCalories >= 50) {
+            chips.push(
+              <span key="cardio" className="px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-500/20 text-orange-700 dark:text-orange-300 text-xs">
+                🔥 {totalCardioCalories} cal
               </span>
             );
           }
@@ -447,7 +462,12 @@ export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
                         </span>
                       ) : (
                         <span>
-                          {set.distance} {set.distance_unit} in {Math.floor((set.duration_seconds || 0) / 60)}m
+                          {set.calories && !set.distance
+                            ? `${set.calories} cal`
+                            : set.distance && set.distance > 0
+                              ? `${set.distance} ${set.distance_unit}`
+                              : ''}{' '}
+                          in {Math.floor((set.duration_seconds || 0) / 60)}m
                         </span>
                       )}
                     </div>

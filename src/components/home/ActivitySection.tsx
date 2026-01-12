@@ -6,9 +6,10 @@ import { WorkoutSession } from '../../types';
 
 interface ActivitySectionProps {
   sessions: WorkoutSession[];
+  memberSince?: string;
 }
 
-export const ActivitySection: FC<ActivitySectionProps> = ({ sessions }) => {
+export const ActivitySection: FC<ActivitySectionProps> = ({ sessions, memberSince }) => {
   return (
     <section className="mb-8">
       <div className="flex items-center justify-between mb-3">
@@ -20,7 +21,7 @@ export const ActivitySection: FC<ActivitySectionProps> = ({ sessions }) => {
         </Link>
       </div>
       <Card padding="sm">
-        <WorkoutHeatmap sessions={sessions} />
+        <WorkoutHeatmap sessions={sessions} memberSince={memberSince} />
       </Card>
     </section>
   );

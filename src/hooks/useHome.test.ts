@@ -11,6 +11,18 @@ vi.mock('../services/openai', () => ({
   hasValidRecommendationsCache: vi.fn().mockReturnValue(false),
 }));
 
+// Mock useAuth
+vi.mock('./useAuth', () => ({
+  useAuth: vi.fn(() => ({
+    user: { id: 'test-user', created_at: '2024-01-01T00:00:00Z' },
+    session: null,
+    isLoading: false,
+    signIn: vi.fn(),
+    signUp: vi.fn(),
+    signOut: vi.fn(),
+  })),
+}));
+
 const createMockTemplate = (overrides: Partial<WorkoutTemplate> = {}): WorkoutTemplate => ({
   id: `template-${Date.now()}-${Math.random()}`,
   name: 'Test Template',

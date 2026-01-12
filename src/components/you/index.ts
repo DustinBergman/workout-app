@@ -1,1 +1,9 @@
 export { WeightChart } from './WeightChart';
+export { ProfileCard } from './ProfileCard';
+export { StatsHeader } from './StatsHeader';
+export { EmptyStatsState } from './EmptyStatsState';
+export { StrengthProgressCard } from './StrengthProgressCard';
+export { WeightTrackingCard } from './WeightTrackingCard';
+export { MuscleGroupChart } from './MuscleGroupChart';
+export { StatsGrid } from './StatsGrid';
+export { VolumeCard } from './VolumeCard';

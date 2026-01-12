@@ -34,6 +34,7 @@ export interface FeedSessionExercise {
     weight_unit: 'lbs' | 'kg' | null;
     distance: number | null;
     distance_unit: 'mi' | 'km' | null;
+    calories: number | null;
     duration_seconds: number | null;
     completed_at: string;
   }>;
@@ -60,8 +61,13 @@ const dbSetToCompletedSet = (dbSet: FeedSessionExercise['completed_sets'][0]): C
   if (dbSet.type === 'cardio') {
     return {
       type: 'cardio',
-      distance: dbSet.distance ?? 0,
-      distanceUnit: dbSet.distance_unit ?? 'mi',
+      ...(dbSet.distance != null && dbSet.distance > 0 && {
+        distance: dbSet.distance,
+        distanceUnit: dbSet.distance_unit ?? 'mi',
+      }),
+      ...(dbSet.calories != null && dbSet.calories > 0 && {
+        calories: dbSet.calories,
+      }),
       durationSeconds: dbSet.duration_seconds ?? 0,
       completedAt: dbSet.completed_at,
     };
@@ -131,7 +137,7 @@ export const getFriendWorkouts = async (
         rest_seconds,
         completed_sets (
           id, type, reps, weight, weight_unit,
-          distance, distance_unit, duration_seconds, completed_at
+          distance, distance_unit, calories, duration_seconds, completed_at
         )
       )
     `)
@@ -223,7 +229,7 @@ export const getWorkoutById = async (
         rest_seconds,
         completed_sets (
           id, type, reps, weight, weight_unit,
-          distance, distance_unit, duration_seconds, completed_at
+          distance, distance_unit, calories, duration_seconds, completed_at
         )
       )
     `)

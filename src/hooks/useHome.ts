@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useAppStore } from '../store/useAppStore';
+import { useAuth } from './useAuth';
 import { getPTSummary, hasValidPTSummaryCache, PTSummaryResponse } from '../services/openai';
 import {
   WorkoutTemplate,
@@ -26,6 +27,7 @@ export interface UseHomeReturn {
   goalInfo: GoalInfo;
   recentSessions: WorkoutSession[];
   nextWorkout: WorkoutTemplate | null;
+  memberSince?: string;
 
   // Weight tracking
   weightEntries: WeightEntry[];
@@ -38,6 +40,8 @@ export interface UseHomeReturn {
 }
 
 export const useHome = (): UseHomeReturn => {
+  const { user } = useAuth();
+
   // Store values
   const templates = useAppStore((state) => state.templates);
   const sessions = useAppStore((state) => state.sessions);
@@ -50,6 +54,9 @@ export const useHome = (): UseHomeReturn => {
   const weightEntries = useAppStore((state) => state.weightEntries);
   const customExercises = useAppStore((state) => state.customExercises);
   const experienceLevel = preferences.experienceLevel;
+
+  // Get member since date from user's created_at
+  const memberSince = useMemo(() => user?.created_at || undefined, [user?.created_at]);
 
   // Local state
   const [ptSummary, setPTSummary] = useState<PTSummaryResponse | null>(null);
@@ -179,6 +186,7 @@ export const useHome = (): UseHomeReturn => {
     goalInfo,
     recentSessions,
     nextWorkout,
+    memberSince,
 
     // Weight tracking
     weightEntries,

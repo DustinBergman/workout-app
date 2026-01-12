@@ -12,6 +12,7 @@ import {
   FriendRequest,
 } from '../services/supabase/friends';
 import { searchUsers } from '../services/supabase/profiles';
+import { cacheAvatarUrls } from '../services/avatarCache';
 
 interface UseFriendsReturn {
   friends: FriendProfile[];
@@ -60,6 +61,35 @@ export const useFriends = (): UseFriendsReturn => {
       setFriends(friendsResult.friends);
       setPendingRequests(pendingResult.requests);
       setSentRequests(sentResult.requests);
+
+      // Cache all avatars from friends and pending requests
+      const avatarEntries: Array<{ userId: string; url: string | null }> = [];
+
+      friendsResult.friends.forEach((friend) => {
+        avatarEntries.push({ userId: friend.id, url: friend.avatar_url });
+      });
+
+      pendingResult.requests.forEach((request) => {
+        if (request.from_user) {
+          avatarEntries.push({
+            userId: request.from_user.id,
+            url: (request.from_user as FriendProfile).avatar_url
+          });
+        }
+      });
+
+      sentResult.requests.forEach((request) => {
+        if (request.to_user) {
+          avatarEntries.push({
+            userId: request.to_user.id,
+            url: (request.to_user as FriendProfile).avatar_url
+          });
+        }
+      });
+
+      if (avatarEntries.length > 0) {
+        cacheAvatarUrls(avatarEntries);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load friends');
     } finally {

@@ -22,6 +22,18 @@ vi.mock('../store/useAppStore', () => ({
   }),
 }));
 
+// Mock useAuth
+vi.mock('./useAuth', () => ({
+  useAuth: vi.fn(() => ({
+    user: { id: 'test-user', created_at: '2024-01-01T00:00:00Z' },
+    session: null,
+    isLoading: false,
+    signIn: vi.fn(),
+    signUp: vi.fn(),
+    signOut: vi.fn(),
+  })),
+}));
+
 describe('formatSessionDuration', () => {
   it('returns "In progress" when completedAt is null', () => {
     const session = {

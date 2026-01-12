@@ -342,18 +342,46 @@ describe('useExerciseManagement', () => {
     expect(set.weight).toBe(135);
   });
 
-  it('should log a cardio set', () => {
+  it('should log a cardio set with distance', () => {
     const mockSession = createMockSession({
       exercises: [createCardioSessionExercise('outdoor-run')],
     });
     resetStores(mockSession);
     const { result } = renderHook(() => useExerciseManagement());
     act(() => {
-      result.current.logCardioForExercise(0, 3.1, 'mi', 1800);
+      result.current.logCardioForExercise(0, { distance: 3.1, distanceUnit: 'mi', durationSeconds: 1800 });
     });
     const updatedSession = useAppStore.getState().activeSession;
     expect(updatedSession?.exercises[0].sets).toHaveLength(1);
-    expect(updatedSession?.exercises[0].sets[0].type).toBe('cardio');
+    const set = updatedSession?.exercises[0].sets[0];
+    expect(set?.type).toBe('cardio');
+    if (set?.type === 'cardio') {
+      expect(set.distance).toBe(3.1);
+      expect(set.distanceUnit).toBe('mi');
+      expect(set.durationSeconds).toBe(1800);
+      expect(set.calories).toBeUndefined();
+    }
+  });
+
+  it('should log a cardio set with calories (for HIIT workouts)', () => {
+    const mockSession = createMockSession({
+      exercises: [createCardioSessionExercise('hiit')],
+    });
+    resetStores(mockSession);
+    const { result } = renderHook(() => useExerciseManagement());
+    act(() => {
+      result.current.logCardioForExercise(0, { calories: 350, durationSeconds: 1200 });
+    });
+    const updatedSession = useAppStore.getState().activeSession;
+    expect(updatedSession?.exercises[0].sets).toHaveLength(1);
+    const set = updatedSession?.exercises[0].sets[0];
+    expect(set?.type).toBe('cardio');
+    if (set?.type === 'cardio') {
+      expect(set.calories).toBe(350);
+      expect(set.durationSeconds).toBe(1200);
+      expect(set.distance).toBeUndefined();
+      expect(set.distanceUnit).toBeUndefined();
+    }
   });
 
   it('should remove the last set', () => {
