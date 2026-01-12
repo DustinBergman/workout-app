@@ -57,6 +57,7 @@ export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
   const customExercises = useAppStore((state) => state.customExercises);
   const deleteSessionFromStore = useAppStore((state) => state.deleteSession);
   const addTemplate = useAppStore((state) => state.addTemplate);
+  const addCustomExercise = useAppStore((state) => state.addCustomExercise);
   const { user } = useAuth();
 
   const isOwnWorkout = user?.id === workout.user_id;
@@ -175,14 +176,26 @@ export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
 
   const handleCopyWorkout = useCallback((templateName: string) => {
     try {
-      const template = convertFeedWorkoutToTemplate(workout, templateName, customExercises);
+      const { template, newCustomExercises } = convertFeedWorkoutToTemplate(workout, templateName, customExercises);
+
+      // First, add any new custom exercises that were copied
+      for (const exercise of newCustomExercises) {
+        addCustomExercise(exercise);
+      }
+
+      // Then add the template (which references the new exercise IDs)
       addTemplate(template);
-      toast.success('Workout copied to your plans!');
+
+      if (newCustomExercises.length > 0) {
+        toast.success(`Workout copied with ${newCustomExercises.length} custom exercise${newCustomExercises.length > 1 ? 's' : ''}!`);
+      } else {
+        toast.success('Workout copied to your plans!');
+      }
     } catch (err) {
       console.error('Copy error:', err);
       toast.error('Failed to copy workout');
     }
-  }, [workout, customExercises, addTemplate]);
+  }, [workout, customExercises, addTemplate, addCustomExercise]);
 
   return (
     <Card className="overflow-hidden" padding="none">
