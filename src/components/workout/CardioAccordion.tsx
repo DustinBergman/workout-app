@@ -38,7 +38,7 @@ export const CardioAccordion: FC<CardioAccordionProps> = ({
   const wrappedLogCardio = (distance: number, unit: DistanceUnit, durationSeconds: number) => logCardioForExercise(index, distance, unit, durationSeconds);
   const wrappedRemoveLastSet = () => removeLastSetForExercise(index);
   const wrappedRemoveExercise = () => removeExercise(index);
-  const wrappedShowHistory = () => handleShowHistory(exercise.exerciseId);
+  const wrappedShowHistory = () => handleShowHistory(exercise.exerciseId, exerciseInfo?.name || 'Unknown');
 
   // Derived state from context
   const isExpanded = expandedIndex === index;

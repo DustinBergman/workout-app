@@ -50,7 +50,7 @@ export const ExerciseAccordion: FC<ExerciseAccordionProps> = ({
   const wrappedLogSet = (reps: number, weight: number) => logSetForExercise(index, reps, weight);
   const wrappedRemoveExercise = () => removeExercise(index);
   const wrappedUpdateTargetSets = (delta: number) => updateTargetSets(exercise.exerciseId, delta);
-  const wrappedShowHistory = () => handleShowHistory(exercise.exerciseId);
+  const wrappedShowHistory = () => handleShowHistory(exercise.exerciseId, exerciseInfo?.name || 'Unknown');
 
   // Use the hook for state management
   const {

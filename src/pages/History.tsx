@@ -1,38 +1,47 @@
-import { FC } from 'react';
-import { Card, Modal, Button } from '../components/ui';
+import { FC, createElement, useCallback } from 'react';
+import { Card } from '../components/ui';
 import {
   WorkoutHeatmap,
   HistorySessionCard,
-  SessionDetailModal,
 } from '../components/history';
 import {
   useWorkoutHistory,
   formatHistoryDate,
 } from '../hooks/useWorkoutHistory';
+import { useModal } from '../contexts/ModalContext';
+import {
+  SessionDetailModalWrapper,
+  DeleteSessionModalWrapper,
+} from '../components/modals';
 import { WorkoutSession } from '../types';
 
 export const History: FC = () => {
+  const { openModal } = useModal();
   const {
     preferences,
-    customExercises,
-    selectedSession,
-    sessionToDelete,
-    isDeleting,
     viewMode,
     selectedDate,
     listRef,
-    setSelectedSession,
     setViewMode,
     sortedSessions,
     groupedSessions,
     filteredSessions,
     handleDayClick,
     clearDateFilter,
-    handleDeleteClick,
-    handleConfirmDelete,
-    cancelDelete,
-    closeSessionDetail,
   } = useWorkoutHistory();
+
+  const openSessionDetail = useCallback((session: WorkoutSession) => {
+    openModal(createElement(SessionDetailModalWrapper, { session }));
+  }, [openModal]);
+
+  const openDeleteConfirmation = useCallback((session: WorkoutSession) => {
+    openModal(createElement(DeleteSessionModalWrapper, { session }));
+  }, [openModal]);
+
+  const handleDeleteClick = useCallback((e: React.MouseEvent, session: WorkoutSession) => {
+    e.stopPropagation();
+    openDeleteConfirmation(session);
+  }, [openDeleteConfirmation]);
 
   return (
     <div className="relative min-h-screen bg-transparent">
@@ -148,7 +157,7 @@ export const History: FC = () => {
                         session={session}
                         weightUnit={preferences.weightUnit}
                         distanceUnit={preferences.distanceUnit}
-                        onClick={() => setSelectedSession(session)}
+                        onClick={() => openSessionDetail(session)}
                         onDeleteClick={(e) => handleDeleteClick(e, session)}
                       />
                     ))}
@@ -163,47 +172,6 @@ export const History: FC = () => {
             </div>
           </div>
         )}
-
-        {/* Session Detail Modal */}
-        <SessionDetailModal
-          session={selectedSession}
-          customExercises={customExercises}
-          weightUnit={preferences.weightUnit}
-          distanceUnit={preferences.distanceUnit}
-          onClose={closeSessionDetail}
-        />
-
-        {/* Delete Confirmation Modal */}
-        <Modal
-          isOpen={!!sessionToDelete}
-          onClose={cancelDelete}
-          title="Delete Workout"
-        >
-          <div className="space-y-4">
-            <p className="text-gray-600 dark:text-gray-400">
-              Are you sure you want to delete "{sessionToDelete?.name}"? This action
-              cannot be undone.
-            </p>
-            <div className="flex gap-3">
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={cancelDelete}
-                disabled={isDeleting}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="danger"
-                className="flex-1"
-                onClick={handleConfirmDelete}
-                disabled={isDeleting}
-              >
-                {isDeleting ? 'Deleting...' : 'Delete'}
-              </Button>
-            </div>
-          </div>
-        </Modal>
       </div>
     </div>
   );

@@ -13,6 +13,15 @@ vi.mock('react-router-dom', () => ({
   }),
 }));
 
+// Mock the ModalContext
+vi.mock('./ModalContext', () => ({
+  useModal: () => ({
+    openModal: vi.fn(),
+    closeModal: vi.fn(),
+    isOpen: () => false,
+  }),
+}));
+
 describe('ActiveWorkoutContext', () => {
   beforeEach(() => {
     useAppStore.getState().setActiveSession(null);

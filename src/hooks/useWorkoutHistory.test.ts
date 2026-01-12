@@ -10,7 +10,6 @@ import { WorkoutSession } from '../types';
 // Mock the store - use object wrapper for mutable state
 const mockState = {
   sessions: [] as WorkoutSession[],
-  deleteSession: vi.fn(),
 };
 
 vi.mock('../store/useAppStore', () => ({
@@ -18,24 +17,9 @@ vi.mock('../store/useAppStore', () => ({
     const state = {
       sessions: mockState.sessions,
       preferences: { weightUnit: 'lbs', distanceUnit: 'mi' },
-      customExercises: [],
-      deleteSession: mockState.deleteSession,
     };
     return selector(state);
   }),
-}));
-
-// Mock the supabase delete function
-vi.mock('../services/supabase/sessions', () => ({
-  deleteSession: vi.fn().mockResolvedValue({ error: null }),
-}));
-
-// Mock toast
-vi.mock('../store/toastStore', () => ({
-  toast: {
-    success: vi.fn(),
-    error: vi.fn(),
-  },
 }));
 
 describe('formatSessionDuration', () => {
@@ -275,54 +259,6 @@ describe('useWorkoutHistory', () => {
       });
 
       expect(result.current.selectedDate).toBeNull();
-    });
-  });
-
-  describe('session selection', () => {
-    it('can select and close session detail', () => {
-      const session = createMockSession('1', '2024-01-15T10:00:00Z', 'Test Workout');
-      mockState.sessions = [session];
-
-      const { result } = renderHook(() => useWorkoutHistory());
-
-      expect(result.current.selectedSession).toBeNull();
-
-      act(() => {
-        result.current.setSelectedSession(session);
-      });
-
-      expect(result.current.selectedSession).toEqual(session);
-
-      act(() => {
-        result.current.closeSessionDetail();
-      });
-
-      expect(result.current.selectedSession).toBeNull();
-    });
-  });
-
-  describe('delete functionality', () => {
-    it('can initiate and cancel delete', () => {
-      const session = createMockSession('1', '2024-01-15T10:00:00Z', 'Test Workout');
-      mockState.sessions = [session];
-
-      const { result } = renderHook(() => useWorkoutHistory());
-      const mockEvent = { stopPropagation: vi.fn() } as unknown as React.MouseEvent;
-
-      expect(result.current.sessionToDelete).toBeNull();
-
-      act(() => {
-        result.current.handleDeleteClick(mockEvent, session);
-      });
-
-      expect(result.current.sessionToDelete).toEqual(session);
-      expect(mockEvent.stopPropagation).toHaveBeenCalled();
-
-      act(() => {
-        result.current.cancelDelete();
-      });
-
-      expect(result.current.sessionToDelete).toBeNull();
     });
   });
 });

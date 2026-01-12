@@ -13,6 +13,15 @@ vi.mock('react-router-dom', () => ({
   }),
 }));
 
+// Mock the ModalContext
+vi.mock('../contexts/ModalContext', () => ({
+  useModal: () => ({
+    openModal: vi.fn(),
+    closeModal: vi.fn(),
+    isOpen: () => false,
+  }),
+}));
+
 describe('useActiveWorkoutPage', () => {
   beforeEach(() => {
     useAppStore.getState().setActiveSession(null);
@@ -33,9 +42,6 @@ describe('useActiveWorkoutPage', () => {
 
       expect(result.current.session).toEqual(session);
       expect(result.current.customExercises).toBeDefined();
-      expect(result.current.sessions).toBeDefined();
-      expect(result.current.weightUnit).toBeDefined();
-      expect(result.current.distanceUnit).toBeDefined();
     });
 
     it('should provide access to current workout store state', () => {
@@ -43,9 +49,6 @@ describe('useActiveWorkoutPage', () => {
 
       expect(result.current.expandedIndex).toBe(null);
       expect(result.current.showTimer).toBe(false);
-      expect(result.current.showExercisePicker).toBe(false);
-      expect(result.current.showFinishConfirm).toBe(false);
-      expect(result.current.updatePlan).toBe(false);
     });
 
     it('should allow updating expanded index', () => {
@@ -57,15 +60,15 @@ describe('useActiveWorkoutPage', () => {
 
       expect(useCurrentWorkoutStore.getState().expandedIndex).toBe(2);
     });
+  });
 
-    it('should allow updating exercise search', () => {
+  describe('modal openers', () => {
+    it('should provide modal opener functions', () => {
       const { result } = renderHook(() => useActiveWorkoutPage());
 
-      act(() => {
-        result.current.setExerciseSearch('bench');
-      });
-
-      expect(useCurrentWorkoutStore.getState().exerciseSearch).toBe('bench');
+      expect(typeof result.current.openExercisePicker).toBe('function');
+      expect(typeof result.current.openFinishConfirm).toBe('function');
+      expect(typeof result.current.openExerciseHistory).toBe('function');
     });
   });
 
@@ -82,16 +85,11 @@ describe('useActiveWorkoutPage', () => {
       expect(typeof result.current.reorderExercises).toBe('function');
     });
 
-    it('should provide custom exercise functions', () => {
+    it('should provide custom exercise state', () => {
       const { result } = renderHook(() => useActiveWorkoutPage());
 
-      expect(typeof result.current.createExercise).toBe('function');
-      expect(typeof result.current.setIsCreatingExercise).toBe('function');
-      expect(typeof result.current.setNewExerciseName).toBe('function');
-      expect(typeof result.current.setNewExerciseEquipment).toBe('function');
-      expect(typeof result.current.toggleMuscleGroup).toBe('function');
-      expect(typeof result.current.resetNewExerciseForm).toBe('function');
       expect(result.current.customExerciseState).toBeDefined();
+      expect(typeof result.current.handleCreateExercise).toBe('function');
     });
   });
 
@@ -104,17 +102,6 @@ describe('useActiveWorkoutPage', () => {
     });
   });
 
-  describe('exercise history', () => {
-    it('should provide exercise history functions', () => {
-      const { result } = renderHook(() => useActiveWorkoutPage());
-
-      expect(typeof result.current.handleShowHistory).toBe('function');
-      expect(typeof result.current.closeHistory).toBe('function');
-      expect(result.current.historyExerciseId).toBeDefined();
-      expect(result.current.historyExerciseName).toBeDefined();
-    });
-  });
-
   describe('workout session stats', () => {
     it('should provide workout session statistics', () => {
       const { result } = renderHook(() => useActiveWorkoutPage());
@@ -123,32 +110,20 @@ describe('useActiveWorkoutPage', () => {
       expect(typeof result.current.totalSets).toBe('number');
       expect(typeof result.current.totalVolume).toBe('number');
       expect(typeof result.current.totalCardioDistance).toBe('number');
-      expect(typeof result.current.hasDeviated).toBe('boolean');
     });
 
-    it('should provide exercise filtering', () => {
+    it('should provide suggestion function', () => {
       const { result } = renderHook(() => useActiveWorkoutPage());
 
-      expect(Array.isArray(result.current.filteredExercises)).toBe(true);
       expect(typeof result.current.getSuggestionForExercise).toBe('function');
     });
   });
 
   describe('workout completion', () => {
-    it('should provide workout completion functions', () => {
+    it('should provide workout cancel function', () => {
       const { result } = renderHook(() => useActiveWorkoutPage());
 
-      expect(typeof result.current.finishWorkout).toBe('function');
       expect(typeof result.current.cancelWorkout).toBe('function');
-    });
-
-    it('should provide scoring state', () => {
-      const { result } = renderHook(() => useActiveWorkoutPage());
-
-      expect(typeof result.current.isScoring).toBe('boolean');
-      expect(result.current.scoreResult).toBeDefined();
-      expect(result.current.scoreError).toBeDefined();
-      expect(typeof result.current.clearScoreResult).toBe('function');
     });
   });
 

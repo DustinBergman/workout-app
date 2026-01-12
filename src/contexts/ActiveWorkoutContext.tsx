@@ -1,6 +1,8 @@
 import { createContext, useContext, ReactNode, FC } from 'react';
 import { WorkoutSession, WeightUnit, DistanceUnit, ExerciseSuggestion, Exercise } from '../types';
 import { useActiveWorkoutPage } from '../hooks/useActiveWorkoutPage';
+import { useAppStore } from '../store/useAppStore';
+import { useActiveWorkout } from '../hooks/useActiveWorkout';
 
 export interface ActiveWorkoutContextValue {
   // Session data
@@ -34,7 +36,7 @@ export interface ActiveWorkoutContextValue {
 
   // Utilities
   getSuggestionForExercise: (exerciseId: string) => ExerciseSuggestion | undefined;
-  handleShowHistory: (exerciseId: string) => void;
+  handleShowHistory: (exerciseId: string, exerciseName: string) => void;
 }
 
 export const ActiveWorkoutContext = createContext<ActiveWorkoutContextValue | null>(null);
@@ -46,6 +48,13 @@ interface ActiveWorkoutProviderProps {
 export const ActiveWorkoutProvider: FC<ActiveWorkoutProviderProps> = ({ children }) => {
   const hookValues = useActiveWorkoutPage();
 
+  // Get preferences directly from store
+  const weightUnit = useAppStore((state) => state.preferences.weightUnit);
+  const distanceUnit = useAppStore((state) => state.preferences.distanceUnit);
+
+  // Get hasDeviated from useActiveWorkout
+  const { hasDeviated } = useActiveWorkout();
+
   // Don't render children if no active session
   if (!hookValues.session) {
     return null;
@@ -54,8 +63,8 @@ export const ActiveWorkoutProvider: FC<ActiveWorkoutProviderProps> = ({ children
   const contextValue: ActiveWorkoutContextValue = {
     // Session data
     session: hookValues.session,
-    weightUnit: hookValues.weightUnit,
-    distanceUnit: hookValues.distanceUnit,
+    weightUnit,
+    distanceUnit,
     customExercises: hookValues.customExercises,
 
     // Computed stats
@@ -63,7 +72,7 @@ export const ActiveWorkoutProvider: FC<ActiveWorkoutProviderProps> = ({ children
     totalSets: hookValues.totalSets,
     totalVolume: hookValues.totalVolume,
     totalCardioDistance: hookValues.totalCardioDistance,
-    hasDeviated: hookValues.hasDeviated,
+    hasDeviated,
 
     // Exercise operations
     logSetForExercise: hookValues.logSetForExercise,
@@ -83,7 +92,7 @@ export const ActiveWorkoutProvider: FC<ActiveWorkoutProviderProps> = ({ children
 
     // Utilities
     getSuggestionForExercise: hookValues.getSuggestionForExercise,
-    handleShowHistory: hookValues.handleShowHistory,
+    handleShowHistory: hookValues.openExerciseHistory,
   };
 
   return (

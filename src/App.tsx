@@ -20,6 +20,7 @@ import { useAppStore, migrateTemplates, migrateToUUIDs } from './store/useAppSto
 import { GlobalTimerNotification } from './components/timer/GlobalTimerNotification';
 import { AuthProvider } from './contexts/AuthContext';
 import { SyncProvider } from './contexts/SyncContext';
+import { ModalProvider } from './contexts';
 import { NotificationBell } from './components/notifications';
 import { ToastContainer } from './components/ui/ToastContainer';
 import { useAuth } from './hooks/useAuth';
@@ -222,8 +223,10 @@ const App: FC = () => {
     <AuthProvider>
       <BrowserRouter>
         <SyncProvider>
-          <AppContent />
-          <ToastContainer />
+          <ModalProvider>
+            <AppContent />
+            <ToastContainer />
+          </ModalProvider>
         </SyncProvider>
       </BrowserRouter>
     </AuthProvider>

@@ -34,7 +34,6 @@ export { useRestTimer } from './useRestTimer';
 export { useExerciseManagement } from './useExerciseManagement';
 export { useCustomExercise } from './useCustomExercise';
 export { useWorkoutScoring } from './useWorkoutScoring';
-export { useExerciseHistory } from './useExerciseHistory';
 
 export interface UseActiveWorkoutReturn {
   // Computed values

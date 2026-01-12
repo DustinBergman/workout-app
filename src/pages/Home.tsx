@@ -1,8 +1,9 @@
-import { FC } from 'react';
+import { FC, createElement, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { WeekBadge } from '../components/ui';
 import { useStartWorkout } from '../hooks/useStartWorkout';
 import { useHome } from '../hooks/useHome';
+import { useModal } from '../contexts/ModalContext';
 import {
   FloatingOrbsBackground,
   ApiKeyBanner,
@@ -14,13 +15,16 @@ import {
   PlansSection,
   RecentWorkoutsSection,
   EmptyState,
-  WeekSelectorModal,
   LoadingModal,
 } from '../components/home';
-import { WeightLogModal } from '../components/weight';
+import {
+  WeightLogModalWrapper,
+  WeekSelectorModalWrapper,
+} from '../components/modals';
 
 export const Home: FC = () => {
   const navigate = useNavigate();
+  const { openModal } = useModal();
   const { isLoadingSuggestions, startWorkout, startQuickWorkout } = useStartWorkout();
 
   const {
@@ -34,18 +38,21 @@ export const Home: FC = () => {
     recentSessions,
     nextWorkout,
     shouldShowWeightReminder,
-    showWeightModal,
-    setShowWeightModal,
     ptSummary,
     loadingPTSummary,
-    showWeekSelector,
-    setShowWeekSelector,
-    selectWeek,
   } = useHome();
 
   const resumeWorkout = () => {
     navigate('/workout');
   };
+
+  const openWeightModal = useCallback(() => {
+    openModal(createElement(WeightLogModalWrapper));
+  }, [openModal]);
+
+  const openWeekSelector = useCallback(() => {
+    openModal(createElement(WeekSelectorModalWrapper));
+  }, [openModal]);
 
   return (
     <div className="relative min-h-screen">
@@ -60,7 +67,7 @@ export const Home: FC = () => {
           <WeekBadge
             week={currentWeek}
             workoutGoal={workoutGoal}
-            onClick={() => setShowWeekSelector(true)}
+            onClick={openWeekSelector}
           />
         </div>
 
@@ -69,7 +76,7 @@ export const Home: FC = () => {
 
         {/* Weight Reminder Banner */}
         {shouldShowWeightReminder && (
-          <WeightReminderBanner onClick={() => setShowWeightModal(true)} />
+          <WeightReminderBanner onClick={openWeightModal} />
         )}
 
         {/* PT Summary */}
@@ -120,21 +127,8 @@ export const Home: FC = () => {
         {/* Empty State */}
         {templates.length === 0 && sessions.length === 0 && <EmptyState />}
 
-        {/* Modals */}
+        {/* Loading Modal - kept inline as it's controlled by different state */}
         <LoadingModal isOpen={isLoadingSuggestions} />
-
-        <WeekSelectorModal
-          isOpen={showWeekSelector}
-          onClose={() => setShowWeekSelector(false)}
-          currentWeek={currentWeek}
-          workoutGoal={workoutGoal}
-          onSelectWeek={selectWeek}
-        />
-
-        <WeightLogModal
-          isOpen={showWeightModal}
-          onClose={() => setShowWeightModal(false)}
-        />
       </div>
     </div>
   );

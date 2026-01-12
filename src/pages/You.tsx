@@ -1,13 +1,13 @@
-import { FC, useState, useEffect } from 'react';
+import { FC, useState, useEffect, useCallback, createElement } from 'react';
 import { Link } from 'react-router-dom';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import { useAppStore } from '../store/useAppStore';
-import { Card, Button, Avatar, Modal } from '../components/ui';
-import { AvatarUpload } from '../components/profile';
+import { Card, Button, Avatar } from '../components/ui';
 import { useUserStats, TimePeriod } from '../hooks/useUserStats';
 import { MuscleGroup } from '../types';
 import { WeightChart } from '../components/you';
-import { WeightLogModal } from '../components/weight';
+import { useModal } from '../contexts/ModalContext';
+import { WeightLogModalWrapper, AvatarEditModalWrapper } from '../components/modals';
 import { getProfile } from '../services/supabase';
 
 const MUSCLE_GROUP_COLORS: Record<MuscleGroup, string> = {
@@ -40,10 +40,9 @@ const formatMuscleGroup = (mg: MuscleGroup): string => {
 };
 
 export const You: FC = () => {
+  const { openModal } = useModal();
   const [timePeriod, setTimePeriod] = useState<TimePeriod>('all');
-  const [showWeightModal, setShowWeightModal] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const [showEditAvatar, setShowEditAvatar] = useState(false);
   const sessions = useAppStore((state) => state.sessions);
   const preferences = useAppStore((state) => state.preferences);
   const customExercises = useAppStore((state) => state.customExercises);
@@ -61,6 +60,14 @@ export const You: FC = () => {
     };
     loadAvatar();
   }, []);
+
+  const openWeightModal = useCallback(() => {
+    openModal(createElement(WeightLogModalWrapper));
+  }, [openModal]);
+
+  const openAvatarEditModal = useCallback(() => {
+    openModal(createElement(AvatarEditModalWrapper, { onAvatarChange: setAvatarUrl }));
+  }, [openModal]);
 
   const pieChartData = stats.muscleGroupBreakdown.map((item) => ({
     name: formatMuscleGroup(item.muscleGroup),
@@ -87,7 +94,7 @@ export const You: FC = () => {
             <div className="flex items-center gap-4">
               {/* Avatar - clickable to edit */}
               <button
-                onClick={() => setShowEditAvatar(true)}
+                onClick={openAvatarEditModal}
                 className="relative group"
               >
                 <Avatar
@@ -234,7 +241,7 @@ export const You: FC = () => {
             <Card padding="lg">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-foreground">Weight Trend</h2>
-                <Button size="sm" onClick={() => setShowWeightModal(true)}>
+                <Button size="sm" onClick={openWeightModal}>
                   Log Weight
                 </Button>
               </div>
@@ -422,27 +429,6 @@ export const You: FC = () => {
           </div>
         )}
 
-        {/* Weight Log Modal */}
-        <WeightLogModal
-          isOpen={showWeightModal}
-          onClose={() => setShowWeightModal(false)}
-        />
-
-        {/* Avatar Edit Modal */}
-        <Modal
-          isOpen={showEditAvatar}
-          onClose={() => setShowEditAvatar(false)}
-          title="Profile Picture"
-        >
-          <AvatarUpload
-            currentAvatarUrl={avatarUrl}
-            userName={preferences.firstName}
-            onAvatarChange={(url) => {
-              setAvatarUrl(url);
-              setShowEditAvatar(false);
-            }}
-          />
-        </Modal>
       </div>
     </div>
   );

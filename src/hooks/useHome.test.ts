@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook } from '@testing-library/react';
 import { useHome } from './useHome';
 import { useAppStore } from '../store/useAppStore';
 import { WorkoutTemplate, WorkoutSession, ProgressiveOverloadWeek } from '../types';
@@ -285,43 +285,6 @@ describe('useHome', () => {
 
       renderHook(() => useHome());
       expect(advanceWeekSpy).toHaveBeenCalledTimes(1);
-    });
-  });
-
-  describe('week selector', () => {
-    it('should start with showWeekSelector as false', () => {
-      const { result } = renderHook(() => useHome());
-      expect(result.current.showWeekSelector).toBe(false);
-    });
-
-    it('should toggle showWeekSelector', () => {
-      const { result } = renderHook(() => useHome());
-
-      act(() => {
-        result.current.setShowWeekSelector(true);
-      });
-      expect(result.current.showWeekSelector).toBe(true);
-
-      act(() => {
-        result.current.setShowWeekSelector(false);
-      });
-      expect(result.current.showWeekSelector).toBe(false);
-    });
-
-    it('should select week and close modal', () => {
-      const { result } = renderHook(() => useHome());
-
-      act(() => {
-        result.current.setShowWeekSelector(true);
-      });
-      expect(result.current.showWeekSelector).toBe(true);
-
-      act(() => {
-        result.current.selectWeek(3 as ProgressiveOverloadWeek);
-      });
-
-      expect(result.current.showWeekSelector).toBe(false);
-      expect(useAppStore.getState().currentWeek).toBe(3);
     });
   });
 

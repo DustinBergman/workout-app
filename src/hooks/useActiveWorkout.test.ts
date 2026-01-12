@@ -5,7 +5,6 @@ import {
   useRestTimer,
   useExerciseManagement,
   useCustomExercise,
-  useExerciseHistory,
   MUSCLE_GROUPS,
   EQUIPMENT_OPTIONS,
 } from './useActiveWorkout';
@@ -489,38 +488,6 @@ describe('useCustomExercise', () => {
     expect(result.current.customExerciseState.isCreating).toBe(false);
     expect(result.current.customExerciseState.name).toBe('');
     expect(result.current.customExerciseState.muscles).toEqual([]);
-  });
-});
-
-describe('useExerciseHistory', () => {
-  beforeEach(() => {
-    resetStores(createMockSession());
-  });
-
-  afterEach(() => {
-    resetStores(null);
-  });
-
-  it('should show history for exercise', () => {
-    const { result } = renderHook(() => useExerciseHistory());
-    expect(result.current.historyExerciseId).toBeNull();
-    act(() => {
-      result.current.handleShowHistory('bench-press');
-    });
-    expect(result.current.historyExerciseId).toBe('bench-press');
-    expect(result.current.historyExerciseName).toBe('Bench Press');
-  });
-
-  it('should close history', () => {
-    const { result } = renderHook(() => useExerciseHistory());
-    act(() => {
-      result.current.handleShowHistory('bench-press');
-    });
-    expect(result.current.historyExerciseId).toBe('bench-press');
-    act(() => {
-      result.current.closeHistory();
-    });
-    expect(result.current.historyExerciseId).toBeNull();
   });
 });
 

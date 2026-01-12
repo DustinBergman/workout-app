@@ -1,8 +1,6 @@
 import { useState, useMemo, useCallback, useRef, RefObject } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { WorkoutSession } from '../types';
-import { deleteSession as deleteSessionFromDb } from '../services/supabase/sessions';
-import { toast } from '../store/toastStore';
 
 export interface GroupedSessions {
   [key: string]: WorkoutSession[];
@@ -41,13 +39,8 @@ export const formatHistoryDate = (dateString: string): string => {
 export const useWorkoutHistory = () => {
   const sessions = useAppStore((state) => state.sessions);
   const preferences = useAppStore((state) => state.preferences);
-  const customExercises = useAppStore((state) => state.customExercises);
-  const deleteSessionFromStore = useAppStore((state) => state.deleteSession);
 
   // State
-  const [selectedSession, setSelectedSession] = useState<WorkoutSession | null>(null);
-  const [sessionToDelete, setSessionToDelete] = useState<WorkoutSession | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'heatmap'>('heatmap');
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -106,61 +99,14 @@ export const useWorkoutHistory = () => {
     setSelectedDate(null);
   }, []);
 
-  // Handle delete button click
-  const handleDeleteClick = useCallback(
-    (e: React.MouseEvent, session: WorkoutSession) => {
-      e.stopPropagation();
-      setSessionToDelete(session);
-    },
-    []
-  );
-
-  // Confirm and execute delete
-  const handleConfirmDelete = useCallback(async () => {
-    if (!sessionToDelete) return;
-
-    setIsDeleting(true);
-    try {
-      const { error } = await deleteSessionFromDb(sessionToDelete.id);
-      if (error) {
-        toast.error('Failed to delete workout');
-        console.error('Delete error:', error);
-      } else {
-        deleteSessionFromStore(sessionToDelete.id);
-        toast.success('Workout deleted');
-      }
-    } catch (err) {
-      toast.error('Failed to delete workout');
-      console.error('Delete error:', err);
-    } finally {
-      setIsDeleting(false);
-      setSessionToDelete(null);
-    }
-  }, [sessionToDelete, deleteSessionFromStore]);
-
-  // Cancel delete
-  const cancelDelete = useCallback(() => {
-    setSessionToDelete(null);
-  }, []);
-
-  // Close session detail modal
-  const closeSessionDetail = useCallback(() => {
-    setSelectedSession(null);
-  }, []);
-
   return {
     // Store data
     preferences,
-    customExercises,
     // State
-    selectedSession,
-    sessionToDelete,
-    isDeleting,
     viewMode,
     selectedDate,
     listRef: listRef as RefObject<HTMLDivElement>,
     // Setters
-    setSelectedSession,
     setViewMode,
     // Computed
     sortedSessions,
@@ -169,9 +115,5 @@ export const useWorkoutHistory = () => {
     // Actions
     handleDayClick,
     clearDateFilter,
-    handleDeleteClick,
-    handleConfirmDelete,
-    cancelDelete,
-    closeSessionDetail,
   };
 };

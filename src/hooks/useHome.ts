@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { getPTSummary, hasValidPTSummaryCache, PTSummaryResponse } from '../services/openai';
 import {
@@ -31,17 +31,10 @@ export interface UseHomeReturn {
   weightEntries: WeightEntry[];
   lastWeightEntry: WeightEntry | null;
   shouldShowWeightReminder: boolean;
-  showWeightModal: boolean;
-  setShowWeightModal: (show: boolean) => void;
 
   // PT Summary
   ptSummary: PTSummaryResponse | null;
   loadingPTSummary: boolean;
-
-  // Week selector modal
-  showWeekSelector: boolean;
-  setShowWeekSelector: (show: boolean) => void;
-  selectWeek: (week: ProgressiveOverloadWeek) => void;
 }
 
 export const useHome = (): UseHomeReturn => {
@@ -53,15 +46,12 @@ export const useHome = (): UseHomeReturn => {
   const currentWeek = useAppStore((state) => state.currentWeek);
   const workoutGoal = useAppStore((state) => state.workoutGoal);
   const weekStartedAt = useAppStore((state) => state.weekStartedAt);
-  const setCurrentWeek = useAppStore((state) => state.setCurrentWeek);
   const advanceWeek = useAppStore((state) => state.advanceWeek);
   const weightEntries = useAppStore((state) => state.weightEntries);
   const customExercises = useAppStore((state) => state.customExercises);
   const experienceLevel = preferences.experienceLevel;
 
   // Local state
-  const [showWeekSelector, setShowWeekSelector] = useState(false);
-  const [showWeightModal, setShowWeightModal] = useState(false);
   const [ptSummary, setPTSummary] = useState<PTSummaryResponse | null>(null);
   const [loadingPTSummary, setLoadingPTSummary] = useState(false);
 
@@ -175,15 +165,6 @@ export const useHome = (): UseHomeReturn => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preferences.openaiApiKey, completedSessionCount, customExercises, experienceLevel, workoutGoal, currentWeek]);
 
-  // Select week and close modal
-  const selectWeek = useCallback(
-    (week: ProgressiveOverloadWeek) => {
-      setCurrentWeek(week);
-      setShowWeekSelector(false);
-    },
-    [setCurrentWeek]
-  );
-
   return {
     // Store values
     templates,
@@ -203,16 +184,9 @@ export const useHome = (): UseHomeReturn => {
     weightEntries,
     lastWeightEntry,
     shouldShowWeightReminder,
-    showWeightModal,
-    setShowWeightModal,
 
     // PT Summary
     ptSummary,
     loadingPTSummary,
-
-    // Week selector modal
-    showWeekSelector,
-    setShowWeekSelector,
-    selectWeek,
   };
 };

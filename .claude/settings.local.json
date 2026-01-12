@@ -22,7 +22,8 @@
       "Bash(git -C /Users/dustinbergman/Repos/workout-app show a15e918 --stat)",
       "Bash(git -C /Users/dustinbergman/Repos/workout-app show a15e918 --name-only)",
       "Bash(git -C /Users/dustinbergman/Repos/workout-app show a15e918 -- src/services/supabase/sync.ts)",
-      "Bash(git -C /Users/dustinbergman/Repos/workout-app show 32522cc --stat)"
+      "Bash(git -C /Users/dustinbergman/Repos/workout-app show 32522cc --stat)",
+      "Bash(grep:*)"
     ]
   }
 }

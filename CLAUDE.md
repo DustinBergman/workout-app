@@ -10,6 +10,11 @@
 - Use FC pattern: `const MyComponent: FC<Props> = ({ prop1, prop2 }) => {}`
 - ForwardRef: `const MyComponent = forwardRef<HTMLElement, Props>(({ prop1 }, ref) => {})`
 - Props interfaces above component: `interface MyComponentProps { ... }`
+- **Avoid excessive props** - Too many props is a code smell. Prefer:
+  - Context for shared state instead of prop drilling
+  - Composition (children/render props) over callbacks
+  - Grouping related props into objects
+  - Having components call hooks directly instead of receiving state as props
 
 ### Business Logic
 - Extract business logic into custom hooks in `src/hooks/`

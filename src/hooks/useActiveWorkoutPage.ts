@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, createElement } from 'react';
 import {
   DragEndEvent,
   useSensor,
@@ -10,36 +10,33 @@ import {
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { useAppStore } from '../store/useAppStore';
 import { useCurrentWorkoutStore } from '../store/currentWorkoutStore';
+import { useModal } from '../contexts/ModalContext';
 import {
   useRestTimer,
   useExerciseManagement,
   useCustomExercise,
-  useExerciseHistory,
   useActiveWorkout,
 } from './useActiveWorkout';
+import {
+  ExercisePickerModalWrapper,
+  PostWorkoutModalWrapper,
+  ExerciseHistoryModalWrapper,
+} from '../components/modals';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const useActiveWorkoutPage = (): any => {
   // App store (direct access)
   const session = useAppStore((state) => state.activeSession);
-  const sessions = useAppStore((state) => state.sessions);
   const customExercises = useAppStore((state) => state.customExercises);
-  const weightUnit = useAppStore((state) => state.preferences.weightUnit);
-  const distanceUnit = useAppStore((state) => state.preferences.distanceUnit);
 
   // Current workout store (direct access)
   const expandedIndex = useCurrentWorkoutStore((state) => state.expandedIndex);
   const setExpandedIndex = useCurrentWorkoutStore((state) => state.setExpandedIndex);
   const showTimer = useCurrentWorkoutStore((state) => state.showTimer);
   const timerDuration = useCurrentWorkoutStore((state) => state.timerDuration);
-  const showExercisePicker = useCurrentWorkoutStore((state) => state.showExercisePicker);
-  const setShowExercisePicker = useCurrentWorkoutStore((state) => state.setShowExercisePicker);
-  const exerciseSearch = useCurrentWorkoutStore((state) => state.exerciseSearch);
-  const setExerciseSearch = useCurrentWorkoutStore((state) => state.setExerciseSearch);
-  const showFinishConfirm = useCurrentWorkoutStore((state) => state.showFinishConfirm);
-  const setShowFinishConfirm = useCurrentWorkoutStore((state) => state.setShowFinishConfirm);
-  const updatePlan = useCurrentWorkoutStore((state) => state.updatePlan);
-  const setUpdatePlan = useCurrentWorkoutStore((state) => state.setUpdatePlan);
+
+  // Modal hook
+  const { openModal } = useModal();
 
   // Sub-hooks
   const { handleStartTimer, hideTimer } = useRestTimer();
@@ -56,36 +53,46 @@ export const useActiveWorkoutPage = (): any => {
   } = useExerciseManagement();
   const {
     customExerciseState,
-    setIsCreatingExercise,
-    setNewExerciseName,
-    setNewExerciseEquipment,
-    toggleMuscleGroup,
-    resetNewExerciseForm,
     createExercise,
   } = useCustomExercise();
-  const {
-    historyExerciseId,
-    historyExerciseName,
-    handleShowHistory,
-    closeHistory,
-  } = useExerciseHistory();
 
   // Main hook (computed values + orchestrated actions)
   const {
     elapsedSeconds,
-    hasDeviated,
     totalSets,
     totalVolume,
     totalCardioDistance,
-    filteredExercises,
     getSuggestionForExercise,
-    isScoring,
-    scoreResult,
-    scoreError,
-    clearScoreResult,
-    finishWorkout,
     cancelWorkout,
   } = useActiveWorkout();
+
+  // Open exercise picker modal
+  const openExercisePicker = useCallback(() => {
+    openModal(
+      createElement(ExercisePickerModalWrapper, {
+        onSelect: addExerciseToSession,
+      })
+    );
+  }, [openModal, addExerciseToSession]);
+
+  // Open post workout flow modal
+  const openFinishConfirm = useCallback(() => {
+    openModal(
+      createElement(PostWorkoutModalWrapper, {
+        onCancel: cancelWorkout,
+      })
+    );
+  }, [openModal, cancelWorkout]);
+
+  // Open exercise history modal
+  const openExerciseHistory = useCallback((exerciseId: string, exerciseName: string) => {
+    openModal(
+      createElement(ExerciseHistoryModalWrapper, {
+        exerciseId,
+        exerciseName,
+      })
+    );
+  }, [openModal]);
 
   // Custom exercise creation handler
   const handleCreateExercise = useCallback(() => {
@@ -187,24 +194,18 @@ export const useActiveWorkoutPage = (): any => {
   return {
     // Store state
     session,
-    sessions,
     customExercises,
-    weightUnit,
-    distanceUnit,
 
     // Current workout UI state
     expandedIndex,
     setExpandedIndex,
     showTimer,
     timerDuration,
-    showExercisePicker,
-    setShowExercisePicker,
-    exerciseSearch,
-    setExerciseSearch,
-    showFinishConfirm,
-    setShowFinishConfirm,
-    updatePlan,
-    setUpdatePlan,
+
+    // Modal openers
+    openExercisePicker,
+    openFinishConfirm,
+    openExerciseHistory,
 
     // Rest timer
     handleStartTimer,
@@ -223,36 +224,17 @@ export const useActiveWorkoutPage = (): any => {
 
     // Custom exercise
     customExerciseState,
-    setIsCreatingExercise,
-    setNewExerciseName,
-    setNewExerciseEquipment,
-    toggleMuscleGroup,
-    resetNewExerciseForm,
-    createExercise,
-
-    // Exercise history
-    historyExerciseId,
-    historyExerciseName,
-    handleShowHistory,
-    closeHistory,
+    handleCreateExercise,
 
     // Main workout hook
     elapsedSeconds,
-    hasDeviated,
     totalSets,
     totalVolume,
     totalCardioDistance,
-    filteredExercises,
     getSuggestionForExercise,
-    isScoring,
-    scoreResult,
-    scoreError,
-    clearScoreResult,
-    finishWorkout,
     cancelWorkout,
 
     // Handlers
-    handleCreateExercise,
     handleDragStart,
     handleDragEnd,
 
