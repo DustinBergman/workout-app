@@ -72,6 +72,7 @@ export const useActiveWorkout = (): UseActiveWorkoutReturn => {
   const customExercises = useAppStore((state) => state.customExercises);
   const currentWeek = useAppStore((state) => state.currentWeek);
   const workoutGoal = useAppStore((state) => state.workoutGoal);
+  const weeklyWorkoutGoal = useAppStore((state) => state.preferences.weeklyWorkoutGoal ?? 4);
   const setActiveSession = useAppStore((state) => state.setActiveSession);
   const addSession = useAppStore((state) => state.addSession);
   const updateTemplate = useAppStore((state) => state.updateTemplate);
@@ -81,7 +82,9 @@ export const useActiveWorkout = (): UseActiveWorkoutReturn => {
   const updatePlan = useCurrentWorkoutStore((state) => state.updatePlan);
   const setShowFinishConfirm = useCurrentWorkoutStore((state) => state.setShowFinishConfirm);
   const setExpandedIndex = useCurrentWorkoutStore((state) => state.setExpandedIndex);
-  const suggestions = useCurrentWorkoutStore((state) => state.suggestions);
+
+  // Get suggestions from session (persisted with the session)
+  const suggestions = session?.suggestions ?? [];
 
   // Compose sub-hooks
   const { elapsedSeconds } = useWorkoutTimer(session);
@@ -179,8 +182,8 @@ export const useActiveWorkout = (): UseActiveWorkoutReturn => {
     // Detect personal bests
     const personalBests = detectPersonalBests(session, sessions, customExercises);
 
-    // Calculate streak
-    const streakCount = calculateStreak(sessions, new Date(completedAt));
+    // Calculate streak (based on consecutive weeks hitting weekly goal)
+    const streakCount = calculateStreak(sessions, new Date(completedAt), weeklyWorkoutGoal);
 
     const completedSession = {
       ...session,

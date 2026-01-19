@@ -108,8 +108,8 @@ export const PROGRESSIVE_OVERLOAD_WEEKS: Record<ProgressiveOverloadWeek, WeekInf
   2: {
     week: 2,
     name: 'Volume Focus',
-    description: 'Moderate intensity, build work capacity',
-    weightAdjustment: 'Maintain or slight increase',
+    description: 'Keep heavier weight, build reps',
+    weightAdjustment: 'Keep Week 2 weight',
     repRange: '7-9 reps',
   },
   3: {
@@ -458,6 +458,8 @@ export interface WorkoutSession {
   startedAt: string;
   completedAt?: string;
   exercises: SessionExercise[];
+  // AI suggestions for this workout (only used during active session)
+  suggestions?: ExerciseSuggestion[];
 }
 
 // User Preferences
@@ -471,6 +473,7 @@ export interface UserPreferences {
   firstName?: string;
   lastName?: string;
   experienceLevel?: ExperienceLevel;
+  weeklyWorkoutGoal?: number; // Target workouts per week (default 4)
 }
 
 // AI Assistant Message

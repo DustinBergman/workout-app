@@ -75,7 +75,7 @@ describe('WeekBadge', () => {
     it('displays correct info for Week 3 (Volume Focus)', () => {
       render(<WeekBadge week={2} workoutGoal="build" showDetails />);
       expect(screen.getByText('Volume Focus')).toBeInTheDocument();
-      expect(screen.getByText('Maintain or slight increase')).toBeInTheDocument();
+      expect(screen.getByText('Keep Week 2 weight')).toBeInTheDocument();
     });
 
     it('displays correct info for Week 4 (Strength Push)', () => {

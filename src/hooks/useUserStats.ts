@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
-import { WorkoutSession, MuscleGroup, Exercise, WeightEntry } from '../types';
+import { WorkoutSession, MuscleGroup, Exercise, WeightEntry, StrengthCompletedSet } from '../types';
 import { calculateSessionStats } from './useSessionStats';
 import { getAllExercises } from '../data/exercises';
+import { calculate1RM } from '../utils/personalBestUtils';
 
 export type TimePeriod = '30' | '90' | 'all';
 
@@ -41,27 +42,36 @@ const filterByTimePeriod = (
 const calculateStrengthProgress = (
   sessions: WorkoutSession[]
 ): number => {
-  // Group exercise history by exerciseId
-  const exerciseHistory: Map<string, { date: string; avgWeight: number }[]> = new Map();
+  // Group exercise history by exerciseId using estimated 1RM
+  // This accounts for both weight AND reps to measure true strength progress
+  const exerciseHistory: Map<string, { date: string; best1RM: number }[]> = new Map();
 
   sessions.forEach(session => {
     session.exercises.forEach(ex => {
       if (ex.sets.length === 0) return;
 
       // Only calculate for strength exercises
-      const strengthSets = ex.sets.filter(s => s.type === 'strength' || !('type' in s));
+      const strengthSets = ex.sets.filter(
+        (s): s is StrengthCompletedSet => s.type === 'strength' || !('type' in s)
+      );
       if (strengthSets.length === 0) return;
 
-      // Calculate average weight for this exercise in this session
-      const totalWeight = strengthSets.reduce((sum, s) => sum + ('weight' in s ? s.weight : 0), 0);
-      const avgWeight = totalWeight / strengthSets.length;
+      // Find the best estimated 1RM for this exercise in this session
+      // This normalizes different weight/rep combinations to a comparable metric
+      let best1RM = 0;
+      for (const set of strengthSets) {
+        if ('weight' in set && 'reps' in set && set.weight > 0 && set.reps > 0) {
+          const estimated1RM = calculate1RM(set.weight, set.reps);
+          best1RM = Math.max(best1RM, estimated1RM);
+        }
+      }
 
-      if (avgWeight === 0) return;
+      if (best1RM === 0) return;
 
       const history = exerciseHistory.get(ex.exerciseId) || [];
       history.push({
         date: session.completedAt || session.startedAt,
-        avgWeight
+        best1RM
       });
       exerciseHistory.set(ex.exerciseId, history);
     });
@@ -76,12 +86,12 @@ const calculateStrengthProgress = (
     // Sort by date
     history.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-    const firstWeight = history[0].avgWeight;
-    const lastWeight = history[history.length - 1].avgWeight;
+    const first1RM = history[0].best1RM;
+    const last1RM = history[history.length - 1].best1RM;
 
-    if (firstWeight > 0) {
+    if (first1RM > 0) {
       // Include all changes (positive, negative, or zero)
-      const change = ((lastWeight - firstWeight) / firstWeight) * 100;
+      const change = ((last1RM - first1RM) / first1RM) * 100;
       changes.push(change);
     }
   });

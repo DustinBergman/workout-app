@@ -57,9 +57,10 @@ export const PostWorkoutFlow: FC<PostWorkoutFlowProps> = ({
     if (selectedMood) {
       setStep('saving');
       await onComplete(selectedMood, customTitle);
-      // Reset state for next time (modal will close after onComplete)
+      // Reset state for next time and close modal
       setStep('summary');
       setSelectedMood(null);
+      onClose();
     }
   };
 

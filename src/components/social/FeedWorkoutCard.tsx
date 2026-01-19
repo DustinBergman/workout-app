@@ -13,10 +13,10 @@ import { CopyWorkoutModal } from './CopyWorkoutModal';
 import { useLikes } from '../../hooks/useLikes';
 import { useAppStore } from '../../store/useAppStore';
 import { useAuth } from '../../hooks/useAuth';
-import { WORKOUT_MOOD_CONFIG, getWeekConfigForGoal } from '../../types';
+import { WORKOUT_MOOD_CONFIG, getWeekConfigForGoal, CardioType, DistanceUnit } from '../../types';
 import { deleteSession } from '../../services/supabase/sessions';
 import { toast } from '../../store/toastStore';
-import { convertFeedWorkoutToTemplate } from '../../utils/workoutUtils';
+import { convertFeedWorkoutToTemplate, estimateCardioCalories } from '../../utils/workoutUtils';
 
 interface FeedWorkoutCardProps {
   workout: FeedWorkout;
@@ -290,32 +290,46 @@ export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
           <h3 className="font-semibold text-base mb-1.5">{workout.name}</h3>
         )}
 
-        {/* Chips Row - Smart selection of 1-3 most interesting chips */}
+        {/* Chips Row - Show relevant workout stats */}
         {(() => {
           const chips: React.ReactNode[] = [];
 
-          // Calculate cardio distance and calories
-          const totalCardioDistance = workout.session_exercises.reduce((sum, ex) => {
-            if (ex.type === 'cardio') {
-              return sum + ex.completed_sets.reduce((setSum, set) => {
-                return setSum + (set.distance || 0);
-              }, 0);
-            }
-            return sum;
+          // Calculate cardio stats
+          const cardioExercises = workout.session_exercises.filter(ex => ex.type === 'cardio');
+          const totalCardioDistance = cardioExercises.reduce((sum, ex) => {
+            return sum + ex.completed_sets.reduce((setSum, set) => {
+              return setSum + (set.distance || 0);
+            }, 0);
           }, 0);
 
-          const totalCardioCalories = workout.session_exercises.reduce((sum, ex) => {
-            if (ex.type === 'cardio') {
-              return sum + ex.completed_sets.reduce((setSum, set) => {
-                return setSum + (set.calories || 0);
-              }, 0);
-            }
-            return sum;
+          // Calculate total calories (explicit + estimated)
+          const totalCardioCalories = cardioExercises.reduce((sum, ex) => {
+            const exerciseData = getExerciseById(ex.exercise_id, customExercises);
+            const cardioType = (exerciseData?.type === 'cardio' ? exerciseData.cardioType : 'other') as CardioType;
+            return sum + ex.completed_sets.reduce((setSum, set) => {
+              // Use explicit calories if available, otherwise estimate
+              if (set.calories) return setSum + set.calories;
+              return setSum + estimateCardioCalories(cardioType, {
+                distance: set.distance ?? undefined,
+                distanceUnit: (set.distance_unit || 'mi') as DistanceUnit,
+                durationSeconds: set.duration_seconds ?? 0,
+              });
+            }, 0);
+          }, 0);
+
+          // Calculate strength stats
+          const strengthExercises = workout.session_exercises.filter(ex => ex.type === 'strength');
+          const totalVolume = strengthExercises.reduce((sum, ex) => {
+            return sum + ex.completed_sets.reduce((setSum, set) => {
+              if (set.type === 'strength' && set.weight && set.reps) {
+                return setSum + (set.weight * set.reps);
+              }
+              return setSum;
+            }, 0);
           }, 0);
 
           // Determine distance unit from first cardio set
-          const firstCardioSet = workout.session_exercises
-            .filter(ex => ex.type === 'cardio')
+          const firstCardioSet = cardioExercises
             .flatMap(ex => ex.completed_sets)
             .find(set => set.distance_unit);
           const distanceUnit = firstCardioSet?.distance_unit || 'mi';
@@ -350,7 +364,37 @@ export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
             );
           }
 
-          // 4. Intensity chip (based on duration)
+          // 4. Cardio distance chip (if any distance tracked)
+          if (totalCardioDistance >= 0.5) {
+            chips.push(
+              <span key="cardio-distance" className="px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-300 text-xs">
+                🏃 {totalCardioDistance.toFixed(1)} {distanceUnit}
+              </span>
+            );
+          }
+
+          // 5. Cardio calories chip (always show if any cardio)
+          if (totalCardioCalories > 0) {
+            chips.push(
+              <span key="cardio-calories" className="px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-500/20 text-orange-700 dark:text-orange-300 text-xs">
+                🔥 {Math.round(totalCardioCalories)} cal burned
+              </span>
+            );
+          }
+
+          // 6. Total volume chip (if significant strength work)
+          if (totalVolume >= 1000) {
+            const volumeDisplay = totalVolume >= 10000
+              ? `${(totalVolume / 1000).toFixed(1)}k`
+              : totalVolume.toLocaleString();
+            chips.push(
+              <span key="volume" className="px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 text-xs">
+                🏋️ {volumeDisplay} lbs
+              </span>
+            );
+          }
+
+          // 7. Intensity chip (based on duration)
           if (summary.durationMinutes > 0) {
             if (summary.durationMinutes < 30) {
               chips.push(
@@ -361,29 +405,14 @@ export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
             } else if (summary.durationMinutes > 75) {
               chips.push(
                 <span key="intensity" className="px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300 text-xs">
-                  💪 Long
+                  💪 Long session
                 </span>
               );
             }
           }
 
-          // 5. Cardio chip (if significant cardio - show distance or calories)
-          if (totalCardioDistance >= 1) {
-            chips.push(
-              <span key="cardio" className="px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-300 text-xs">
-                🏃 {totalCardioDistance.toFixed(1)} {distanceUnit}
-              </span>
-            );
-          } else if (totalCardioCalories >= 50) {
-            chips.push(
-              <span key="cardio" className="px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-500/20 text-orange-700 dark:text-orange-300 text-xs">
-                🔥 {totalCardioCalories} cal
-              </span>
-            );
-          }
-
-          // 6. Week chip (if on training plan) - lower priority
-          if (workout.progressive_overload_week != null && workout.workout_goal && chips.length < 3) {
+          // 8. Week chip (if on training plan)
+          if (workout.progressive_overload_week != null && workout.workout_goal) {
             const weekConfig = getWeekConfigForGoal(workout.workout_goal);
             const weekName = weekConfig[workout.progressive_overload_week]?.name || '';
             chips.push(
@@ -393,12 +422,9 @@ export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
             );
           }
 
-          // Limit to 3 chips max
-          const displayChips = chips.slice(0, 3);
-
-          return displayChips.length > 0 ? (
+          return chips.length > 0 ? (
             <div className="flex flex-wrap gap-1.5 mb-2">
-              {displayChips}
+              {chips}
             </div>
           ) : null;
         })()}

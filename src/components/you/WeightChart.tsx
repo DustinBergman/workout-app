@@ -25,14 +25,26 @@ export const WeightChart: FC<WeightChartProps> = ({ entries, weightUnit }) => {
       .filter((e) => new Date(e.date) >= sixtyDaysAgo)
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
       .map((entry) => ({
-        date: new Date(entry.date).toLocaleDateString('en-US', {
-          month: 'short',
-          day: 'numeric',
-        }),
+        timestamp: new Date(entry.date).getTime(),
         weight: entry.weight,
-        fullDate: entry.date,
+        date: entry.date,
       }));
   }, [entries]);
+
+  // Calculate time domain for x-axis
+  const timeDomain = useMemo(() => {
+    if (chartData.length === 0) return [0, 0];
+    const timestamps = chartData.map((d) => d.timestamp);
+    return [Math.min(...timestamps), Math.max(...timestamps)];
+  }, [chartData]);
+
+  // Format timestamp for display
+  const formatDate = (timestamp: number) => {
+    return new Date(timestamp).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+    });
+  };
 
   const weightStats = useMemo(() => {
     if (chartData.length === 0) return null;
@@ -91,10 +103,14 @@ export const WeightChart: FC<WeightChartProps> = ({ entries, weightUnit }) => {
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
             <XAxis
-              dataKey="date"
+              dataKey="timestamp"
+              type="number"
+              scale="time"
+              domain={timeDomain}
               tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }}
               tickLine={false}
               axisLine={{ stroke: 'var(--border)' }}
+              tickFormatter={formatDate}
             />
             <YAxis
               domain={['auto', 'auto']}
@@ -119,7 +135,7 @@ export const WeightChart: FC<WeightChartProps> = ({ entries, weightUnit }) => {
                 fontSize: '12px',
               }}
               formatter={(value) => [`${(value as number).toFixed(1)} ${weightUnit}`, 'Weight']}
-              labelFormatter={(label) => label}
+              labelFormatter={(timestamp) => formatDate(timestamp as number)}
             />
             <Line
               type="monotone"

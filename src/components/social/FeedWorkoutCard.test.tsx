@@ -507,7 +507,7 @@ describe('FeedWorkoutCard', () => {
 
       render(<FeedWorkoutCard workout={hiitWorkout} />);
 
-      expect(screen.getByText('🔥 350 cal')).toBeInTheDocument();
+      expect(screen.getByText('🔥 350 cal burned')).toBeInTheDocument();
     });
 
     it('should show distance chip for cardio with distance tracked', () => {

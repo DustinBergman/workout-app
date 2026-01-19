@@ -9,6 +9,7 @@ import {
   CardioCompletedSet,
   SessionExercise,
   StrengthSessionExercise,
+  CardioType,
 } from '../types';
 
 // Re-export from copyWorkout for backwards compatibility
@@ -195,4 +196,65 @@ export const isStrengthSessionExercise = (
   exercise: SessionExercise
 ): exercise is StrengthSessionExercise => {
   return exercise.type === 'strength';
+};
+
+/**
+ * Calorie burn rates by cardio type
+ * - Distance-based: calories per mile (will be converted for km)
+ * - Duration-based: calories per hour
+ * Based on average person (~155 lbs / 70 kg)
+ */
+const CALORIES_PER_MILE: Partial<Record<CardioType, number>> = {
+  running: 100,
+  walking: 65,
+  cycling: 45,
+  hiking: 85,
+};
+
+const CALORIES_PER_HOUR: Record<CardioType, number> = {
+  running: 600,
+  walking: 280,
+  cycling: 400,
+  hiking: 430,
+  swimming: 500,
+  rowing: 500,
+  elliptical: 450,
+  'stair-climber': 550,
+  hiit: 700,
+  boxing: 600,
+  other: 400,
+};
+
+/**
+ * Estimate calories burned for cardio exercise
+ * Uses distance if available, otherwise uses duration
+ */
+export const estimateCardioCalories = (
+  cardioType: CardioType,
+  options: {
+    distance?: number;
+    distanceUnit?: DistanceUnit;
+    durationSeconds?: number;
+  }
+): number => {
+  const { distance, distanceUnit, durationSeconds } = options;
+
+  // If we have distance, prefer distance-based calculation
+  if (distance && distance > 0 && distanceUnit) {
+    const caloriesPerMile = CALORIES_PER_MILE[cardioType];
+    if (caloriesPerMile) {
+      // Convert to miles if needed
+      const distanceInMiles = distanceUnit === 'km' ? distance / 1.60934 : distance;
+      return Math.round(distanceInMiles * caloriesPerMile);
+    }
+  }
+
+  // Fall back to duration-based calculation
+  if (durationSeconds && durationSeconds > 0) {
+    const caloriesPerHour = CALORIES_PER_HOUR[cardioType] || CALORIES_PER_HOUR.other;
+    const hours = durationSeconds / 3600;
+    return Math.round(hours * caloriesPerHour);
+  }
+
+  return 0;
 };

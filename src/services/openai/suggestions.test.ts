@@ -34,35 +34,37 @@ const createMockSession = (overrides: Partial<WorkoutSession> = {}): WorkoutSess
   ...overrides,
 });
 
+// Helper to create a mock fetch response for a single exercise
+const createMockResponse = (exerciseId: string, weight: number, reps: number) => ({
+  ok: true,
+  json: () =>
+    Promise.resolve({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              suggestion: {
+                exerciseId,
+                suggestedWeight: weight,
+                suggestedReps: reps,
+                reasoning: 'Based on your progress',
+                confidence: 'high',
+                progressStatus: 'improving',
+              },
+            }),
+          },
+        },
+      ],
+    }),
+});
+
 describe('getPreWorkoutSuggestions', () => {
   beforeEach(() => {
     mockFetch.mockReset();
   });
 
   it('should return suggestions on success', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          choices: [
-            {
-              message: {
-                content: JSON.stringify({
-                  suggestions: [
-                    {
-                      exerciseId: 'bench',
-                      suggestedWeight: 140,
-                      suggestedReps: 10,
-                      reasoning: 'Based on your progress',
-                      confidence: 'high',
-                    },
-                  ],
-                }),
-              },
-            },
-          ],
-        }),
-    });
+    mockFetch.mockResolvedValueOnce(createMockResponse('bench', 140, 10));
 
     const template = createMockTemplate({
       exercises: [{ type: 'strength', exerciseId: 'bench', targetSets: 3, targetReps: 10, restSeconds: 90 }],
@@ -76,14 +78,29 @@ describe('getPreWorkoutSuggestions', () => {
     expect(result[0].confidence).toBe('high');
   });
 
-  it('should include previous performance in context', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          choices: [{ message: { content: '{"suggestions": []}' } }],
-        }),
+  it('should make parallel calls for multiple exercises', async () => {
+    mockFetch
+      .mockResolvedValueOnce(createMockResponse('bench', 140, 10))
+      .mockResolvedValueOnce(createMockResponse('squat', 200, 8));
+
+    const template = createMockTemplate({
+      exercises: [
+        { type: 'strength', exerciseId: 'bench', targetSets: 3, targetReps: 10, restSeconds: 90 },
+        { type: 'strength', exerciseId: 'squat', targetSets: 3, targetReps: 8, restSeconds: 120 },
+      ],
     });
+
+    const result = await getPreWorkoutSuggestions('test-key', template, [], 'lbs');
+
+    expect(result).toHaveLength(2);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    // Results should be in same order as template exercises
+    expect(result[0].exerciseId).toBe('bench');
+    expect(result[1].exerciseId).toBe('squat');
+  });
+
+  it('should include previous performance in context', async () => {
+    mockFetch.mockResolvedValueOnce(createMockResponse('bench', 140, 10));
 
     const template = createMockTemplate({
       exercises: [{ type: 'strength', exerciseId: 'bench', targetSets: 3, targetReps: 10, restSeconds: 90 }],
@@ -107,18 +124,11 @@ describe('getPreWorkoutSuggestions', () => {
     const requestBody = JSON.parse(mockFetch.mock.calls[0][1].body);
     const userMessage = requestBody.messages[1];
 
-    expect(userMessage.content).toContain('recentPerformance');
-    expect(userMessage.content).toContain('135');
+    expect(userMessage.content).toContain('Last set: 135lbs x 10 reps');
   });
 
   it('should include week guidance for build goal', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          choices: [{ message: { content: '{"suggestions": []}' } }],
-        }),
-    });
+    mockFetch.mockResolvedValueOnce(createMockResponse('bench', 140, 8));
 
     const template = createMockTemplate({
       exercises: [{ type: 'strength', exerciseId: 'bench', targetSets: 3, targetReps: 10, restSeconds: 90 }],
@@ -129,18 +139,13 @@ describe('getPreWorkoutSuggestions', () => {
     const requestBody = JSON.parse(mockFetch.mock.calls[0][1].body);
     const userMessage = requestBody.messages[1];
 
-    expect(userMessage.content).toContain('Progressive Overload Week 2');
+    expect(userMessage.content).toContain('Build Muscle');
+    expect(userMessage.content).toContain('Week 2');
     expect(userMessage.content).toContain('Light Overload');
   });
 
   it('should include weight loss guidance for lose goal', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          choices: [{ message: { content: '{"suggestions": []}' } }],
-        }),
-    });
+    mockFetch.mockResolvedValueOnce(createMockResponse('bench', 135, 8));
 
     const template = createMockTemplate({
       exercises: [{ type: 'strength', exerciseId: 'bench', targetSets: 3, targetReps: 10, restSeconds: 90 }],
@@ -152,18 +157,12 @@ describe('getPreWorkoutSuggestions', () => {
     const userMessage = requestBody.messages[1];
 
     expect(userMessage.content).toContain('Lose Weight');
-    expect(userMessage.content).toContain('Fatigue Management');
-    expect(userMessage.content).toContain('DO NOT suggest weight increases');
+    expect(userMessage.content).toContain('deficit');
+    expect(userMessage.content).toContain('no increases');
   });
 
   it('should include maintenance guidance for maintain goal', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          choices: [{ message: { content: '{"suggestions": []}' } }],
-        }),
-    });
+    mockFetch.mockResolvedValueOnce(createMockResponse('bench', 135, 10));
 
     const template = createMockTemplate({
       exercises: [{ type: 'strength', exerciseId: 'bench', targetSets: 3, targetReps: 10, restSeconds: 90 }],
@@ -175,18 +174,11 @@ describe('getPreWorkoutSuggestions', () => {
     const userMessage = requestBody.messages[1];
 
     expect(userMessage.content).toContain('Maintain');
-    expect(userMessage.content).toContain('Intensity Waves');
-    expect(userMessage.content).toContain('intensity week-to-week');
+    expect(userMessage.content).toContain('intensity waves');
   });
 
   it('should default to build goal', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          choices: [{ message: { content: '{"suggestions": []}' } }],
-        }),
-    });
+    mockFetch.mockResolvedValueOnce(createMockResponse('bench', 140, 10));
 
     const template = createMockTemplate({
       exercises: [{ type: 'strength', exerciseId: 'bench', targetSets: 3, targetReps: 10, restSeconds: 90 }],
@@ -200,14 +192,8 @@ describe('getPreWorkoutSuggestions', () => {
     expect(userMessage.content).toContain('Build Muscle');
   });
 
-  it('should use correct weight unit', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () =>
-        Promise.resolve({
-          choices: [{ message: { content: '{"suggestions": []}' } }],
-        }),
-    });
+  it('should use correct weight unit in system prompt', async () => {
+    mockFetch.mockResolvedValueOnce(createMockResponse('bench', 60, 10));
 
     const template = createMockTemplate({
       exercises: [{ type: 'strength', exerciseId: 'bench', targetSets: 3, targetReps: 10, restSeconds: 90 }],
@@ -216,13 +202,14 @@ describe('getPreWorkoutSuggestions', () => {
     await getPreWorkoutSuggestions('test-key', template, [], 'kg');
 
     const requestBody = JSON.parse(mockFetch.mock.calls[0][1].body);
-    const userMessage = requestBody.messages[1];
+    const systemMessage = requestBody.messages[0];
 
-    expect(userMessage.content).toContain('Use kg for weights');
+    expect(systemMessage.content).toContain('kg');
   });
 
-  it('should return fallback suggestions for malformed JSON', async () => {
-    mockFetch.mockResolvedValueOnce({
+  it('should return fallback suggestions when LLM returns invalid response', async () => {
+    // Return invalid response that will fail validation
+    mockFetch.mockResolvedValue({
       ok: true,
       json: () =>
         Promise.resolve({
@@ -236,15 +223,15 @@ describe('getPreWorkoutSuggestions', () => {
 
     const result = await getPreWorkoutSuggestions('test-key', template, [], 'lbs');
 
-    // Should still return fallback suggestions for each exercise
+    // Should return fallback suggestions (3 retries fail, then fallback)
     expect(result).toHaveLength(1);
     expect(result[0].exerciseId).toBe('bench');
     expect(result[0].confidence).toBe('low');
     expect(result[0].progressStatus).toBe('new');
   });
 
-  it('should throw error on API failure', async () => {
-    mockFetch.mockResolvedValueOnce({
+  it('should return fallback suggestions on API failure instead of throwing', async () => {
+    mockFetch.mockResolvedValue({
       ok: false,
       status: 401,
       json: () => Promise.resolve({ error: { message: 'Unauthorized' } }),
@@ -254,8 +241,57 @@ describe('getPreWorkoutSuggestions', () => {
       exercises: [{ type: 'strength', exerciseId: 'bench', targetSets: 3, targetReps: 10, restSeconds: 90 }],
     });
 
-    await expect(getPreWorkoutSuggestions('test-key', template, [], 'lbs')).rejects.toThrow(
-      'Unauthorized'
-    );
+    // Should NOT throw - returns fallback instead
+    const result = await getPreWorkoutSuggestions('test-key', template, [], 'lbs');
+
+    expect(result).toHaveLength(1);
+    expect(result[0].exerciseId).toBe('bench');
+    expect(result[0].confidence).toBe('low');
+  });
+
+  it('should return empty array for template with no strength exercises', async () => {
+    const template = createMockTemplate({
+      exercises: [],
+    });
+
+    const result = await getPreWorkoutSuggestions('test-key', template, [], 'lbs');
+
+    expect(result).toHaveLength(0);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('should validate suggestedReps is greater than 0', async () => {
+    // Return response with 0 reps (should be corrected)
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  suggestion: {
+                    exerciseId: 'bench',
+                    suggestedWeight: 140,
+                    suggestedReps: 0, // Invalid - should be corrected
+                    reasoning: 'Test',
+                    confidence: 'high',
+                    progressStatus: 'improving',
+                  },
+                }),
+              },
+            },
+          ],
+        }),
+    });
+
+    const template = createMockTemplate({
+      exercises: [{ type: 'strength', exerciseId: 'bench', targetSets: 3, targetReps: 10, restSeconds: 90 }],
+    });
+
+    const result = await getPreWorkoutSuggestions('test-key', template, [], 'lbs');
+
+    // 0 reps should fail validation, trigger retry, eventually return fallback
+    expect(result[0].suggestedReps).toBeGreaterThan(0);
   });
 });

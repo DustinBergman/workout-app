@@ -51,10 +51,6 @@ describe('currentWorkoutStore', () => {
     it('should have updatePlan as false', () => {
       expect(useCurrentWorkoutStore.getState().updatePlan).toBe(false);
     });
-
-    it('should have empty suggestions array', () => {
-      expect(useCurrentWorkoutStore.getState().suggestions).toEqual([]);
-    });
   });
 
   describe('setExpandedIndex', () => {
@@ -195,25 +191,6 @@ describe('currentWorkoutStore', () => {
     });
   });
 
-  describe('setSuggestions', () => {
-    it('should set suggestions', () => {
-      const suggestions = [
-        { exerciseId: 'bench-press', suggestedWeight: 135, suggestedReps: 10, reasoning: 'test', confidence: 'high' as const },
-      ];
-      useCurrentWorkoutStore.getState().setSuggestions(suggestions);
-      expect(useCurrentWorkoutStore.getState().suggestions).toEqual(suggestions);
-    });
-
-    it('should clear suggestions with empty array', () => {
-      const suggestions = [
-        { exerciseId: 'bench-press', suggestedWeight: 135, suggestedReps: 10, reasoning: 'test', confidence: 'high' as const },
-      ];
-      useCurrentWorkoutStore.getState().setSuggestions(suggestions);
-      useCurrentWorkoutStore.getState().setSuggestions([]);
-      expect(useCurrentWorkoutStore.getState().suggestions).toEqual([]);
-    });
-  });
-
   describe('setShowExercisePicker', () => {
     it('should show exercise picker', () => {
       useCurrentWorkoutStore.getState().setShowExercisePicker(true);
@@ -287,9 +264,6 @@ describe('currentWorkoutStore', () => {
       useCurrentWorkoutStore.getState().setTimerDuration(180);
       useCurrentWorkoutStore.getState().setTimerEndTime(Date.now() + 60000);
       useCurrentWorkoutStore.getState().pauseTimer();
-      useCurrentWorkoutStore.getState().setSuggestions([
-        { exerciseId: 'test', suggestedWeight: 100, suggestedReps: 10, reasoning: 'test', confidence: 'high' as const },
-      ]);
       useCurrentWorkoutStore.getState().setShowExercisePicker(true);
       useCurrentWorkoutStore.getState().setExerciseSearch('squat');
       useCurrentWorkoutStore.getState().setShowFinishConfirm(true);
@@ -307,7 +281,6 @@ describe('currentWorkoutStore', () => {
       expect(state.timerEndTime).toBeNull();
       expect(state.timerPaused).toBe(false);
       expect(state.timerRemainingWhenPaused).toBeNull();
-      expect(state.suggestions).toEqual([]);
       expect(state.showExercisePicker).toBe(false);
       expect(state.exerciseSearch).toBe('');
       expect(state.showFinishConfirm).toBe(false);

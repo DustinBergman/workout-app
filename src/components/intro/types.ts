@@ -3,6 +3,7 @@ import { WorkoutGoal, WeightUnit, DistanceUnit, ExperienceLevel } from '../../ty
 export interface IntroFormData {
   goal: WorkoutGoal;
   experienceLevel: ExperienceLevel;
+  weeklyWorkoutGoal: number;
   weightUnit: WeightUnit;
   distanceUnit: DistanceUnit;
   darkMode: boolean;

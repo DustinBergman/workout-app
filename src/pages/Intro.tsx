@@ -6,6 +6,7 @@ import {
   ProgressIndicator,
   GoalSelectionStep,
   ExperienceLevelStep,
+  WorkoutFrequencyStep,
   PreferencesStep,
   WeightStep,
   ProfilePictureStep,
@@ -48,6 +49,7 @@ export const Intro: FC = () => {
     defaultValues: {
       goal: 'build',
       experienceLevel: 'intermediate',
+      weeklyWorkoutGoal: 4,
       weightUnit: 'lbs',
       distanceUnit: 'mi',
       darkMode: false,
@@ -58,6 +60,7 @@ export const Intro: FC = () => {
 
   const selectedGoal = watch('goal');
   const selectedExperienceLevel = watch('experienceLevel');
+  const selectedWeeklyGoal = watch('weeklyWorkoutGoal');
   const selectedUnit = watch('weightUnit');
   const selectedDistanceUnit = watch('distanceUnit');
   const darkMode = watch('darkMode');
@@ -75,6 +78,7 @@ export const Intro: FC = () => {
     // Update preferences (names are now collected during signup)
     updatePreferences({
       experienceLevel: data.experienceLevel,
+      weeklyWorkoutGoal: data.weeklyWorkoutGoal,
       weightUnit: data.weightUnit,
       distanceUnit: data.distanceUnit,
       darkMode: data.darkMode,
@@ -98,7 +102,7 @@ export const Intro: FC = () => {
     setHasCompletedIntro(true);
   };
 
-  const nextStep = () => setStep((s) => Math.min(s + 1, 6));
+  const nextStep = () => setStep((s) => Math.min(s + 1, 7));
   const prevStep = () => setStep((s) => Math.max(s - 1, 1));
 
   return (
@@ -106,7 +110,7 @@ export const Intro: FC = () => {
       <AnimatedBackground />
 
       <div className="relative z-10 flex flex-col min-h-screen p-6">
-        <ProgressIndicator currentStep={step} totalSteps={6} />
+        <ProgressIndicator currentStep={step} totalSteps={7} />
 
         <form onSubmit={handleSubmit(completeIntro)} className="flex-1 flex flex-col">
           {step === 1 && (
@@ -130,6 +134,15 @@ export const Intro: FC = () => {
           )}
 
           {step === 3 && (
+            <WorkoutFrequencyStep
+              selectedFrequency={selectedWeeklyGoal}
+              onSelectFrequency={(freq) => setValue('weeklyWorkoutGoal', freq)}
+              onBack={prevStep}
+              onNext={nextStep}
+            />
+          )}
+
+          {step === 4 && (
             <PreferencesStep
               selectedUnit={selectedUnit}
               onSelectUnit={(unit) => setValue('weightUnit', unit)}
@@ -144,7 +157,7 @@ export const Intro: FC = () => {
             />
           )}
 
-          {step === 4 && (
+          {step === 5 && (
             <WeightStep
               register={register}
               weightUnit={selectedUnit}
@@ -153,7 +166,7 @@ export const Intro: FC = () => {
             />
           )}
 
-          {step === 5 && (
+          {step === 6 && (
             <ProfilePictureStep
               onBack={prevStep}
               onNext={nextStep}
@@ -164,7 +177,7 @@ export const Intro: FC = () => {
             />
           )}
 
-          {step === 6 && (
+          {step === 7 && (
             <ApiKeyStep
               register={register}
               onBack={prevStep}

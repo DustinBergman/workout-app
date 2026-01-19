@@ -158,7 +158,8 @@ export const useHome = (): UseHomeReturn => {
           preferences.firstName,
           experienceLevel || 'intermediate',
           workoutGoal,
-          currentWeek
+          currentWeek,
+          preferences.weeklyWorkoutGoal ?? 4
         );
         setPTSummary(summary);
       } catch (err) {

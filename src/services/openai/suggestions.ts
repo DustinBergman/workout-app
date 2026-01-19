@@ -14,13 +14,45 @@ import {
 } from '../../types';
 import { getExerciseById } from '../../data/exercises';
 import { getCustomExercises } from '../storage';
-import { callOpenAI, parseJSONResponse } from './client';
+import { executeLLMWithRetries } from './client';
 import {
   analyzeExercise10Weeks,
-  buildExerciseAnalysisContext,
   ExerciseAnalysis,
   hasEnoughHistoryForPlateauDetection,
 } from './exerciseAnalysis';
+
+// Context shared across all exercise suggestions
+interface SuggestionContext {
+  trainingGuidance: string;
+  weightContext: string;
+  weightUnit: 'lbs' | 'kg';
+}
+
+// Data for a single exercise suggestion request
+interface ExerciseSuggestionInput {
+  exerciseId: string;
+  exerciseName: string;
+  targetSets: number;
+  targetReps: number;
+  // Recent performance - only include if we have data
+  recentSets?: Array<{ date: string; weight: number; reps: number }>;
+  // Analysis data - only include if we have history
+  analysis?: {
+    progressStatus: 'improving' | 'plateau' | 'declining' | 'insufficient_data';
+    estimated1RMTrend?: number;
+    plateauSignals?: {
+      sameWeight3Sessions: boolean;
+      failedRepTargets: boolean;
+      stalled1RM: boolean;
+    };
+    recentSessions?: Array<{
+      date: string;
+      maxWeight: number;
+      avgReps: number;
+      estimated1RM: number;
+    }>;
+  };
+}
 
 const buildWeightContext = (
   weightEntries: WeightEntry[],
@@ -30,7 +62,6 @@ const buildWeightContext = (
     return '';
   }
 
-  // Get entries from last 60 days
   const sixtyDaysAgo = new Date();
   sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
 
@@ -50,51 +81,17 @@ const buildWeightContext = (
   if (weightChange > 1) trend = 'gained';
   else if (weightChange < -1) trend = 'lost';
 
-  const last5 = recentEntries.slice(0, 5).map((e) => ({
-    date: new Date(e.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-    weight: e.weight,
-  }));
-
-  return `
-USER BODY WEIGHT CONTEXT:
-Current weight: ${currentWeight.toFixed(1)} ${weightUnit}
-Weight trend (last 60 days): ${trend} ${Math.abs(weightChange).toFixed(1)} ${weightUnit}
-Recent entries: ${last5.map((e) => `${e.date}: ${e.weight}${weightUnit}`).join(', ')}
-
-Consider this when suggesting weights:
-- If losing weight rapidly (>2 ${weightUnit}/week), user may be in a deficit and need slightly lower weights to maintain form
-- If gaining weight steadily, user may be bulking and can potentially handle progressive overload
-- Adjust recommendations based on body weight changes and recovery capacity
-`;
+  return `Body weight: ${currentWeight.toFixed(1)} ${weightUnit} (${trend} ${Math.abs(weightChange).toFixed(1)} ${weightUnit} over 60 days)`;
 };
 
 const buildExperienceLevelGuidance = (experienceLevel: ExperienceLevel): string => {
   switch (experienceLevel) {
     case 'beginner':
-      return `
-EXPERIENCE LEVEL: Beginner (Less than 1 year of training)
-- Neuromuscular adaptations allow faster progression
-- Can expect 5-10% weight increases when progressing
-- Focus on form while progressing - technique is still developing
-- Recovery is typically faster, can handle slightly more aggressive increases
-`;
+      return 'Beginner: Can progress 5-10% when ready';
     case 'intermediate':
-      return `
-EXPERIENCE LEVEL: Intermediate (1-2 years of training)
-- Moderate progression rate expected
-- Can expect 2-5% weight increases when progressing
-- May need to cycle rep ranges to continue progress
-- Balance between pushing limits and avoiding plateaus
-`;
+      return 'Intermediate: Progress 2-5% when ready';
     case 'advanced':
-      return `
-EXPERIENCE LEVEL: Advanced (2+ years of consistent training)
-- Progression is slow and hard-earned
-- Expect only 1-2.5% weight increases at most
-- Volume manipulation more important than linear weight increases
-- Focus on technique refinement and intensity techniques
-- Small PRs are significant achievements at this level
-`;
+      return 'Advanced: Progress 1-2.5% max';
     default:
       return '';
   }
@@ -108,122 +105,236 @@ const buildTrainingGuidance = (
   const goalInfo = WORKOUT_GOALS[workoutGoal];
   const experienceGuidance = buildExperienceLevelGuidance(experienceLevel);
 
-  const volumeGuidance = `
-VOLUME GUIDANCE (Science-Based):
-- Prefer 2-3 working sets per exercise taken to failure
-- Quality over quantity - fewer sets with maximum effort
-- Research shows diminishing returns beyond 3 hard sets
-- Each set should be performed with high intensity (close to or at failure)
-`;
-
-  // All goals now use week-based guidance
   if (currentWeek === undefined) {
-    // Fallback if no week specified
-    return `
-TRAINING GOAL: ${goalInfo.name}
-${experienceGuidance}
-${volumeGuidance}
-${goalInfo.aiGuidance}
-Target rep range: ${goalInfo.defaultRepRange}
-`;
+    return `Goal: ${goalInfo.name}. ${experienceGuidance}. Target: ${goalInfo.defaultRepRange}`;
   }
 
   const weekConfig = getWeekConfigForGoal(workoutGoal);
   const weekInfo = weekConfig[currentWeek];
 
   if (workoutGoal === 'build') {
-    // Progressive overload mode with personal trainer logic
-    return `
-TRAINING GOAL: ${goalInfo.name} - ${goalInfo.cycleName} Cycle
-${experienceGuidance}
-${volumeGuidance}
-IMPORTANT - ${goalInfo.cycleName} Week ${currentWeek + 1}: ${weekInfo.name}
-- Goal: ${weekInfo.description}
-- Target Rep Range: ${weekInfo.repRange}
-
-SMART WEIGHT SUGGESTION GUIDELINES (Act like a personal trainer):
-Analyze the user's ACTUAL progression patterns from their workout history to determine appropriate weights.
-Do NOT use arbitrary fixed percentages - base suggestions on how this specific user is progressing.
-
-EXPERIENCE-ADJUSTED PROGRESSION:
-- Beginners (fast progression): If consistently hitting reps, suggest 5-10% increases
-- Intermediates (moderate): If progressing well, suggest 2-5% increases
-- Advanced (slow progression): Even 1-2.5% increases are significant wins
-
-WEEK-SPECIFIC GUIDANCE:
-- Week 1 (Baseline): Use current working weights, aim for 8-10 reps to establish baseline
-- Week 2 (Light Overload): Based on baseline performance, suggest weight that challenges for 6-8 reps (lean towards 6)
-- Week 3 (Volume Focus): Moderate weight for 7-9 reps - build work capacity
-- Week 4 (Strength Push): If progression supports it, push for heavier weight at 5-6 reps
-- Week 5 (Deload): Reduce weight by 20-30% for recovery, 8-12 easy reps
-
-DECISION FRAMEWORK:
-1. Look at the user's 1RM trend from exercise analysis
-2. If IMPROVING: Progress according to experience level and week goal
-3. If PLATEAU: Consider rep range change OR technique focus before weight increase
-4. If DECLINING: Maintain or slightly reduce weight, prioritize recovery
-5. Always ensure the suggested weight is achievable for the target rep range
-`;
+    const weekGuidance: Record<number, string> = {
+      0: 'Week 1 (Baseline): Use current working weights, 8-10 reps',
+      1: 'Week 2 (Light Overload): Increase weight, target 6-8 reps',
+      2: 'Week 3 (Volume Focus): KEEP Week 2 weight (do NOT reduce), build to 7-9 reps',
+      3: 'Week 4 (Strength Push): Push heavier if ready, 5-6 reps',
+      4: 'Week 5 (Deload): Reduce 20-30%, easy 8-12 reps',
+    };
+    return `Goal: ${goalInfo.name}. ${experienceGuidance}. ${weekGuidance[currentWeek] || weekInfo.description}`;
   }
 
   if (workoutGoal === 'lose') {
-    // Fatigue management mode - cycle intensity/volume while preserving muscle
-    return `
-TRAINING GOAL: ${goalInfo.name} - ${goalInfo.cycleName} Cycle
-${experienceGuidance}
-${volumeGuidance}
-IMPORTANT - ${goalInfo.cycleName} Week ${currentWeek + 1}: ${weekInfo.name}
-- Goal: ${weekInfo.description}
-- Weight Adjustment: ${weekInfo.weightAdjustment}
-- Target Rep Range: ${weekInfo.repRange}
-
-CRITICAL - Caloric Deficit Training Principles:
-- DO NOT suggest weight increases - the body cannot build muscle in a deficit
-- Focus on MAINTAINING strength while managing fatigue
-- Recovery is impaired, so follow the week's volume/intensity guidelines strictly
-
-Week-specific guidelines for fatigue management:
-- Week 1 (Baseline Strength): Use current working weights, 6-10 reps - establish maintenance baseline
-- Week 2 (Volume Reduction): Same weights but reduce sets by 1 - manage accumulating fatigue
-- Week 3 (Intensity Focus): Same heavy weights, low volume (4-6 reps) - preserve strength signal
-- Week 4 (Moderate Recovery): Reduce weight by 10%, moderate volume - partial recovery
-- Week 5 (Full Deload): Reduce weight by 30%, light volume - full recovery before next cycle
-`;
+    const weekGuidance: Record<number, string> = {
+      0: 'Week 1: Maintain current weights, 6-10 reps',
+      1: 'Week 2: Same weights, reduce volume',
+      2: 'Week 3: Heavy weights, low volume (4-6 reps)',
+      3: 'Week 4: Reduce 10%, moderate volume',
+      4: 'Week 5: Reduce 30%, light deload',
+    };
+    return `Goal: ${goalInfo.name} (deficit - maintain strength, no increases). ${weekGuidance[currentWeek] || weekInfo.description}`;
   }
 
   if (workoutGoal === 'maintain') {
-    // Intensity wave mode - vary intensity to prevent staleness
-    return `
-TRAINING GOAL: ${goalInfo.name} - ${goalInfo.cycleName} Cycle
-${experienceGuidance}
-${volumeGuidance}
-IMPORTANT - ${goalInfo.cycleName} Week ${currentWeek + 1}: ${weekInfo.name}
-- Goal: ${weekInfo.description}
-- Weight Adjustment: ${weekInfo.weightAdjustment}
-- Target Rep Range: ${weekInfo.repRange}
-
-Intensity Wave Principles:
-- Vary intensity week-to-week to prevent staleness and maintain engagement
-- No net progression expected - weights should average out over the cycle
-- Focus on sustainable, enjoyable training
-
-Week-specific guidelines for intensity waves:
-- Week 1 (Standard): Use current baseline weights, 8-12 reps - normal moderate training
-- Week 2 (Light Wave): Reduce weight by 10-15%, higher reps (12-15) - active recovery feel
-- Week 3 (Moderate Push): Increase weight by 5% from baseline, 8-10 reps - slight challenge
-- Week 4 (Heavy Wave): Increase weight by 10% from baseline, lower reps (6-8) - intensity peak
-- Week 5 (Recovery): Reduce weight by 20%, moderate reps - reset before next cycle
-`;
+    const weekGuidance: Record<number, string> = {
+      0: 'Week 1: Baseline weights, 8-12 reps',
+      1: 'Week 2: Reduce 10-15%, higher reps (12-15)',
+      2: 'Week 3: Increase 5% from baseline, 8-10 reps',
+      3: 'Week 4: Increase 10% from baseline, 6-8 reps',
+      4: 'Week 5: Reduce 20%, recovery',
+    };
+    return `Goal: ${goalInfo.name} (intensity waves). ${weekGuidance[currentWeek] || weekInfo.description}`;
   }
 
-  // Default/fallback
-  return `
-TRAINING GOAL: ${goalInfo.name}
-${experienceGuidance}
-${volumeGuidance}
-${goalInfo.aiGuidance}
-Target rep range: ${goalInfo.defaultRepRange}
-`;
+  return `Goal: ${goalInfo.name}. ${experienceGuidance}. Target: ${goalInfo.defaultRepRange}`;
+};
+
+// Build a concise prompt for a single exercise
+const buildExercisePrompt = (
+  context: SuggestionContext,
+  exercise: ExerciseSuggestionInput
+): string => {
+  const parts: string[] = [
+    context.trainingGuidance,
+  ];
+
+  if (context.weightContext) {
+    parts.push(context.weightContext);
+  }
+
+  parts.push(`\nExercise: ${exercise.exerciseName}`);
+  parts.push(`Target: ${exercise.targetSets} sets x ${exercise.targetReps} reps`);
+
+  // Add analysis if available
+  if (exercise.analysis) {
+    const { progressStatus, estimated1RMTrend, plateauSignals, recentSessions } = exercise.analysis;
+    parts.push(`Status: ${progressStatus.toUpperCase()}`);
+
+    if (estimated1RMTrend !== undefined) {
+      parts.push(`1RM Trend: ${estimated1RMTrend > 0 ? '+' : ''}${estimated1RMTrend.toFixed(1)}%`);
+    }
+
+    if (plateauSignals && progressStatus === 'plateau') {
+      const signals = [];
+      if (plateauSignals.sameWeight3Sessions) signals.push('same weight 3+ sessions');
+      if (plateauSignals.failedRepTargets) signals.push('missed rep targets');
+      if (plateauSignals.stalled1RM) signals.push('stalled 1RM');
+      if (signals.length > 0) {
+        parts.push(`Plateau signals: ${signals.join(', ')}`);
+      }
+    }
+
+    if (recentSessions && recentSessions.length > 0) {
+      const recent = recentSessions.slice(0, 3).map(s =>
+        `${s.maxWeight}${context.weightUnit} x ${s.avgReps.toFixed(0)} reps`
+      ).join(', ');
+      parts.push(`Recent: ${recent}`);
+    }
+  }
+
+  // Add recent sets if available (most recent 5)
+  if (exercise.recentSets && exercise.recentSets.length > 0) {
+    const recent = exercise.recentSets.slice(0, 5);
+    const lastWeight = recent[0].weight;
+    const lastReps = recent[0].reps;
+    parts.push(`Last set: ${lastWeight}${context.weightUnit} x ${lastReps} reps`);
+  } else {
+    parts.push('No previous data - suggest conservative starting weight');
+  }
+
+  return parts.join('\n');
+};
+
+// Validate a suggestion response
+const validateSuggestion = (response: { suggestion?: ExerciseSuggestion }): boolean => {
+  const s = response.suggestion;
+  if (!s) return false;
+  if (typeof s.suggestedWeight !== 'number') return false;
+  if (typeof s.suggestedReps !== 'number' || s.suggestedReps <= 0) return false;
+  if (!s.exerciseId) return false;
+  return true;
+};
+
+// Get suggestion for a single exercise with retries
+const getSuggestionForExercise = async (
+  apiKey: string,
+  context: SuggestionContext,
+  exercise: ExerciseSuggestionInput,
+  customExercises: Exercise[]
+): Promise<ExerciseSuggestion> => {
+  const prompt = buildExercisePrompt(context, exercise);
+
+  const systemPrompt = `You are a fitness AI. Suggest weight and reps for this exercise based on the context.
+Respond ONLY with valid JSON in this exact format:
+{
+  "suggestion": {
+    "exerciseId": "${exercise.exerciseId}",
+    "suggestedWeight": <number in ${context.weightUnit}>,
+    "suggestedReps": <number, must be > 0>,
+    "reasoning": "<1 sentence explanation>",
+    "confidence": "high" | "medium" | "low",
+    "progressStatus": "improving" | "plateau" | "declining" | "new"
+  }
+}
+
+For PLATEAU status, also include:
+- "techniqueTip": "<advice to break plateau>"
+- "repRangeChange": { "from": "X-Y", "to": "A-B", "reason": "<why>" }`;
+
+  // Create fallback based on last performance
+  const lastWeight = exercise.recentSets?.[0]?.weight ?? 0;
+  const lastReps = exercise.recentSets?.[0]?.reps ?? exercise.targetReps;
+  const exerciseInfo = getExerciseById(exercise.exerciseId, customExercises);
+  const exerciseName = exerciseInfo?.name || exercise.exerciseName;
+
+  const fallback: { suggestion: ExerciseSuggestion } = {
+    suggestion: {
+      exerciseId: exercise.exerciseId,
+      suggestedWeight: lastWeight,
+      suggestedReps: lastReps || exercise.targetReps || 10,
+      reasoning: lastWeight > 0
+        ? `Continue with your previous weight for ${exerciseName}`
+        : `Start light and establish your working weight for ${exerciseName}`,
+      confidence: lastWeight > 0 ? 'medium' : 'low',
+      progressStatus: lastWeight > 0 ? 'improving' : 'new',
+    },
+  };
+
+  const result = await executeLLMWithRetries({
+    apiKey,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: prompt },
+    ],
+    maxTokens: 300,
+    temperature: 0.3,
+    validate: validateSuggestion,
+    fallback,
+    maxRetries: 3,
+  });
+
+  // Ensure reps is valid
+  const suggestion = result.suggestion;
+  if (suggestion.suggestedReps <= 0) {
+    suggestion.suggestedReps = exercise.targetReps || 10;
+  }
+
+  return suggestion;
+};
+
+// Build exercise input data from template and history
+const buildExerciseInput = (
+  templateEx: StrengthTemplateExercise,
+  previousSessions: WorkoutSession[],
+  customExercises: Exercise[],
+  analysis: ExerciseAnalysis | undefined
+): ExerciseSuggestionInput => {
+  const exerciseInfo = getExerciseById(templateEx.exerciseId, customExercises);
+
+  // Find recent sets for this exercise
+  const previousSets: Array<{ date: string; weight: number; reps: number }> = [];
+  for (const session of previousSessions) {
+    for (const ex of session.exercises) {
+      if (ex.exerciseId === templateEx.exerciseId) {
+        for (const set of ex.sets) {
+          if (set.type === 'strength' || !('type' in set)) {
+            const strengthSet = set as StrengthCompletedSet;
+            previousSets.push({
+              date: session.startedAt,
+              weight: strengthSet.weight,
+              reps: strengthSet.reps,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  // Sort by date descending
+  previousSets.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  const input: ExerciseSuggestionInput = {
+    exerciseId: templateEx.exerciseId,
+    exerciseName: exerciseInfo?.name || templateEx.exerciseId,
+    targetSets: templateEx.targetSets ?? 3,
+    targetReps: templateEx.targetReps ?? 10,
+  };
+
+  // Only include recent sets if we have data
+  if (previousSets.length > 0) {
+    input.recentSets = previousSets.slice(0, 10);
+  }
+
+  // Only include analysis if we have meaningful data
+  if (analysis && analysis.progressStatus !== 'insufficient_data') {
+    input.analysis = {
+      progressStatus: analysis.progressStatus,
+      estimated1RMTrend: analysis.estimated1RMTrend,
+      plateauSignals: analysis.plateauSignals,
+      recentSessions: analysis.recentSessions,
+    };
+  }
+
+  return input;
 };
 
 export const getPreWorkoutSuggestions = async (
@@ -238,179 +349,54 @@ export const getPreWorkoutSuggestions = async (
 ): Promise<ExerciseSuggestion[]> => {
   const customExercises = getCustomExercises();
 
-  // Build context about each exercise in the template (only strength exercises)
+  // Filter to strength exercises only
   const strengthTemplateExercises = template.exercises.filter(
     (ex): ex is StrengthTemplateExercise => ex.type === 'strength' || !('type' in ex)
   );
 
-  // Check if we have enough history for plateau detection (10 weeks of consistent training)
+  if (strengthTemplateExercises.length === 0) {
+    return [];
+  }
+
+  // Check if we have enough history for plateau detection
   const enablePlateauDetection = hasEnoughHistoryForPlateauDetection(previousSessions);
 
-  // Analyze each exercise's 10-week history (uses caching internally)
-  const exerciseAnalyses: ExerciseAnalysis[] = strengthTemplateExercises.map((templateEx) =>
-    analyzeExercise10Weeks(
+  // Analyze each exercise (uses caching internally)
+  const analysisMap = new Map<string, ExerciseAnalysis>();
+  for (const templateEx of strengthTemplateExercises) {
+    const analysis = analyzeExercise10Weeks(
       templateEx.exerciseId,
       previousSessions,
       customExercises as Exercise[],
       templateEx.targetReps,
       enablePlateauDetection
+    );
+    analysisMap.set(templateEx.exerciseId, analysis);
+  }
+
+  // Build shared context (compact)
+  const context: SuggestionContext = {
+    trainingGuidance: buildTrainingGuidance(workoutGoal, currentWeek, experienceLevel),
+    weightContext: buildWeightContext(weightEntries, weightUnit),
+    weightUnit,
+  };
+
+  // Build input for each exercise
+  const exerciseInputs = strengthTemplateExercises.map((templateEx) =>
+    buildExerciseInput(
+      templateEx,
+      previousSessions,
+      customExercises as Exercise[],
+      analysisMap.get(templateEx.exerciseId)
     )
   );
 
-  const exerciseContext = strengthTemplateExercises.map((templateEx) => {
-    const exerciseInfo = getExerciseById(templateEx.exerciseId, customExercises);
-    const analysis = exerciseAnalyses.find((a) => a.exerciseId === templateEx.exerciseId);
+  // Call LLM for each exercise in parallel
+  const suggestionPromises = exerciseInputs.map((exerciseInput) =>
+    getSuggestionForExercise(apiKey, context, exerciseInput, customExercises as Exercise[])
+  );
 
-    // Find previous performance for this exercise (strength sets only)
-    const previousSets: Array<{ date: string; weight: number; reps: number }> = [];
-    previousSessions.forEach((session) => {
-      session.exercises.forEach((ex) => {
-        if (ex.exerciseId === templateEx.exerciseId) {
-          ex.sets.forEach((set) => {
-            // Only include strength sets
-            if (set.type === 'strength' || !('type' in set)) {
-              const strengthSet = set as StrengthCompletedSet;
-              previousSets.push({
-                date: session.startedAt,
-                weight: strengthSet.weight,
-                reps: strengthSet.reps,
-              });
-            }
-          });
-        }
-      });
-    });
+  const suggestions = await Promise.all(suggestionPromises);
 
-    // Sort by date descending and take last 10
-    previousSets.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    const recentSets = previousSets.slice(0, 10);
-
-    return {
-      exerciseId: templateEx.exerciseId,
-      exerciseName: exerciseInfo?.name || templateEx.exerciseId,
-      targetSets: templateEx.targetSets,
-      targetReps: templateEx.targetReps,
-      recentPerformance: recentSets,
-      progressStatus: analysis?.progressStatus || 'new',
-      plateauSignals: analysis?.plateauSignals,
-      estimated1RMTrend: analysis?.estimated1RMTrend,
-    };
-  });
-
-  const trainingGuidance = buildTrainingGuidance(workoutGoal, currentWeek, experienceLevel);
-  const weightContext = buildWeightContext(weightEntries, weightUnit);
-  const analysisContext = buildExerciseAnalysisContext(exerciseAnalyses);
-
-  const prompt = `You are a fitness AI providing pre-workout recommendations. Based on the user's previous performance and 4-week progress analysis, suggest appropriate weights and reps for today's workout.
-${trainingGuidance}
-${weightContext}
-${analysisContext}
-Exercises for today's workout:
-${JSON.stringify(exerciseContext, null, 2)}
-
-CRITICAL: You MUST provide a suggestion for EVERY exercise listed below. Do not skip any exercises, even custom ones or ones without previous data. For each exercise, provide a suggestion. Consider:
-- The training goal and guidelines above (CRITICAL - follow these strictly)
-- The 10-week progress analysis and plateau signals
-- Previous performance data to establish their baseline working weights
-- If no previous data exists, suggest a conservative starting point
-
-IMPORTANT - For exercises marked as "PLATEAU":
-- Suggest a REP RANGE CHANGE to break through the plateau
-- If current range is around 8-12 reps: suggest either 5-8 reps (heavier weight) or 12-15 reps (lighter weight, more volume)
-- Include a "techniqueTip" explaining the change (e.g., "Break through your plateau by switching to heavier weight with lower reps")
-- Include a "repRangeChange" object with from/to/reason fields
-
-For exercises marked as "IMPROVING" or with insufficient data:
-- Continue with normal progression per week guidelines
-- No techniqueTip or repRangeChange needed
-
-Respond in JSON format:
-{
-  "suggestions": [
-    {
-      "exerciseId": "exercise-id",
-      "suggestedWeight": number,
-      "suggestedReps": number,
-      "reasoning": "Brief explanation (1 sentence)",
-      "confidence": "high" | "medium" | "low",
-      "progressStatus": "improving" | "plateau" | "declining" | "new",
-      "techniqueTip": "Optional - only for plateau exercises",
-      "repRangeChange": {
-        "from": "8-12",
-        "to": "5-8",
-        "reason": "Heavier loads to stimulate new strength gains"
-      }
-    }
-  ]
-}
-
-Use ${weightUnit} for weights. Confidence should be:
-- "high" if there's clear recent data showing a pattern
-- "medium" if there's some data but pattern is unclear
-- "low" if there's minimal or no previous data`;
-
-  // Calculate token limit based on number of exercises (roughly 150 tokens per exercise suggestion)
-  const estimatedTokensNeeded = Math.max(2000, strengthTemplateExercises.length * 200);
-
-  const content = await callOpenAI({
-    apiKey,
-    messages: [
-      {
-        role: 'system',
-        content: 'You are a fitness analysis AI that detects training plateaus and provides smart recommendations. Respond only with valid JSON. IMPORTANT: You MUST provide a suggestion for EVERY exercise in the list - do not skip any exercises.',
-      },
-      { role: 'user', content: prompt },
-    ],
-    maxTokens: estimatedTokensNeeded,
-    temperature: 0.3,
-  });
-
-  const parsed = parseJSONResponse<{ suggestions?: ExerciseSuggestion[] }>(content, {});
-  const aiSuggestions = parsed.suggestions || [];
-
-  // Ensure every exercise has a suggestion - create fallbacks for any missing
-  const completeSuggestions: ExerciseSuggestion[] = strengthTemplateExercises.map((templateEx) => {
-    const existingSuggestion = aiSuggestions.find((s) => s.exerciseId === templateEx.exerciseId);
-
-    if (existingSuggestion) {
-      return existingSuggestion;
-    }
-
-    // Create a fallback suggestion for missing exercises
-    const exerciseInfo = getExerciseById(templateEx.exerciseId, customExercises);
-    const exerciseName = exerciseInfo?.name || templateEx.exerciseId;
-
-    // Find the most recent performance for this exercise
-    let lastWeight = 0;
-    let lastReps = templateEx.targetReps;
-
-    for (const session of previousSessions) {
-      const matchingEx = session.exercises.find((ex) => ex.exerciseId === templateEx.exerciseId);
-      if (matchingEx && matchingEx.sets.length > 0) {
-        const lastSet = matchingEx.sets[matchingEx.sets.length - 1];
-        if (lastSet.type === 'strength' || !('type' in lastSet)) {
-          const strengthSet = lastSet as StrengthCompletedSet;
-          lastWeight = strengthSet.weight;
-          lastReps = strengthSet.reps;
-          break;
-        }
-      }
-    }
-
-    // Create fallback suggestion based on last performance or conservative start
-    const fallbackSuggestion: ExerciseSuggestion = {
-      exerciseId: templateEx.exerciseId,
-      suggestedWeight: lastWeight > 0 ? lastWeight : 0,
-      suggestedReps: lastReps ?? templateEx.targetReps ?? 10,
-      reasoning: lastWeight > 0
-        ? `Continue with your previous weight for ${exerciseName}`
-        : `Start light and establish your working weight for ${exerciseName}`,
-      confidence: lastWeight > 0 ? 'medium' : 'low',
-      progressStatus: lastWeight > 0 ? 'improving' : 'new',
-    };
-
-    return fallbackSuggestion;
-  });
-
-  return completeSuggestions;
+  return suggestions;
 };

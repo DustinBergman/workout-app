@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { callOpenAI, parseJSONResponse } from './client';
+import { callOpenAI, parseJSONResponse, executeLLMWithRetries } from './client';
 
 // Mock fetch globally
 const mockFetch = vi.fn();
@@ -194,6 +194,138 @@ describe('OpenAI Client', () => {
       const result = parseJSONResponse('', fallback);
 
       expect(result).toEqual(fallback);
+    });
+  });
+
+  describe('executeLLMWithRetries', () => {
+    const baseOptions = {
+      apiKey: 'test-api-key',
+      messages: [{ role: 'user' as const, content: 'Test' }],
+    };
+
+    it('should return valid response on first try', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          choices: [{ message: { content: '{"value": 42}' } }],
+        }),
+      });
+
+      const result = await executeLLMWithRetries({
+        ...baseOptions,
+        validate: (r: { value: number }) => r.value > 0,
+        fallback: { value: 0 },
+      });
+
+      expect(result).toEqual({ value: 42 });
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('should retry on validation failure and succeed', async () => {
+      // First call returns invalid response
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          choices: [{ message: { content: '{"value": 0}' } }],
+        }),
+      });
+      // Second call returns valid response
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          choices: [{ message: { content: '{"value": 42}' } }],
+        }),
+      });
+
+      const result = await executeLLMWithRetries({
+        ...baseOptions,
+        validate: (r: { value: number }) => r.value > 0,
+        fallback: { value: 0 },
+      });
+
+      expect(result).toEqual({ value: 42 });
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('should retry on API error and succeed', async () => {
+      // First call fails
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: () => Promise.resolve({ error: { message: 'Server error' } }),
+      });
+      // Second call succeeds
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          choices: [{ message: { content: '{"value": 42}' } }],
+        }),
+      });
+
+      const result = await executeLLMWithRetries({
+        ...baseOptions,
+        validate: (r: { value: number }) => r.value > 0,
+        fallback: { value: 0 },
+      });
+
+      expect(result).toEqual({ value: 42 });
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('should return fallback after all retries fail validation', async () => {
+      // All calls return invalid response
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({
+          choices: [{ message: { content: '{"value": 0}' } }],
+        }),
+      });
+
+      const result = await executeLLMWithRetries({
+        ...baseOptions,
+        validate: (r: { value: number }) => r.value > 0,
+        fallback: { value: -1 },
+        maxRetries: 3,
+      });
+
+      expect(result).toEqual({ value: -1 });
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+    });
+
+    it('should return fallback after all retries fail with errors', async () => {
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 500,
+        json: () => Promise.resolve({ error: { message: 'Server error' } }),
+      });
+
+      const result = await executeLLMWithRetries({
+        ...baseOptions,
+        validate: () => true,
+        fallback: { value: -1 },
+        maxRetries: 2,
+      });
+
+      expect(result).toEqual({ value: -1 });
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('should use custom maxRetries', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({
+          choices: [{ message: { content: '{"value": 0}' } }],
+        }),
+      });
+
+      await executeLLMWithRetries({
+        ...baseOptions,
+        validate: (r: { value: number }) => r.value > 0,
+        fallback: { value: -1 },
+        maxRetries: 5,
+      });
+
+      expect(mockFetch).toHaveBeenCalledTimes(5);
     });
   });
 });

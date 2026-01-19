@@ -192,7 +192,7 @@ describe('useUserStats', () => {
       ];
 
       const { result } = renderHook(() => useUserStats(sessions, 'all'));
-      expect(result.current.averageStrengthIncrease).toBe(10);
+      expect(result.current.averageStrengthIncrease).toBeCloseTo(10, 1);
     });
 
     it('should return 0 for exercises without progress', () => {
@@ -241,7 +241,7 @@ describe('useUserStats', () => {
       ];
 
       const { result } = renderHook(() => useUserStats(sessions, 'all'));
-      expect(result.current.averageStrengthIncrease).toBe(-10);
+      expect(result.current.averageStrengthIncrease).toBeCloseTo(-10, 1);
     });
 
     it('should return 0 when weight stays the same', () => {
@@ -275,7 +275,7 @@ describe('useUserStats', () => {
       ];
 
       const { result } = renderHook(() => useUserStats(sessions, 'all'));
-      expect(result.current.averageStrengthIncrease).toBe(0);
+      expect(result.current.averageStrengthIncrease).toBeCloseTo(0, 1);
     });
 
     it('should average progress across multiple exercises', () => {
@@ -308,7 +308,7 @@ describe('useUserStats', () => {
 
       const { result } = renderHook(() => useUserStats(sessions, 'all'));
       // Average of 20% and 5% = 12.5%
-      expect(result.current.averageStrengthIncrease).toBe(12.5);
+      expect(result.current.averageStrengthIncrease).toBeCloseTo(12.5, 1);
     });
 
     it('should handle mixed positive and negative changes', () => {
@@ -341,10 +341,10 @@ describe('useUserStats', () => {
 
       const { result } = renderHook(() => useUserStats(sessions, 'all'));
       // Average of +10% and -10% = 0%
-      expect(result.current.averageStrengthIncrease).toBe(0);
+      expect(result.current.averageStrengthIncrease).toBeCloseTo(0, 1);
     });
 
-    it('should use average weight when multiple sets per exercise', () => {
+    it('should use best estimated 1RM when multiple sets per exercise', () => {
       const oldDate = new Date();
       oldDate.setDate(oldDate.getDate() - 30);
       const newDate = new Date();
@@ -360,7 +360,7 @@ describe('useUserStats', () => {
               createStrengthSet(100, 10),
               createStrengthSet(100, 10),
               createStrengthSet(100, 10),
-            ]), // avg = 100
+            ]), // best e1RM = 100 * (1 + 10/30) = 133.33
           ],
         },
         {
@@ -373,14 +373,101 @@ describe('useUserStats', () => {
               createStrengthSet(100, 10),
               createStrengthSet(110, 10),
               createStrengthSet(120, 10),
-            ]), // avg = 110
+            ]), // best e1RM = 120 * (1 + 10/30) = 160
           ],
         },
       ];
 
       const { result } = renderHook(() => useUserStats(sessions, 'all'));
-      // 100 -> 110 = 10% increase
-      expect(result.current.averageStrengthIncrease).toBe(10);
+      // e1RM: 133.33 -> 160 = 20% increase
+      expect(result.current.averageStrengthIncrease).toBeCloseTo(20, 1);
+    });
+
+    it('should detect strength gain when same weight but more reps (progressive overload)', () => {
+      const week1Date = new Date();
+      week1Date.setDate(week1Date.getDate() - 21);
+      const week2Date = new Date();
+      week2Date.setDate(week2Date.getDate() - 14);
+      const week3Date = new Date();
+
+      const sessions: WorkoutSession[] = [
+        {
+          id: 'session-1',
+          name: 'Week 1 - Baseline',
+          startedAt: week1Date.toISOString(),
+          completedAt: week1Date.toISOString(),
+          exercises: [
+            createStrengthExercise('bench-press', [
+              createStrengthSet(100, 10), // e1RM = 100 * (1 + 10/30) = 133.33
+            ]),
+          ],
+        },
+        {
+          id: 'session-2',
+          name: 'Week 2 - Higher weight, lower reps',
+          startedAt: week2Date.toISOString(),
+          completedAt: week2Date.toISOString(),
+          exercises: [
+            createStrengthExercise('bench-press', [
+              createStrengthSet(110, 8), // e1RM = 110 * (1 + 8/30) = 139.33
+            ]),
+          ],
+        },
+        {
+          id: 'session-3',
+          name: 'Week 3 - Same weight, more reps',
+          startedAt: week3Date.toISOString(),
+          completedAt: week3Date.toISOString(),
+          exercises: [
+            createStrengthExercise('bench-press', [
+              createStrengthSet(110, 10), // e1RM = 110 * (1 + 10/30) = 146.67
+            ]),
+          ],
+        },
+      ];
+
+      const { result } = renderHook(() => useUserStats(sessions, 'all'));
+      // Compares first (133.33) to latest (146.67) = ~10% increase
+      // This correctly shows progress even though Week 2 had lower reps
+      expect(result.current.averageStrengthIncrease).toBeCloseTo(10, 0);
+    });
+
+    it('should show minimal progress when weight increases but reps decrease proportionally', () => {
+      const oldDate = new Date();
+      oldDate.setDate(oldDate.getDate() - 14);
+      const newDate = new Date();
+
+      // Note: calculate1RM returns weight unchanged for reps === 1
+      // So 120×5 → e1RM = 140, and 140×1 → e1RM = 140 (same!)
+      // This correctly shows that lifting the same e1RM is NOT progress
+      const sessions: WorkoutSession[] = [
+        {
+          id: 'session-1',
+          name: 'Workout 1',
+          startedAt: oldDate.toISOString(),
+          completedAt: oldDate.toISOString(),
+          exercises: [
+            createStrengthExercise('bench-press', [
+              createStrengthSet(120, 5), // e1RM = 120 * (1 + 5/30) = 140
+            ]),
+          ],
+        },
+        {
+          id: 'session-2',
+          name: 'Workout 2',
+          startedAt: newDate.toISOString(),
+          completedAt: newDate.toISOString(),
+          exercises: [
+            createStrengthExercise('bench-press', [
+              createStrengthSet(140, 1), // e1RM = 140 (unchanged for 1 rep)
+            ]),
+          ],
+        },
+      ];
+
+      const { result } = renderHook(() => useUserStats(sessions, 'all'));
+      // Both sessions have e1RM of 140, so 0% change
+      expect(result.current.averageStrengthIncrease).toBeCloseTo(0, 1);
     });
 
     it('should compare first and last session for exercise (not max)', () => {
@@ -422,7 +509,7 @@ describe('useUserStats', () => {
 
       const { result } = renderHook(() => useUserStats(sessions, 'all'));
       // Compares first (100) to latest (105) = 5% increase, not peak (120)
-      expect(result.current.averageStrengthIncrease).toBe(5);
+      expect(result.current.averageStrengthIncrease).toBeCloseTo(5, 1);
     });
 
     it('should only include exercises with 2+ data points', () => {
@@ -456,7 +543,7 @@ describe('useUserStats', () => {
 
       const { result } = renderHook(() => useUserStats(sessions, 'all'));
       // Only bench press has 2+ data points, so average = 10%
-      expect(result.current.averageStrengthIncrease).toBe(10);
+      expect(result.current.averageStrengthIncrease).toBeCloseTo(10, 1);
     });
   });
 

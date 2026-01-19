@@ -1,7 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
-import { useCurrentWorkoutStore } from '../store/currentWorkoutStore';
 import { WorkoutSession, WorkoutTemplate } from '../types';
 import { getPreWorkoutSuggestions } from '../services/openai';
 
@@ -22,7 +21,6 @@ export const useStartWorkout = (): UseStartWorkoutReturn => {
   const workoutGoal = useAppStore((state) => state.workoutGoal);
   const weightEntries = useAppStore((state) => state.weightEntries);
   const setActiveSession = useAppStore((state) => state.setActiveSession);
-  const setSuggestions = useCurrentWorkoutStore((state) => state.setSuggestions);
   const navigate = useNavigate();
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
 
@@ -78,20 +76,18 @@ export const useStartWorkout = (): UseStartWorkoutReturn => {
           ),
           timeoutPromise,
         ]);
-        setSuggestions(suggestions);
+        // Save suggestions to the session so they persist
+        setActiveSession({ ...session, suggestions });
       } catch (err) {
         console.error('Failed to get suggestions:', err);
         // Continue without suggestions on error (API failure, timeout, out of credits, etc.)
-        setSuggestions([]);
       } finally {
         setIsLoadingSuggestions(false);
       }
-    } else {
-      setSuggestions([]);
     }
 
     navigate('/workout');
-  }, [sessions, preferences, currentWeek, workoutGoal, weightEntries, setActiveSession, setSuggestions, navigate]);
+  }, [sessions, preferences, currentWeek, workoutGoal, weightEntries, setActiveSession, navigate]);
 
   const startQuickWorkout = useCallback(() => {
     const session: WorkoutSession = {

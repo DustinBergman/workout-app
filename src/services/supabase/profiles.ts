@@ -19,6 +19,7 @@ export interface Profile {
   week_started_at: string | null;
   has_completed_intro: boolean;
   openai_api_key: string | null;
+  weekly_workout_goal: number;
   created_at: string;
   updated_at: string;
 }
@@ -73,6 +74,7 @@ export const profileToPreferences = (profile: Profile): UserPreferences => ({
   lastName: profile.last_name ?? undefined,
   experienceLevel: profile.experience_level,
   openaiApiKey: profile.openai_api_key ?? undefined,
+  weeklyWorkoutGoal: profile.weekly_workout_goal,
 });
 
 /**
@@ -92,6 +94,7 @@ export const preferencesToProfileUpdates = (
   if (prefs.experienceLevel !== undefined) updates.experience_level = prefs.experienceLevel;
   if (prefs.openaiApiKey !== undefined) updates.openai_api_key = prefs.openaiApiKey || null;
   if (prefs.emailNotificationsEnabled !== undefined) updates.email_notifications_enabled = prefs.emailNotificationsEnabled;
+  if (prefs.weeklyWorkoutGoal !== undefined) updates.weekly_workout_goal = prefs.weeklyWorkoutGoal;
 
   return updates;
 };

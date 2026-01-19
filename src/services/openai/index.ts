@@ -2,7 +2,8 @@
 export type { ChatMessage, ExerciseStats } from './types';
 
 // Client utilities
-export { callOpenAI, parseJSONResponse } from './client';
+export { callOpenAI, parseJSONResponse, executeLLMWithRetries } from './client';
+export type { ExecuteLLMOptions } from './client';
 
 // History utilities
 export { createHistoryContext, analyzeExercisePerformance } from './history';

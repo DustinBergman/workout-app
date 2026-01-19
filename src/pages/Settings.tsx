@@ -290,6 +290,30 @@ export const Settings: FC = () => {
             </Select>
           </div>
 
+          {/* Weekly Workout Goal */}
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="font-medium text-foreground">Weekly Workout Goal</Label>
+              <p className="text-sm text-muted-foreground">Your consistency streak is based on this</p>
+            </div>
+            <Select
+              value={String(preferences.weeklyWorkoutGoal ?? 4)}
+              onValueChange={(value) => updatePreferences({ weeklyWorkoutGoal: parseInt(value) })}
+            >
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="2">2 days/week</SelectItem>
+                <SelectItem value="3">3 days/week</SelectItem>
+                <SelectItem value="4">4 days/week</SelectItem>
+                <SelectItem value="5">5 days/week</SelectItem>
+                <SelectItem value="6">6 days/week</SelectItem>
+                <SelectItem value="7">7 days/week</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* Default Rest Time */}
           <div className="flex items-center justify-between">
             <div>

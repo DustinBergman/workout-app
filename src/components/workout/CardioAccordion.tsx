@@ -1,8 +1,8 @@
-import { useState, useEffect, FC, DOMAttributes } from 'react';
+import { useState, useEffect, FC, DOMAttributes, useMemo } from 'react';
 import { DraggableAttributes } from '@dnd-kit/core';
 import { CardioSessionExercise, CardioExercise } from '../../types';
 import { Card, Button } from '../ui';
-import { formatCardioDuration, calculatePace } from '../../utils/workoutUtils';
+import { formatCardioDuration, calculatePace, estimateCardioCalories } from '../../utils/workoutUtils';
 import { useActiveWorkoutContext } from '../../contexts/ActiveWorkoutContext';
 import { LogCardioParams } from '../../hooks/useExerciseManagement';
 
@@ -56,6 +56,7 @@ export const CardioAccordion: FC<CardioAccordionProps> = ({
   );
   const [distanceInput, setDistanceInput] = useState('');
   const [caloriesInput, setCaloriesInput] = useState('');
+  const [caloriesOverrideInput, setCaloriesOverrideInput] = useState('');
   const [minutesInput, setMinutesInput] = useState('');
   const [secondsInput, setSecondsInput] = useState('');
 
@@ -75,6 +76,24 @@ export const CardioAccordion: FC<CardioAccordionProps> = ({
     return sum;
   }, 0);
 
+  // Calculate estimated calories for distance-based entries without explicit calories
+  const estimatedCalories = useMemo(() => {
+    if (!exerciseInfo?.cardioType) return 0;
+    return exercise.sets.reduce((sum, s) => {
+      if (s.type === 'cardio') {
+        // If set already has calories, use that
+        if (s.calories !== undefined) return sum + s.calories;
+        // Otherwise estimate from distance or duration
+        return sum + estimateCardioCalories(exerciseInfo.cardioType, {
+          distance: s.distance,
+          distanceUnit: s.distanceUnit,
+          durationSeconds: s.durationSeconds,
+        });
+      }
+      return sum;
+    }, 0);
+  }, [exercise.sets, exerciseInfo?.cardioType]);
+
   // Pre-fill inputs when expanded
   useEffect(() => {
     if (isExpanded && exercise.sets.length > 0) {
@@ -85,6 +104,10 @@ export const CardioAccordion: FC<CardioAccordionProps> = ({
         }
         if (lastSet.calories !== undefined) {
           setCaloriesInput(lastSet.calories.toString());
+          // If distance was also set, this was an override
+          if (lastSet.distance !== undefined) {
+            setCaloriesOverrideInput(lastSet.calories.toString());
+          }
         }
         const mins = Math.floor(lastSet.durationSeconds / 60);
         const secs = lastSet.durationSeconds % 60;
@@ -104,7 +127,9 @@ export const CardioAccordion: FC<CardioAccordionProps> = ({
     if (trackingType === 'distance') {
       const distance = parseFloat(distanceInput) || 0;
       if (distance <= 0) return;
-      wrappedLogCardio({ distance, distanceUnit, durationSeconds });
+      // Include calorie override if provided
+      const caloriesOverride = parseInt(caloriesOverrideInput) || undefined;
+      wrappedLogCardio({ distance, distanceUnit, durationSeconds, calories: caloriesOverride });
     } else {
       const calories = parseInt(caloriesInput) || 0;
       if (calories <= 0) return;
@@ -155,9 +180,9 @@ export const CardioAccordion: FC<CardioAccordionProps> = ({
               {hasLogs
                 ? totalCalories > 0 && totalDistance === 0
                   ? `${totalCalories} cal in ${formatCardioDuration(totalDuration)}`
-                  : totalDistance > 0 && totalCalories === 0
-                    ? `${totalDistance.toFixed(2)} ${distanceUnit} in ${formatCardioDuration(totalDuration)}`
-                    : `${totalDistance.toFixed(2)} ${distanceUnit} + ${totalCalories} cal in ${formatCardioDuration(totalDuration)}`
+                  : totalDistance > 0
+                    ? `${totalDistance.toFixed(2)} ${distanceUnit} • ~${estimatedCalories} cal`
+                    : `${totalCalories} cal in ${formatCardioDuration(totalDuration)}`
                 : 'Cardio exercise'}
             </p>
           </div>
@@ -231,6 +256,16 @@ export const CardioAccordion: FC<CardioAccordionProps> = ({
                   const pace = hasDistance && set.distanceUnit
                     ? calculatePace(set.distance!, set.durationSeconds, set.distanceUnit)
                     : null;
+                  // Estimate calories if not explicitly set
+                  const entryCalories = hasCalories
+                    ? set.calories!
+                    : exerciseInfo?.cardioType
+                      ? estimateCardioCalories(exerciseInfo.cardioType, {
+                          distance: set.distance,
+                          distanceUnit: set.distanceUnit,
+                          durationSeconds: set.durationSeconds,
+                        })
+                      : 0;
                   return (
                     <div
                       key={setIndex}
@@ -243,13 +278,18 @@ export const CardioAccordion: FC<CardioAccordionProps> = ({
                         <span className="text-sm text-green-600 dark:text-green-400">
                           {hasCalories && !hasDistance
                             ? `${set.calories} cal in ${formatCardioDuration(set.durationSeconds)}`
-                            : hasDistance && !hasCalories
+                            : hasDistance
                               ? `${set.distance!.toFixed(2)} ${set.distanceUnit} in ${formatCardioDuration(set.durationSeconds)}`
-                              : `${set.distance!.toFixed(2)} ${set.distanceUnit} + ${set.calories} cal in ${formatCardioDuration(set.durationSeconds)}`}
+                              : `${formatCardioDuration(set.durationSeconds)}`}
                         </span>
                         {pace && (
                           <span className="text-xs text-green-500 dark:text-green-500 block">
                             Pace: {pace}
+                          </span>
+                        )}
+                        {entryCalories > 0 && (
+                          <span className="text-xs text-orange-500 dark:text-orange-400 block">
+                            {hasCalories ? '' : '~'}{entryCalories} cal
                           </span>
                         )}
                       </div>
@@ -315,6 +355,46 @@ export const CardioAccordion: FC<CardioAccordionProps> = ({
                       onClick={() => {
                         const current = parseFloat(distanceInput) || 0;
                         setDistanceInput(Math.max(0, current + delta).toFixed(2));
+                      }}
+                      className="flex-1 py-1 text-xs rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
+                    >
+                      {delta > 0 ? '+' : ''}{delta}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Calories override input (optional, for distance tracking) */}
+            {trackingType === 'distance' && (
+              <div className="mb-4">
+                <label className="text-xs text-gray-500 mb-1 block">
+                  Calories (optional - override estimate)
+                </label>
+                <input
+                  type="number"
+                  value={caloriesOverrideInput}
+                  onChange={(e) => setCaloriesOverrideInput(e.target.value)}
+                  placeholder={exerciseInfo?.cardioType && distanceInput ?
+                    `~${estimateCardioCalories(exerciseInfo.cardioType, {
+                      distance: parseFloat(distanceInput) || 0,
+                      distanceUnit,
+                      durationSeconds: (parseInt(minutesInput) || 0) * 60 + (parseInt(secondsInput) || 0),
+                    })}` : 'Leave blank for estimate'}
+                  className="w-full px-4 py-3 text-lg text-center rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                />
+                <div className="flex gap-1 mt-2">
+                  {[25, 50, 100, -25].map((delta) => (
+                    <button
+                      key={delta}
+                      onClick={() => {
+                        const current = parseInt(caloriesOverrideInput) ||
+                          (exerciseInfo?.cardioType ? estimateCardioCalories(exerciseInfo.cardioType, {
+                            distance: parseFloat(distanceInput) || 0,
+                            distanceUnit,
+                            durationSeconds: (parseInt(minutesInput) || 0) * 60 + (parseInt(secondsInput) || 0),
+                          }) : 0);
+                        setCaloriesOverrideInput(Math.max(0, current + delta).toString());
                       }}
                       className="flex-1 py-1 text-xs rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
                     >
@@ -399,16 +479,29 @@ export const CardioAccordion: FC<CardioAccordionProps> = ({
               </div>
             </div>
 
-            {/* Pace preview (only for distance tracking) */}
+            {/* Pace and calorie preview (only for distance tracking) */}
             {trackingType === 'distance' && distanceInput && (minutesInput || secondsInput) && (
-              <div className="mb-4 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-center">
-                <span className="text-sm text-blue-700 dark:text-blue-300">
-                  Pace: {calculatePace(
-                    parseFloat(distanceInput) || 0,
-                    (parseInt(minutesInput) || 0) * 60 + (parseInt(secondsInput) || 0),
-                    distanceUnit
-                  )}
-                </span>
+              <div className="mb-4 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <div className="flex justify-center gap-4">
+                  <span className="text-sm text-blue-700 dark:text-blue-300">
+                    Pace: {calculatePace(
+                      parseFloat(distanceInput) || 0,
+                      (parseInt(minutesInput) || 0) * 60 + (parseInt(secondsInput) || 0),
+                      distanceUnit
+                    )}
+                  </span>
+                  <span className="text-sm text-orange-600 dark:text-orange-400">
+                    {caloriesOverrideInput ? (
+                      `${caloriesOverrideInput} cal`
+                    ) : exerciseInfo?.cardioType ? (
+                      `~${estimateCardioCalories(exerciseInfo.cardioType, {
+                        distance: parseFloat(distanceInput) || 0,
+                        distanceUnit,
+                        durationSeconds: (parseInt(minutesInput) || 0) * 60 + (parseInt(secondsInput) || 0),
+                      })} cal`
+                    ) : null}
+                  </span>
+                </div>
               </div>
             )}
 

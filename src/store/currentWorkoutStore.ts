@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist, subscribeWithSelector } from 'zustand/middleware';
 import { useAppStore } from './useAppStore';
-import { ExerciseSuggestion, WorkoutScoreResult } from '../types';
+import { WorkoutScoreResult } from '../types';
 
 interface CurrentWorkoutState {
   // UI State
@@ -18,7 +18,6 @@ interface CurrentWorkoutState {
   historyExerciseName: string | null;
   updatePlan: boolean;
   skipAutoExpand: boolean;
-  suggestions: ExerciseSuggestion[];
 
   // Scoring State
   isScoring: boolean;
@@ -39,7 +38,6 @@ interface CurrentWorkoutState {
   setHistoryExerciseName: (name: string | null) => void;
   setUpdatePlan: (update: boolean) => void;
   setSkipAutoExpand: (skip: boolean) => void;
-  setSuggestions: (suggestions: ExerciseSuggestion[]) => void;
   setIsScoring: (isScoring: boolean) => void;
   setScoreResult: (result: WorkoutScoreResult | null) => void;
   setScoreError: (error: string | null) => void;
@@ -61,7 +59,6 @@ const initialState = {
   historyExerciseName: null as string | null,
   updatePlan: false,
   skipAutoExpand: false,
-  suggestions: [] as ExerciseSuggestion[],
   isScoring: false,
   scoreResult: null as WorkoutScoreResult | null,
   scoreError: null as string | null,
@@ -94,7 +91,6 @@ export const useCurrentWorkoutStore = create<CurrentWorkoutState>()(
         setHistoryExerciseName: (name) => set({ historyExerciseName: name }),
         setUpdatePlan: (update) => set({ updatePlan: update }),
         setSkipAutoExpand: (skip) => set({ skipAutoExpand: skip }),
-        setSuggestions: (suggestions) => set({ suggestions }),
         setIsScoring: (isScoring) => set({ isScoring }),
         setScoreResult: (result) => set({ scoreResult: result }),
         setScoreError: (error) => set({ scoreError: error }),

@@ -66,6 +66,7 @@ const defaultPreferences: UserPreferences = {
   defaultRestSeconds: 90,
   darkMode: false,
   experienceLevel: 'intermediate',
+  weeklyWorkoutGoal: 4,
 };
 
 export const useAppStore = create<AppState>()(

@@ -84,9 +84,6 @@ describe('useStartWorkout', () => {
     expect(activeSession?.templateId).toBe('template-1');
     expect(activeSession?.name).toBe('Test Template');
 
-    // Check that suggestions were saved to current workout store (empty because no API key)
-    expect(useCurrentWorkoutStore.getState().suggestions).toEqual([]);
-
     // Check that navigate was called
     expect(mockNavigate).toHaveBeenCalledWith('/workout');
   });
@@ -147,7 +144,8 @@ describe('useStartWorkout', () => {
     });
 
     expect(result.current.isLoadingSuggestions).toBe(false);
-    expect(useCurrentWorkoutStore.getState().suggestions).toEqual([]);
+    // Suggestions should be undefined when no API key (not fetched)
+    expect(useAppStore.getState().activeSession?.suggestions).toBeUndefined();
     expect(mockNavigate).toHaveBeenCalledWith('/workout');
   });
 
@@ -182,7 +180,8 @@ describe('useStartWorkout', () => {
 
     // Should not call AI suggestions in baseline week
     expect(getPreWorkoutSuggestions).not.toHaveBeenCalled();
-    expect(useCurrentWorkoutStore.getState().suggestions).toEqual([]);
+    // Suggestions should be undefined when in baseline week
+    expect(useAppStore.getState().activeSession?.suggestions).toBeUndefined();
   });
 
   it('should fetch suggestions when not in baseline week', async () => {
@@ -267,8 +266,7 @@ describe('useStartWorkout', () => {
       await workoutPromise;
     });
 
-    // Workout should still start with empty suggestions
-    expect(useCurrentWorkoutStore.getState().suggestions).toEqual([]);
+    // Workout should still start (suggestions will be undefined on timeout)
     expect(mockNavigate).toHaveBeenCalledWith('/workout');
 
     vi.useRealTimers();
@@ -307,8 +305,7 @@ describe('useStartWorkout', () => {
       await result.current.startWorkout(template);
     });
 
-    // Workout should still start with empty suggestions
-    expect(useCurrentWorkoutStore.getState().suggestions).toEqual([]);
+    // Workout should still start (suggestions will be undefined on error)
     expect(mockNavigate).toHaveBeenCalledWith('/workout');
     expect(result.current.isLoadingSuggestions).toBe(false);
   });

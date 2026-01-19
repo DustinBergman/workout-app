@@ -275,7 +275,8 @@ export const aggregatePTSummaryData = (
   firstName: string | undefined,
   experienceLevel: ExperienceLevel,
   workoutGoal: WorkoutGoal,
-  currentWeek: ProgressiveOverloadWeek
+  currentWeek: ProgressiveOverloadWeek,
+  weeklyWorkoutGoal: number = 4
 ): PTSummaryInputData => {
   const tenWeeksAgo = new Date();
   tenWeeksAgo.setDate(tenWeeksAgo.getDate() - 70);
@@ -287,7 +288,7 @@ export const aggregatePTSummaryData = (
   // Activity metrics
   const totalWorkoutsLast10Weeks = completedSessions.length;
   const workoutsPerWeek = totalWorkoutsLast10Weeks / 10;
-  const currentStreak = calculateStreak(sessions);
+  const currentStreak = calculateStreak(sessions, new Date(), weeklyWorkoutGoal);
   const longestStreakLast30Days = calculateLongestStreakLast30Days(sessions);
 
   // Collect unique exercises and analyze them
@@ -470,7 +471,7 @@ CLIENT PROFILE:
 RECENT ACTIVITY:
 - Workouts in last 10 weeks: ${data.totalWorkoutsLast10Weeks}
 - Average per week: ${data.workoutsPerWeek}
-- Current streak: ${data.currentStreak} days
+- Current streak: ${data.currentStreak} weeks (consecutive weeks hitting workout goal)
 - Longest streak (30d): ${data.longestStreakLast30Days} days
 
 PROGRESS BY AREA:
@@ -513,7 +514,8 @@ export const getPTSummary = async (
   firstName: string | undefined,
   experienceLevel: ExperienceLevel,
   workoutGoal: WorkoutGoal,
-  currentWeek: ProgressiveOverloadWeek
+  currentWeek: ProgressiveOverloadWeek,
+  weeklyWorkoutGoal: number = 4
 ): Promise<PTSummaryResponse | null> => {
   // Need at least 2 sessions for meaningful summary
   if (sessions.filter(s => s.completedAt).length < 2) {
@@ -535,7 +537,8 @@ export const getPTSummary = async (
     firstName,
     experienceLevel,
     workoutGoal,
-    currentWeek
+    currentWeek,
+    weeklyWorkoutGoal
   );
 
   // Call OpenAI

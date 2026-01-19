@@ -1,92 +1,114 @@
 import type { WorkoutSession } from '../types';
 
 /**
- * Calculate the current workout streak based on consecutive days with workouts.
- * A streak counts consecutive calendar days with at least one completed workout.
+ * Get the ISO week number and year for a date
+ */
+const getWeekKey = (date: Date): string => {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  // Set to nearest Thursday: current date + 4 - current day number
+  // Make Sunday day 7 instead of 0
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  // Get first day of year
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  // Calculate full weeks to nearest Thursday
+  const weekNo = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+  return `${d.getUTCFullYear()}-W${weekNo}`;
+};
+
+/**
+ * Get the week key for a date offset by a number of weeks
+ */
+const getOffsetWeekKey = (date: Date, offsetWeeks: number): string => {
+  const d = new Date(date);
+  d.setDate(d.getDate() + (offsetWeeks * 7));
+  return getWeekKey(d);
+};
+
+/**
+ * Calculate the current workout streak based on consecutive weeks hitting the weekly goal.
+ * A streak counts consecutive calendar weeks where the user completed at least their
+ * target number of workouts.
  *
- * @param sessions - Historical completed sessions (should be sorted by completedAt descending)
- * @param currentDate - The date of the workout being completed (defaults to now)
- * @returns The streak count (1 = first workout or gap in streak, 2+ = consecutive days)
+ * @param sessions - Historical completed sessions
+ * @param weeklyGoal - Target workouts per week (default 4)
+ * @param currentDate - The date to calculate from (defaults to now)
+ * @returns Object with weekStreak (consecutive weeks hitting goal) and currentWeekWorkouts
+ */
+export const calculateWeeklyStreak = (
+  sessions: WorkoutSession[],
+  weeklyGoal: number = 4,
+  currentDate: Date = new Date()
+): { weekStreak: number; currentWeekWorkouts: number; goalMet: boolean } => {
+  // Filter to only completed sessions
+  const completedSessions = sessions.filter((s) => s.completedAt);
+
+  if (completedSessions.length === 0) {
+    return { weekStreak: 0, currentWeekWorkouts: 0, goalMet: false };
+  }
+
+  // Group workouts by week
+  const workoutsByWeek = new Map<string, number>();
+  for (const session of completedSessions) {
+    const weekKey = getWeekKey(new Date(session.completedAt!));
+    workoutsByWeek.set(weekKey, (workoutsByWeek.get(weekKey) || 0) + 1);
+  }
+
+  // Get current week info
+  const currentWeekKey = getWeekKey(currentDate);
+  const currentWeekWorkouts = workoutsByWeek.get(currentWeekKey) || 0;
+  const currentWeekGoalMet = currentWeekWorkouts >= weeklyGoal;
+
+  // Count consecutive weeks hitting goal (going backwards from last completed week)
+  let streak = 0;
+  let checkWeekOffset = 0;
+
+  // Start from current week if we have workouts, otherwise start from last week
+  if (currentWeekWorkouts > 0) {
+    checkWeekOffset = 0;
+  } else {
+    // No workouts this week yet, check if last week was successful
+    checkWeekOffset = -1;
+  }
+
+  // Count backwards through weeks
+  while (true) {
+    const weekKey = getOffsetWeekKey(currentDate, checkWeekOffset);
+    const workoutsThisWeek = workoutsByWeek.get(weekKey) || 0;
+
+    if (workoutsThisWeek >= weeklyGoal) {
+      streak++;
+      checkWeekOffset--;
+    } else if (checkWeekOffset === 0 && workoutsThisWeek > 0) {
+      // Current week has workouts but hasn't met goal yet - don't count but continue checking past weeks
+      checkWeekOffset--;
+    } else {
+      // Week didn't meet goal, streak is broken
+      break;
+    }
+
+    // Safety limit - don't go back more than 52 weeks
+    if (checkWeekOffset < -52) break;
+  }
+
+  return {
+    weekStreak: streak,
+    currentWeekWorkouts,
+    goalMet: currentWeekGoalMet,
+  };
+};
+
+/**
+ * Legacy function for backward compatibility.
+ * Now calculates streak based on weekly goals instead of daily.
+ *
+ * @deprecated Use calculateWeeklyStreak instead for more detailed info
  */
 export const calculateStreak = (
   sessions: WorkoutSession[],
-  currentDate: Date = new Date()
+  currentDate: Date = new Date(),
+  weeklyGoal: number = 4
 ): number => {
-  // Filter to only completed sessions and sort by completedAt descending
-  const completedSessions = sessions
-    .filter((s) => s.completedAt)
-    .sort((a, b) => new Date(b.completedAt!).getTime() - new Date(a.completedAt!).getTime());
-
-  if (completedSessions.length === 0) {
-    // First workout ever
-    return 1;
-  }
-
-  // Get unique workout dates (calendar days)
-  const workoutDates = new Set<string>();
-  for (const session of completedSessions) {
-    const date = new Date(session.completedAt!);
-    const dateStr = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
-    workoutDates.add(dateStr);
-  }
-
-  // Convert to sorted array (most recent first)
-  const sortedDates = Array.from(workoutDates)
-    .map((dateStr) => {
-      const [year, month, day] = dateStr.split('-').map(Number);
-      return new Date(year, month, day);
-    })
-    .sort((a, b) => b.getTime() - a.getTime());
-
-  // Get today's date (start of day)
-  const today = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
-
-  // Get the most recent workout date
-  const lastWorkoutDate = sortedDates[0];
-
-  // Calculate days since last workout
-  const daysSinceLastWorkout = Math.floor(
-    (today.getTime() - lastWorkoutDate.getTime()) / (1000 * 60 * 60 * 24)
-  );
-
-  // If last workout was more than 1 day ago, streak is broken
-  if (daysSinceLastWorkout > 1) {
-    return 1;
-  }
-
-  // Count consecutive days going backwards
-  let streak = 1; // Include today's workout
-  let expectedDate = new Date(today);
-
-  // If we already worked out today, start checking from yesterday
-  const todayStr = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
-  const lastWorkoutStr = `${lastWorkoutDate.getFullYear()}-${lastWorkoutDate.getMonth()}-${lastWorkoutDate.getDate()}`;
-
-  if (todayStr === lastWorkoutStr) {
-    // Already worked out today, check from yesterday
-    expectedDate.setDate(expectedDate.getDate() - 1);
-  } else if (daysSinceLastWorkout === 1) {
-    // Last workout was yesterday, continue streak
-    expectedDate = new Date(lastWorkoutDate);
-  } else {
-    // No recent workout, streak is 1
-    return 1;
-  }
-
-  // Now count consecutive days from expectedDate going backwards
-  for (const workoutDate of sortedDates) {
-    const expectedStr = `${expectedDate.getFullYear()}-${expectedDate.getMonth()}-${expectedDate.getDate()}`;
-    const workoutStr = `${workoutDate.getFullYear()}-${workoutDate.getMonth()}-${workoutDate.getDate()}`;
-
-    if (expectedStr === workoutStr) {
-      streak++;
-      expectedDate.setDate(expectedDate.getDate() - 1);
-    } else if (workoutDate < expectedDate) {
-      // Gap in streak, stop counting
-      break;
-    }
-    // If workoutDate > expectedDate, skip it (already counted today)
-  }
-
-  return streak;
+  const { weekStreak } = calculateWeeklyStreak(sessions, weeklyGoal, currentDate);
+  return weekStreak;
 };

@@ -24,7 +24,7 @@ describe('Week Configurations', () => {
     it('should have weight adjustments based on progression', () => {
       expect(PROGRESSIVE_OVERLOAD_WEEKS[0].weightAdjustment).toBe('Based on recent performance');
       expect(PROGRESSIVE_OVERLOAD_WEEKS[1].weightAdjustment).toBe('Progression-based increase');
-      expect(PROGRESSIVE_OVERLOAD_WEEKS[2].weightAdjustment).toBe('Maintain or slight increase');
+      expect(PROGRESSIVE_OVERLOAD_WEEKS[2].weightAdjustment).toBe('Keep Week 2 weight');
       expect(PROGRESSIVE_OVERLOAD_WEEKS[3].weightAdjustment).toBe('Push for PR if progression supports it');
       expect(PROGRESSIVE_OVERLOAD_WEEKS[4].weightAdjustment).toBe('Reduce by 20-30%');
     });

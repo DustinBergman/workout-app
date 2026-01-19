@@ -55,3 +55,33 @@ export const parseJSONResponse = <T>(content: string, fallback: T): T => {
   }
   return fallback;
 };
+
+export interface ExecuteLLMOptions<T> extends OpenAIRequestOptions {
+  validate: (response: T) => boolean;
+  fallback: T;
+  maxRetries?: number;
+}
+
+export const executeLLMWithRetries = async <T>(
+  options: ExecuteLLMOptions<T>
+): Promise<T> => {
+  const { validate, fallback, maxRetries = 3, ...openAIOptions } = options;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const content = await callOpenAI(openAIOptions);
+      const parsed = parseJSONResponse<T>(content, fallback);
+
+      if (validate(parsed)) {
+        return parsed;
+      }
+
+      console.warn(`[LLM] Attempt ${attempt}/${maxRetries}: Response failed validation`);
+    } catch (error) {
+      console.warn(`[LLM] Attempt ${attempt}/${maxRetries}: Error - ${error}`);
+    }
+  }
+
+  console.error(`[LLM] All ${maxRetries} attempts failed, returning fallback`);
+  return fallback;
+};
