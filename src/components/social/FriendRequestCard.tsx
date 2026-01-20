@@ -1,11 +1,13 @@
 import { FC } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { FriendRequest } from '../../services/supabase/friends';
+import { Avatar } from '../ui';
 
 interface FriendRequestCardProps {
   request: FriendRequest;
   onAccept: (requestId: string) => void;
   onDecline: (requestId: string) => void;
+  onProfileClick: (userId: string) => void;
   isAccepting: boolean;
   isDeclining: boolean;
 }
@@ -14,6 +16,7 @@ export const FriendRequestCard: FC<FriendRequestCardProps> = ({
   request,
   onAccept,
   onDecline,
+  onProfileClick,
   isAccepting,
   isDeclining,
 }) => {
@@ -27,21 +30,26 @@ export const FriendRequestCard: FC<FriendRequestCardProps> = ({
 
   return (
     <div className="flex items-center gap-3 p-4 bg-card border border-border rounded-lg">
-      {/* Avatar */}
-      <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold text-lg">
-        {displayName.charAt(0).toUpperCase()}
-      </div>
-
-      {/* Info */}
-      <div className="flex-1 min-w-0">
-        <p className="font-semibold">{displayName}</p>
-        {user.username && (
-          <p className="text-sm text-muted-foreground">@{user.username}</p>
-        )}
-        <p className="text-xs text-muted-foreground mt-0.5">
-          {formatDistanceToNow(new Date(request.created_at), { addSuffix: true })}
-        </p>
-      </div>
+      {/* Avatar & Info - clickable area */}
+      <button
+        onClick={() => onProfileClick(user.id)}
+        className="flex items-center gap-3 flex-1 min-w-0 text-left hover:opacity-80 transition-opacity"
+      >
+        <Avatar
+          src={user.avatar_url}
+          name={displayName}
+          size="lg"
+        />
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold truncate">{displayName}</p>
+          {user.username && (
+            <p className="text-sm text-muted-foreground truncate">@{user.username}</p>
+          )}
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {formatDistanceToNow(new Date(request.created_at), { addSuffix: true })}
+          </p>
+        </div>
+      </button>
 
       {/* Actions */}
       <div className="flex items-center gap-2">

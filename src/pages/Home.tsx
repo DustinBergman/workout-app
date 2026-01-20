@@ -30,6 +30,8 @@ export const Home: FC = () => {
 
   const {
     templates,
+    rotationTemplates,
+    otherTemplates,
     sessions,
     activeSession,
     preferences,
@@ -120,11 +122,22 @@ export const Home: FC = () => {
           <ActivitySection sessions={sessions} memberSince={memberSince} />
         )}
 
-        {/* Your Plans */}
-        {templates.length > 0 && (
+        {/* Current Workout Rotation */}
+        {rotationTemplates.length > 0 && (
           <PlansSection
-            templates={templates}
+            templates={rotationTemplates}
             onStartWorkout={startWorkout}
+            title="Current Rotation"
+          />
+        )}
+
+        {/* Other Workouts */}
+        {otherTemplates.length > 0 && (
+          <PlansSection
+            templates={otherTemplates}
+            onStartWorkout={startWorkout}
+            title="Other Workouts"
+            showViewAll={rotationTemplates.length === 0}
           />
         )}
 

@@ -46,6 +46,7 @@ export const useWorkoutPlans = () => {
   const reorderTemplates = useAppStore((state) => state.reorderTemplates);
   const addCustomExercise = useAppStore((state) => state.addCustomExercise);
   const updateCustomExercise = useAppStore((state) => state.updateCustomExercise);
+  const toggleTemplateRotation = useAppStore((state) => state.toggleTemplateRotation);
 
   // Template editor state
   const [isCreating, setIsCreating] = useState(false);
@@ -241,6 +242,7 @@ export const useWorkoutPlans = () => {
         name: templateName,
         templateType,
         exercises: templateExercises,
+        inRotation: true,
         createdAt: now,
         updatedAt: now,
       });
@@ -322,6 +324,7 @@ export const useWorkoutPlans = () => {
     // Store data
     templates,
     deleteTemplate,
+    toggleTemplateRotation,
 
     // State
     isCreating,

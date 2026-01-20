@@ -3,6 +3,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { Modal, Button, Avatar } from '../ui';
 import { useProfile, FriendshipStatus } from '../../hooks/useProfile';
 import { MuscleGroup } from '../../types';
+import { ProfileHeatmap } from './ProfileHeatmap';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -226,6 +227,11 @@ export const ProfileModal: FC<ProfileModalProps> = ({
                     ))}
                   </div>
                 </div>
+              )}
+
+              {/* Workout Activity Heatmap */}
+              {stats.heatmapSessions.length > 0 && (
+                <ProfileHeatmap sessions={stats.heatmapSessions} memberSince={stats.memberSince} />
               )}
             </>
           )}

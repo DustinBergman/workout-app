@@ -1,17 +1,19 @@
 import { FC } from 'react';
 import { Card, Button } from '../ui';
 import { WeightChart } from './WeightChart';
-import { WeightEntry, WeightUnit } from '../../types';
+import { WeightEntry, WeightUnit, WorkoutGoal } from '../../types';
 
 interface WeightTrackingCardProps {
   weightEntries: WeightEntry[];
   weightUnit: WeightUnit;
+  workoutGoal?: WorkoutGoal;
   onLogWeight: () => void;
 }
 
 export const WeightTrackingCard: FC<WeightTrackingCardProps> = ({
   weightEntries,
   weightUnit,
+  workoutGoal,
   onLogWeight,
 }) => {
   return (
@@ -22,7 +24,7 @@ export const WeightTrackingCard: FC<WeightTrackingCardProps> = ({
           Log Weight
         </Button>
       </div>
-      <WeightChart entries={weightEntries} weightUnit={weightUnit} />
+      <WeightChart entries={weightEntries} weightUnit={weightUnit} workoutGoal={workoutGoal} />
     </Card>
   );
 };

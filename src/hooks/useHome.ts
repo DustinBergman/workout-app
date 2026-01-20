@@ -22,6 +22,8 @@ import {
 export interface UseHomeReturn {
   // Store values (direct access)
   templates: WorkoutTemplate[];
+  rotationTemplates: WorkoutTemplate[];
+  otherTemplates: WorkoutTemplate[];
   sessions: WorkoutSession[];
   activeSession: WorkoutSession | null;
   preferences: UserPreferences;
@@ -125,6 +127,15 @@ export const useHome = (): UseHomeReturn => {
       .slice(0, 3);
   }, [sessions]);
 
+  // Split templates into rotation and other
+  const rotationTemplates = useMemo(() => {
+    return templates.filter((t) => t.inRotation !== false);
+  }, [templates]);
+
+  const otherTemplates = useMemo(() => {
+    return templates.filter((t) => t.inRotation === false);
+  }, [templates]);
+
   // Deload recommendation (only if not dismissed)
   const deloadRecommendation = useMemo<DeloadRecommendation | null>(() => {
     if (deloadDismissed) return null;
@@ -165,30 +176,32 @@ export const useHome = (): UseHomeReturn => {
     return recommendation.shouldDeload ? recommendation : null;
   }, [sessions, customExercises, cycleConfig, cycleState, currentWeek, deloadDismissed]);
 
-  // Next workout suggestion based on template rotation
+  // Next workout suggestion based on template rotation (only templates in rotation)
   const nextWorkout = useMemo(() => {
-    if (templates.length === 0) return null;
-    if (sessions.length === 0) return templates[0];
+    if (rotationTemplates.length === 0) return null;
+    if (sessions.length === 0) return rotationTemplates[0];
 
-    // Find the most recent completed session with a template
+    // Find the most recent completed session with a template that's in rotation
     const sortedSessions = [...sessions].sort(
       (a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
     );
-    const lastSessionWithTemplate = sortedSessions.find((s) => s.templateId);
-
-    if (!lastSessionWithTemplate) return templates[0];
-
-    // Find the index of the last used template
-    const lastTemplateIndex = templates.findIndex(
-      (t) => t.id === lastSessionWithTemplate.templateId
+    const lastSessionWithRotationTemplate = sortedSessions.find((s) =>
+      s.templateId && rotationTemplates.some((t) => t.id === s.templateId)
     );
 
-    if (lastTemplateIndex === -1) return templates[0];
+    if (!lastSessionWithRotationTemplate) return rotationTemplates[0];
+
+    // Find the index of the last used template in the rotation
+    const lastTemplateIndex = rotationTemplates.findIndex(
+      (t) => t.id === lastSessionWithRotationTemplate.templateId
+    );
+
+    if (lastTemplateIndex === -1) return rotationTemplates[0];
 
     // Get the next template (cycle back to start if at end)
-    const nextIndex = (lastTemplateIndex + 1) % templates.length;
-    return templates[nextIndex];
-  }, [templates, sessions]);
+    const nextIndex = (lastTemplateIndex + 1) % rotationTemplates.length;
+    return rotationTemplates[nextIndex];
+  }, [rotationTemplates, sessions]);
 
   // Auto-advance week/phase if 7 days have passed (runs once on mount)
   useEffect(() => {
@@ -295,6 +308,8 @@ export const useHome = (): UseHomeReturn => {
   return {
     // Store values
     templates,
+    rotationTemplates,
+    otherTemplates,
     sessions,
     activeSession,
     preferences,

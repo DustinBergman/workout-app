@@ -9,6 +9,11 @@ export interface MuscleGroupBreakdown {
   percentage: number;
 }
 
+export interface HeatmapSession {
+  startedAt: string;
+  exercises: Array<{ type: 'strength' | 'cardio' }>;
+}
+
 export interface PublicUserStats {
   totalWorkouts: number;
   workoutsPerWeek: number;
@@ -16,6 +21,7 @@ export interface PublicUserStats {
   totalSets: number;
   muscleGroupBreakdown: MuscleGroupBreakdown[];
   memberSince: string | null;
+  heatmapSessions: HeatmapSession[];
 }
 
 interface WorkoutRow {
@@ -70,6 +76,7 @@ export const getUserStats = async (
           totalSets: 0,
           muscleGroupBreakdown: [],
           memberSince: profile?.created_at || null,
+          heatmapSessions: [],
         },
         error: null,
       };
@@ -115,6 +122,7 @@ export const getUserStats = async (
         totalSets: 0,
         muscleGroupBreakdown: [],
         memberSince: profile?.created_at || null,
+        heatmapSessions: [],
       },
       error: null,
     };
@@ -173,6 +181,12 @@ export const getUserStats = async (
     }))
     .sort((a, b) => b.setCount - a.setCount);
 
+  // Build heatmap sessions for visualization
+  const heatmapSessions: HeatmapSession[] = typedWorkouts.map((workout) => ({
+    startedAt: workout.started_at,
+    exercises: workout.session_exercises.map((ex) => ({ type: ex.type })),
+  }));
+
   return {
     stats: {
       totalWorkouts,
@@ -181,6 +195,7 @@ export const getUserStats = async (
       totalSets,
       muscleGroupBreakdown,
       memberSince: profile?.created_at || null,
+      heatmapSessions,
     },
     error: null,
   };

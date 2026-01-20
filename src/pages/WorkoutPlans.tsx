@@ -18,6 +18,7 @@ export const WorkoutPlans: FC = () => {
     // Store data
     templates,
     deleteTemplate,
+    toggleTemplateRotation,
     // State
     isCreating,
     editingTemplate,
@@ -174,6 +175,7 @@ export const WorkoutPlans: FC = () => {
                       }
                     }}
                     onStart={() => startWorkout(template)}
+                    onToggleRotation={() => toggleTemplateRotation(template.id)}
                     getExerciseName={getExerciseName}
                     isNext={template.id === nextWorkoutId}
                   />

@@ -3,7 +3,8 @@ import { useFriends } from '../hooks/useFriends';
 import { FriendSearchInput } from '../components/social/FriendSearchInput';
 import { FriendRequestCard } from '../components/social/FriendRequestCard';
 import { FriendListItem } from '../components/social/FriendListItem';
-import { Card } from '../components/ui';
+import { ProfileModal } from '../components/social/ProfileModal';
+import { Card, Avatar } from '../components/ui';
 
 export const Friends: FC = () => {
   const {
@@ -28,6 +29,7 @@ export const Friends: FC = () => {
   const [acceptingRequest, setAcceptingRequest] = useState<string | null>(null);
   const [decliningRequest, setDecliningRequest] = useState<string | null>(null);
   const [removingFriend, setRemovingFriend] = useState<string | null>(null);
+  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
 
   const handleSendRequest = async (userId: string) => {
     setSendingRequestTo(userId);
@@ -103,6 +105,7 @@ export const Friends: FC = () => {
                 request={request}
                 onAccept={handleAcceptRequest}
                 onDecline={handleDeclineRequest}
+                onProfileClick={setSelectedProfileId}
                 isAccepting={acceptingRequest === request.id}
                 isDeclining={decliningRequest === request.id}
               />
@@ -125,15 +128,22 @@ export const Friends: FC = () => {
 
               return (
                 <Card key={request.id} className="flex items-center gap-3 p-4">
-                  <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center font-semibold">
-                    {displayName.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-medium">{displayName}</p>
-                    {user.username && (
-                      <p className="text-xs text-muted-foreground">@{user.username}</p>
-                    )}
-                  </div>
+                  <button
+                    onClick={() => setSelectedProfileId(user.id)}
+                    className="flex items-center gap-3 flex-1 min-w-0 text-left hover:opacity-80 transition-opacity"
+                  >
+                    <Avatar
+                      src={user.avatar_url}
+                      name={displayName}
+                      size="md"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{displayName}</p>
+                      {user.username && (
+                        <p className="text-xs text-muted-foreground truncate">@{user.username}</p>
+                      )}
+                    </div>
+                  </button>
                   <button
                     onClick={() => cancelRequest(request.id)}
                     className="px-3 py-1.5 text-sm text-muted-foreground hover:text-destructive transition-colors"
@@ -186,12 +196,22 @@ export const Friends: FC = () => {
                 key={friend.id}
                 friend={friend}
                 onRemove={handleRemoveFriend}
+                onProfileClick={setSelectedProfileId}
                 isRemoving={removingFriend === friend.id}
               />
             ))}
           </div>
         )}
       </section>
+
+      {/* Profile Modal */}
+      {selectedProfileId && (
+        <ProfileModal
+          isOpen={!!selectedProfileId}
+          onClose={() => setSelectedProfileId(null)}
+          userId={selectedProfileId}
+        />
+      )}
     </div>
   );
 };

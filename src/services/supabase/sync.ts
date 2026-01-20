@@ -123,6 +123,7 @@ export const syncAddTemplate = async (template: WorkoutTemplate): Promise<void> 
         name: template.name,
         template_type: template.templateType,
         copied_from: template.copiedFrom || null,
+        in_rotation: template.inRotation ?? true,
         created_at: template.createdAt,
         updated_at: template.updatedAt,
       })
@@ -237,6 +238,7 @@ export const syncUpdateTemplate = async (template: WorkoutTemplate): Promise<voi
         name: template.name,
         template_type: template.templateType,
         copied_from: template.copiedFrom || null,
+        in_rotation: template.inRotation ?? true,
         updated_at: template.updatedAt,
       })
       .eq('id', template.id)

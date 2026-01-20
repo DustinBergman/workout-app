@@ -186,6 +186,7 @@ export const convertFeedWorkoutToTemplate = (
     templateType,
     exercises,
     copiedFrom,
+    inRotation: true,
     createdAt: now,
     updatedAt: now,
   };

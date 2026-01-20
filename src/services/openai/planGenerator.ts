@@ -182,6 +182,7 @@ export const createTemplateFromPlan = (
     name: customName || plan.name,
     templateType: 'strength',
     exercises,
+    inRotation: true,
     createdAt: now,
     updatedAt: now,
   };
@@ -331,6 +332,7 @@ export const createCardioTemplateFromPlan = (
     name: customName || plan.name,
     templateType: 'cardio',
     exercises,
+    inRotation: true,
     createdAt: now,
     updatedAt: now,
   };

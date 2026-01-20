@@ -23,6 +23,7 @@ export const You: FC = () => {
     weightEntries,
     sessions,
     customExercises,
+    workoutGoal,
     stats,
     pieChartData,
     hasEnoughData,
@@ -69,6 +70,7 @@ export const You: FC = () => {
             <WeightTrackingCard
               weightEntries={weightEntries}
               weightUnit={preferences.weightUnit}
+              workoutGoal={workoutGoal}
               onLogWeight={openWeightModal}
             />
 

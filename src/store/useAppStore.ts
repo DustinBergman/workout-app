@@ -35,6 +35,7 @@ interface AppState {
   updateTemplate: (template: WorkoutTemplate) => void;
   deleteTemplate: (templateId: string) => void;
   reorderTemplates: (templateIds: string[]) => void;
+  toggleTemplateRotation: (templateId: string) => void;
 
   // Session actions
   addSession: (session: WorkoutSession) => void;
@@ -122,6 +123,13 @@ export const useAppStore = create<AppState>()(
               .filter((t): t is WorkoutTemplate => t !== undefined);
             return { templates: reorderedTemplates };
           }),
+
+        toggleTemplateRotation: (templateId) =>
+          set((state) => ({
+            templates: state.templates.map((t) =>
+              t.id === templateId ? { ...t, inRotation: !t.inRotation, updatedAt: new Date().toISOString() } : t
+            ),
+          })),
 
         // Session actions
         addSession: (session) =>
@@ -358,6 +366,11 @@ export const migrateTemplates = () => {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const migratedTemplates = state.templates.map((template: any) => {
+    // Add inRotation field if missing (default to true for existing templates)
+    if (template.inRotation === undefined) {
+      needsUpdate = true;
+      template = { ...template, inRotation: true };
+    }
     // Skip if template already has templateType
     if (template.templateType) {
       // Still check if cardio exercises need cardioCategory

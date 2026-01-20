@@ -37,6 +37,10 @@ describe('ProfileModal', () => {
       { muscleGroup: 'shoulders' as const, setCount: 80, percentage: 16 },
     ],
     memberSince: '2024-01-01T00:00:00Z',
+    heatmapSessions: [
+      { startedAt: '2024-01-15T10:00:00Z', exercises: [{ type: 'strength' as const }] },
+      { startedAt: '2024-01-17T10:00:00Z', exercises: [{ type: 'cardio' as const }] },
+    ],
   };
 
   const defaultHookReturn = {

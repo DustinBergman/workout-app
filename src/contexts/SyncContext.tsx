@@ -12,7 +12,7 @@ import {
   profileToPreferences,
   deduplicateTemplateExercises,
 } from '../services/supabase';
-import { setupSyncSubscriptions, setSyncEnabled } from '../store/syncSubscriptions';
+import { setupSyncSubscriptions, setSyncEnabled, setSyncingFromCloud } from '../store/syncSubscriptions';
 import {
   syncAddSession,
   syncAddTemplate,
@@ -72,6 +72,10 @@ export const SyncProvider: FC<SyncProviderProps> = ({ children }) => {
 
     setStatus('syncing');
     setError(null);
+
+    // Suppress sync subscriptions while we're loading from cloud
+    // This prevents the subscriptions from trying to re-sync data we just fetched
+    setSyncingFromCloud(true);
 
     try {
       // Fetch all data in parallel
@@ -229,9 +233,15 @@ export const SyncProvider: FC<SyncProviderProps> = ({ children }) => {
         }
       }
 
+      // Re-enable sync subscriptions now that cloud sync is complete
+      // This also updates the baseline IDs to prevent re-syncing cloud data
+      setSyncingFromCloud(false);
+
       setStatus('synced');
       setLastSyncedAt(new Date());
     } catch (err) {
+      // Re-enable sync even on error
+      setSyncingFromCloud(false);
       setStatus('error');
       setError(err instanceof Error ? err.message : 'Sync failed');
     }

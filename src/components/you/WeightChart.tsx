@@ -8,14 +8,15 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from 'recharts';
-import { WeightEntry, WeightUnit } from '../../types';
+import { WeightEntry, WeightUnit, WorkoutGoal } from '../../types';
 
 interface WeightChartProps {
   entries: WeightEntry[];
   weightUnit: WeightUnit;
+  workoutGoal?: WorkoutGoal;
 }
 
-export const WeightChart: FC<WeightChartProps> = ({ entries, weightUnit }) => {
+export const WeightChart: FC<WeightChartProps> = ({ entries, weightUnit, workoutGoal }) => {
   const chartData = useMemo(() => {
     // Sort entries by date and take last 60 days
     const sixtyDaysAgo = new Date();
@@ -84,11 +85,17 @@ export const WeightChart: FC<WeightChartProps> = ({ entries, weightUnit }) => {
             <p className="text-xs text-muted-foreground">Change (60d)</p>
             <p
               className={`text-xl font-bold ${
-                weightStats.change > 0
-                  ? 'text-red-500'
-                  : weightStats.change < 0
-                  ? 'text-green-500'
-                  : 'text-foreground'
+                weightStats.change === 0
+                  ? 'text-foreground'
+                  : workoutGoal === 'build'
+                  ? weightStats.change > 0
+                    ? 'text-green-500' // Gaining weight is good for building muscle
+                    : 'text-red-500'
+                  : workoutGoal === 'lose'
+                  ? weightStats.change < 0
+                    ? 'text-green-500' // Losing weight is good for weight loss
+                    : 'text-red-500'
+                  : 'text-foreground' // Maintain or unknown - neutral color
               }`}
             >
               {weightStats.change > 0 ? '+' : ''}

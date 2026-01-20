@@ -6,21 +6,27 @@ import { WorkoutTemplate } from '../../types';
 interface PlansSectionProps {
   templates: WorkoutTemplate[];
   onStartWorkout: (template: WorkoutTemplate) => void;
+  title?: string;
+  showViewAll?: boolean;
 }
 
 export const PlansSection: FC<PlansSectionProps> = ({
   templates,
   onStartWorkout,
+  title = 'Your Plans',
+  showViewAll = true,
 }) => {
   return (
     <section className="mb-8">
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-lg font-semibold text-foreground">
-          Your Plans
+          {title}
         </h2>
-        <Link to="/plans" className="text-sm text-primary">
-          View all
-        </Link>
+        {showViewAll && (
+          <Link to="/plans" className="text-sm text-primary">
+            View all
+          </Link>
+        )}
       </div>
       <div className="space-y-3">
         {templates.slice(0, 3).map((template) => (

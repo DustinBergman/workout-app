@@ -76,19 +76,55 @@ describe('WeightChart', () => {
       expect(screen.getByText('Change (60d)')).toBeInTheDocument();
     });
 
-    it('should show weight loss in green with negative sign', () => {
+    it('should show weight loss in green when goal is to lose weight', () => {
       const entries = [
         createWeightEntry(180, 10),
         createWeightEntry(175, 0),
       ];
 
-      render(<WeightChart entries={entries} weightUnit="lbs" />);
+      render(<WeightChart entries={entries} weightUnit="lbs" workoutGoal="lose" />);
       const changeElement = screen.getByText('-5.0 lbs');
       expect(changeElement).toBeInTheDocument();
       expect(changeElement).toHaveClass('text-green-500');
     });
 
-    it('should show weight gain in red with positive sign', () => {
+    it('should show weight gain in red when goal is to lose weight', () => {
+      const entries = [
+        createWeightEntry(175, 10),
+        createWeightEntry(180, 0),
+      ];
+
+      render(<WeightChart entries={entries} weightUnit="lbs" workoutGoal="lose" />);
+      const changeElement = screen.getByText('+5.0 lbs');
+      expect(changeElement).toBeInTheDocument();
+      expect(changeElement).toHaveClass('text-red-500');
+    });
+
+    it('should show weight gain in green when goal is to build muscle', () => {
+      const entries = [
+        createWeightEntry(175, 10),
+        createWeightEntry(180, 0),
+      ];
+
+      render(<WeightChart entries={entries} weightUnit="lbs" workoutGoal="build" />);
+      const changeElement = screen.getByText('+5.0 lbs');
+      expect(changeElement).toBeInTheDocument();
+      expect(changeElement).toHaveClass('text-green-500');
+    });
+
+    it('should show weight loss in red when goal is to build muscle', () => {
+      const entries = [
+        createWeightEntry(180, 10),
+        createWeightEntry(175, 0),
+      ];
+
+      render(<WeightChart entries={entries} weightUnit="lbs" workoutGoal="build" />);
+      const changeElement = screen.getByText('-5.0 lbs');
+      expect(changeElement).toBeInTheDocument();
+      expect(changeElement).toHaveClass('text-red-500');
+    });
+
+    it('should show neutral color when goal is not set', () => {
       const entries = [
         createWeightEntry(175, 10),
         createWeightEntry(180, 0),
@@ -97,7 +133,7 @@ describe('WeightChart', () => {
       render(<WeightChart entries={entries} weightUnit="lbs" />);
       const changeElement = screen.getByText('+5.0 lbs');
       expect(changeElement).toBeInTheDocument();
-      expect(changeElement).toHaveClass('text-red-500');
+      expect(changeElement).toHaveClass('text-foreground');
     });
 
     it('should use correct weight unit', () => {

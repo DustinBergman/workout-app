@@ -18,6 +18,7 @@ interface MockTemplateOverrides {
   name?: string;
   templateType?: TemplateType;
   exercises?: TemplateExercise[];
+  inRotation?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -29,6 +30,7 @@ export function createMockTemplate(overrides: MockTemplateOverrides = {}): Worko
     name: overrides.name ?? 'Test Template',
     templateType: overrides.templateType ?? 'strength',
     exercises: overrides.exercises ?? [],
+    inRotation: overrides.inRotation ?? true,
     createdAt: overrides.createdAt ?? now,
     updatedAt: overrides.updatedAt ?? now,
   };

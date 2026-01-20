@@ -394,6 +394,7 @@ export interface WorkoutTemplate {
   templateType: TemplateType;  // 'strength' or 'cardio'
   exercises: TemplateExercise[];
   copiedFrom?: TemplateCopiedFrom;  // Attribution if copied from another user
+  inRotation: boolean;  // Whether this template is in the current workout rotation
   createdAt: string;
   updatedAt: string;
 }

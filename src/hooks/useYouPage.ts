@@ -49,6 +49,7 @@ export const useYouPage = () => {
   const preferences = useAppStore((state) => state.preferences);
   const customExercises = useAppStore((state) => state.customExercises);
   const weightEntries = useAppStore((state) => state.weightEntries);
+  const workoutGoal = useAppStore((state) => state.workoutGoal);
 
   const stats = useUserStats(sessions, timePeriod, customExercises, weightEntries, preferences.distanceUnit);
 
@@ -104,6 +105,7 @@ export const useYouPage = () => {
     weightEntries,
     sessions,
     customExercises,
+    workoutGoal,
     // Stats
     stats,
     // Computed

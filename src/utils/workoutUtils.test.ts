@@ -22,6 +22,7 @@ const createMockTemplate = (overrides: Partial<WorkoutTemplate> = {}): WorkoutTe
   name: 'Test Template',
   templateType: 'strength',
   exercises: [],
+  inRotation: true,
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
   ...overrides,

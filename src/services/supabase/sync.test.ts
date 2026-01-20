@@ -64,6 +64,7 @@ describe('sync', () => {
         name: 'Test Template',
         templateType: 'strength',
         exercises,
+        inRotation: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -169,6 +170,7 @@ describe('sync', () => {
         name: 'Test Template',
         templateType: 'strength',
         exercises,
+        inRotation: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -189,10 +191,8 @@ describe('sync', () => {
       await syncUpdateTemplate(template);
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        '[Sync] Detected corrupted template data, skipping sync:',
-        expect.objectContaining({
-          exerciseCount: 51,
-        })
+        '[Sync] BLOCKED: Template has too many exercises:',
+        51
       );
 
       consoleSpy.mockRestore();
@@ -205,10 +205,8 @@ describe('sync', () => {
       await syncUpdateTemplate(template);
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        '[Sync] Detected corrupted template data, skipping sync:',
-        expect.objectContaining({
-          maxDuplicates: 5,
-        })
+        '[Sync] BLOCKED: Template has too many duplicate exercises:',
+        5
       );
 
       consoleSpy.mockRestore();
@@ -221,12 +219,10 @@ describe('sync', () => {
 
       await syncUpdateTemplate(template);
 
+      // Should first hit the "too many exercises" check
       expect(consoleSpy).toHaveBeenCalledWith(
-        '[Sync] Detected corrupted template data, skipping sync:',
-        expect.objectContaining({
-          exerciseCount: 126,
-          maxDuplicates: 18,
-        })
+        '[Sync] BLOCKED: Template has too many exercises:',
+        126
       );
       // Should NOT call update on the database
       expect(supabase.from).not.toHaveBeenCalledWith('workout_templates');
@@ -242,6 +238,7 @@ describe('sync', () => {
         name: 'Empty Template',
         templateType: 'strength',
         exercises: [],
+        inRotation: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -262,6 +259,7 @@ describe('sync', () => {
           targetSets: 3,
           targetReps: 10,
         }],
+        inRotation: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -286,6 +284,7 @@ describe('sync', () => {
           // Different exercises
           { type: 'strength', exerciseId: 'squat', targetSets: 3, targetReps: 10 },
         ],
+        inRotation: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };

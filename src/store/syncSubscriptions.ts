@@ -19,6 +19,8 @@ import { clearFeedCache } from '../hooks/useFeed';
 
 // Track if sync is enabled (user is authenticated)
 let syncEnabled = false;
+// Flag to suppress sync during initial cloud load (prevents duplicate syncs)
+let isSyncingFromCloud = false;
 let previousTemplateIds: string[] = [];
 let previousSessionIds: string[] = [];
 let previousExerciseIds: string[] = [];
@@ -50,12 +52,30 @@ export const markSessionAsSynced = (sessionId: string) => {
 };
 
 /**
+ * Set flag to suppress sync during cloud load
+ * This prevents subscriptions from triggering syncs when cloud data is merged into the store
+ */
+export const setSyncingFromCloud = (syncing: boolean) => {
+  isSyncingFromCloud = syncing;
+  if (!syncing) {
+    // After cloud sync completes, update baselines with current state
+    // This ensures we don't try to re-sync data that just came from the cloud
+    const state = useAppStore.getState();
+    previousTemplateIds = state.templates.map((t) => t.id);
+    previousSessionIds = state.sessions.map((s) => s.id);
+    previousExerciseIds = state.customExercises.map((e) => e.id);
+    previousWeightDates = state.weightEntries.map((e) => e.date);
+  }
+};
+
+/**
  * Check if sync is enabled (user is authenticated and online)
  * This is a synchronous check - syncEnabled is managed by setSyncEnabled()
  * which is called from SyncContext when auth state changes
+ * Also returns false if we're currently syncing FROM cloud (to prevent re-syncing cloud data)
  */
 const isSyncEnabled = (): boolean => {
-  return syncEnabled;
+  return syncEnabled && !isSyncingFromCloud;
 };
 
 /**

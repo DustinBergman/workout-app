@@ -29,6 +29,7 @@ interface DbWorkoutTemplate {
   template_type: TemplateType;
   sort_order: number;
   copied_from: TemplateCopiedFrom | null;
+  in_rotation: boolean;
   created_at: string;
   updated_at: string;
   template_exercises?: DbTemplateExercise[];
@@ -79,6 +80,7 @@ export const createTemplate = async (
       name: template.name,
       template_type: template.templateType,
       copied_from: template.copiedFrom || null,
+      in_rotation: template.inRotation ?? true,
     })
     .select()
     .single();
@@ -206,6 +208,7 @@ const dbTemplateToTemplate = (dbTemplate: DbWorkoutTemplate): WorkoutTemplate =>
     .sort((a, b) => a.sort_order - b.sort_order)
     .map(dbExerciseToTemplateExercise),
   copiedFrom: dbTemplate.copied_from ?? undefined,
+  inRotation: dbTemplate.in_rotation ?? true,
   createdAt: dbTemplate.created_at,
   updatedAt: dbTemplate.updated_at,
 });

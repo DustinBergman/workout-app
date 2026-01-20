@@ -1,15 +1,18 @@
 import { FC, useState } from 'react';
 import { FriendProfile } from '../../services/supabase/friends';
+import { Avatar } from '../ui';
 
 interface FriendListItemProps {
   friend: FriendProfile;
   onRemove: (friendId: string) => void;
+  onProfileClick: (friendId: string) => void;
   isRemoving: boolean;
 }
 
 export const FriendListItem: FC<FriendListItemProps> = ({
   friend,
   onRemove,
+  onProfileClick,
   isRemoving,
 }) => {
   const [showConfirm, setShowConfirm] = useState(false);
@@ -20,18 +23,23 @@ export const FriendListItem: FC<FriendListItemProps> = ({
 
   return (
     <div className="flex items-center gap-3 p-4 bg-card border border-border rounded-lg">
-      {/* Avatar */}
-      <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold text-lg">
-        {displayName.charAt(0).toUpperCase()}
-      </div>
-
-      {/* Info */}
-      <div className="flex-1 min-w-0">
-        <p className="font-semibold">{displayName}</p>
-        {friend.username && (
-          <p className="text-sm text-muted-foreground">@{friend.username}</p>
-        )}
-      </div>
+      {/* Avatar & Info - clickable area */}
+      <button
+        onClick={() => onProfileClick(friend.id)}
+        className="flex items-center gap-3 flex-1 min-w-0 text-left hover:opacity-80 transition-opacity"
+      >
+        <Avatar
+          src={friend.avatar_url}
+          name={displayName}
+          size="lg"
+        />
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold truncate">{displayName}</p>
+          {friend.username && (
+            <p className="text-sm text-muted-foreground truncate">@{friend.username}</p>
+          )}
+        </div>
+      </button>
 
       {/* Actions */}
       {showConfirm ? (
