@@ -203,18 +203,11 @@ export const syncUpdateTemplate = async (template: WorkoutTemplate): Promise<voi
       return;
     }
 
-    // SAFETY CHECK 2: Never sync if local has significantly fewer exercises than DB
-    // This catches partial/corrupted state
-    if (dbExerciseCount > 0 && localExerciseCount < dbExerciseCount * 0.5) {
-      console.error('[Sync] BLOCKED: Local has fewer exercises than DB', {
-        templateId: template.id,
-        local: localExerciseCount,
-        db: dbExerciseCount,
-      });
-      return;
-    }
+    // Note: Removed "local < DB * 0.5" check - it was blocking legitimate saves
+    // when DB had corrupted duplicate data. Since we now do direct syncs on
+    // explicit user actions, we trust the local state.
 
-    // SAFETY CHECK 3: Guard against obviously corrupted data
+    // SAFETY CHECK 2: Guard against obviously corrupted data
     if (localExerciseCount > 50) {
       console.error('[Sync] BLOCKED: Template has too many exercises:', localExerciseCount);
       return;

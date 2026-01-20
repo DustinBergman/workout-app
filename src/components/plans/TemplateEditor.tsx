@@ -1,6 +1,6 @@
 import { FC } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, Card, Input } from '../ui';
+import { Button, Card, Input, Modal } from '../ui';
 import { TemplateExerciseCard } from './TemplateExerciseCard';
 import { ExercisePickerModal } from './ExercisePickerModal';
 import { EditCustomExerciseModal } from './EditCustomExerciseModal';
@@ -14,6 +14,7 @@ interface TemplateEditorProps {
   showExercisePicker: boolean;
   exerciseSearch: string;
   isCreatingExercise: boolean;
+  isSavingToCloud: boolean;
   newExerciseName: string;
   newExerciseMuscles: MuscleGroup[];
   newExerciseEquipment: Equipment;
@@ -57,6 +58,7 @@ export const TemplateEditor: FC<TemplateEditorProps> = ({
   showExercisePicker,
   exerciseSearch,
   isCreatingExercise,
+  isSavingToCloud,
   newExerciseName,
   newExerciseMuscles,
   newExerciseEquipment,
@@ -259,6 +261,20 @@ export const TemplateEditor: FC<TemplateEditorProps> = ({
         currentName={editingCustomExercise?.name || ''}
         onSave={onSaveCustomExerciseName}
       />
+
+      {/* Saving to Cloud Modal */}
+      <Modal
+        isOpen={isSavingToCloud}
+        onClose={() => {}}
+        title="Saving"
+      >
+        <div className="text-center py-8">
+          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-gray-600 dark:text-gray-400">
+            Saving to cloud...
+          </p>
+        </div>
+      </Modal>
     </div>
   );
 };

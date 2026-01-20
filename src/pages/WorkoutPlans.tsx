@@ -18,7 +18,7 @@ export const WorkoutPlans: FC = () => {
     // Store data
     templates,
     deleteTemplate,
-    toggleTemplateRotation,
+    handleToggleRotation,
     // State
     isCreating,
     editingTemplate,
@@ -28,6 +28,7 @@ export const WorkoutPlans: FC = () => {
     showExercisePicker,
     exerciseSearch,
     isCreatingExercise,
+    isSavingToCloud,
     newExerciseName,
     newExerciseMuscles,
     newExerciseEquipment,
@@ -80,6 +81,7 @@ export const WorkoutPlans: FC = () => {
         showExercisePicker={showExercisePicker}
         exerciseSearch={exerciseSearch}
         isCreatingExercise={isCreatingExercise}
+        isSavingToCloud={isSavingToCloud}
         newExerciseName={newExerciseName}
         newExerciseMuscles={newExerciseMuscles}
         newExerciseEquipment={newExerciseEquipment}
@@ -175,7 +177,7 @@ export const WorkoutPlans: FC = () => {
                       }
                     }}
                     onStart={() => startWorkout(template)}
-                    onToggleRotation={() => toggleTemplateRotation(template.id)}
+                    onToggleRotation={() => handleToggleRotation(template.id)}
                     getExerciseName={getExerciseName}
                     isNext={template.id === nextWorkoutId}
                   />
@@ -196,6 +198,20 @@ export const WorkoutPlans: FC = () => {
           <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="text-gray-600 dark:text-gray-400">
             Getting AI recommendations...
+          </p>
+        </div>
+      </Modal>
+
+      {/* Saving to Cloud Modal */}
+      <Modal
+        isOpen={isSavingToCloud}
+        onClose={() => {}}
+        title="Saving"
+      >
+        <div className="text-center py-8">
+          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-gray-600 dark:text-gray-400">
+            Saving to cloud...
           </p>
         </div>
       </Modal>

@@ -4,8 +4,6 @@ import {
   syncWorkoutGoal,
   syncCurrentWeek,
   syncHasCompletedIntro,
-  syncAddTemplate,
-  syncUpdateTemplate,
   syncDeleteTemplate,
   syncReorderTemplates,
   syncAddSession,
@@ -21,7 +19,6 @@ import { clearFeedCache } from '../hooks/useFeed';
 let syncEnabled = false;
 // Flag to suppress sync during initial cloud load (prevents duplicate syncs)
 let isSyncingFromCloud = false;
-let previousTemplateIds: string[] = [];
 let previousSessionIds: string[] = [];
 let previousExerciseIds: string[] = [];
 let previousWeightDates: string[] = [];
@@ -35,7 +32,6 @@ export const setSyncEnabled = (enabled: boolean) => {
   if (enabled) {
     // Capture current state for change detection
     const state = useAppStore.getState();
-    previousTemplateIds = state.templates.map((t) => t.id);
     previousSessionIds = state.sessions.map((s) => s.id);
     previousExerciseIds = state.customExercises.map((e) => e.id);
     previousWeightDates = state.weightEntries.map((e) => e.date);
@@ -56,15 +52,16 @@ export const markSessionAsSynced = (sessionId: string) => {
  * This prevents subscriptions from triggering syncs when cloud data is merged into the store
  */
 export const setSyncingFromCloud = (syncing: boolean) => {
+  console.log('[SyncSubscriptions] setSyncingFromCloud:', syncing);
   isSyncingFromCloud = syncing;
   if (!syncing) {
     // After cloud sync completes, update baselines with current state
     // This ensures we don't try to re-sync data that just came from the cloud
     const state = useAppStore.getState();
-    previousTemplateIds = state.templates.map((t) => t.id);
     previousSessionIds = state.sessions.map((s) => s.id);
     previousExerciseIds = state.customExercises.map((e) => e.id);
     previousWeightDates = state.weightEntries.map((e) => e.date);
+    console.log('[SyncSubscriptions] Baselines updated after cloud sync');
   }
 };
 
@@ -75,7 +72,11 @@ export const setSyncingFromCloud = (syncing: boolean) => {
  * Also returns false if we're currently syncing FROM cloud (to prevent re-syncing cloud data)
  */
 const isSyncEnabled = (): boolean => {
-  return syncEnabled && !isSyncingFromCloud;
+  const enabled = syncEnabled && !isSyncingFromCloud;
+  if (!enabled && syncEnabled) {
+    console.log('[SyncSubscriptions] Sync blocked - syncing from cloud in progress');
+  }
+  return enabled;
 };
 
 /**
@@ -133,7 +134,8 @@ export const setupSyncSubscriptions = () => {
     }
   );
 
-  // Templates sync
+  // Templates sync - only handles delete and reorder
+  // Add/update are handled directly in useWorkoutPlans.ts to avoid subscription complexity
   useAppStore.subscribe(
     (state) => state.templates,
     (templates, prevTemplates) => {
@@ -142,38 +144,23 @@ export const setupSyncSubscriptions = () => {
       const currentIds = templates.map((t) => t.id);
       const prevIds = prevTemplates.map((t) => t.id);
 
-      // Check for added templates
-      for (const template of templates) {
-        if (!prevIds.includes(template.id) && !previousTemplateIds.includes(template.id)) {
-          syncAddTemplate(template).catch(console.error);
-        }
-      }
-
       // Check for deleted templates
       for (const prevTemplate of prevTemplates) {
         if (!currentIds.includes(prevTemplate.id)) {
+          console.log('[SyncSubscriptions] Template deleted, syncing:', prevTemplate.id);
           syncDeleteTemplate(prevTemplate.id).catch(console.error);
         }
       }
 
-      // Check for updated templates
-      for (const template of templates) {
-        const prevTemplate = prevTemplates.find((t) => t.id === template.id);
-        if (prevTemplate && JSON.stringify(template) !== JSON.stringify(prevTemplate)) {
-          syncUpdateTemplate(template).catch(console.error);
-        }
-      }
-
-      // Check for reordering
+      // Check for reordering (same templates, different order)
       if (
         currentIds.length === prevIds.length &&
         currentIds.every((id) => prevIds.includes(id)) &&
         JSON.stringify(currentIds) !== JSON.stringify(prevIds)
       ) {
+        console.log('[SyncSubscriptions] Templates reordered, syncing');
         syncReorderTemplates(currentIds).catch(console.error);
       }
-
-      previousTemplateIds = currentIds;
     }
   );
 

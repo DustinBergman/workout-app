@@ -9,6 +9,8 @@ import {
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { useAppStore } from '../store/useAppStore';
 import { getAllExercises, searchExercises } from '../data/exercises';
+import { syncAddTemplate, syncUpdateTemplate } from '../services/supabase/sync';
+import { toast } from '../store/toastStore';
 import {
   WorkoutTemplate,
   TemplateExercise,
@@ -67,6 +69,9 @@ export const useWorkoutPlans = () => {
 
   // Edit custom exercise modal state
   const [editingCustomExercise, setEditingCustomExercise] = useState<{ id: string; name: string } | null>(null);
+
+  // Save to cloud state
+  const [isSavingToCloud, setIsSavingToCloud] = useState(false);
 
   // Drag and drop sensors
   const sensors = useSensors(
@@ -223,21 +228,44 @@ export const useWorkoutPlans = () => {
   };
 
   // Template save
-  const saveTemplate = () => {
+  const saveTemplate = async () => {
     if (!templateName.trim() || templateExercises.length === 0) return;
 
     const now = new Date().toISOString();
 
     if (editingTemplate) {
-      updateTemplate({
+      // Check if there are actual changes
+      const hasNameChange = editingTemplate.name !== templateName;
+      const hasTypeChange = editingTemplate.templateType !== templateType;
+      const hasExerciseChanges = JSON.stringify(editingTemplate.exercises) !== JSON.stringify(templateExercises);
+      const hasChanges = hasNameChange || hasTypeChange || hasExerciseChanges;
+
+      const updatedTemplate: WorkoutTemplate = {
         ...editingTemplate,
         name: templateName,
         templateType,
         exercises: templateExercises,
         updatedAt: now,
-      });
+      };
+
+      // Update local state
+      updateTemplate(updatedTemplate);
+
+      // Only sync if there are changes
+      if (hasChanges) {
+        setIsSavingToCloud(true);
+        try {
+          await syncUpdateTemplate(updatedTemplate);
+        } catch (err) {
+          console.error('[useWorkoutPlans] Failed to sync template update:', err);
+          const message = err instanceof Error ? err.message : 'Failed to save to cloud';
+          toast.error(`Sync failed: ${message}`);
+        } finally {
+          setIsSavingToCloud(false);
+        }
+      }
     } else {
-      addTemplate({
+      const newTemplate: WorkoutTemplate = {
         id: generateId(),
         name: templateName,
         templateType,
@@ -245,7 +273,22 @@ export const useWorkoutPlans = () => {
         inRotation: true,
         createdAt: now,
         updatedAt: now,
-      });
+      };
+
+      // Add to local state
+      addTemplate(newTemplate);
+
+      // Sync new template to cloud
+      setIsSavingToCloud(true);
+      try {
+        await syncAddTemplate(newTemplate);
+      } catch (err) {
+        console.error('[useWorkoutPlans] Failed to sync new template:', err);
+        const message = err instanceof Error ? err.message : 'Failed to save to cloud';
+        toast.error(`Sync failed: ${message}`);
+      } finally {
+        setIsSavingToCloud(false);
+      }
     }
 
     resetForm();
@@ -304,6 +347,27 @@ export const useWorkoutPlans = () => {
     setEditingCustomExercise(null);
   };
 
+  // Toggle rotation with direct sync
+  const handleToggleRotation = (templateId: string) => {
+    const template = templates.find((t) => t.id === templateId);
+    if (!template) return;
+
+    // Toggle local state
+    toggleTemplateRotation(templateId);
+
+    // Build the updated template and sync directly
+    const updatedTemplate: WorkoutTemplate = {
+      ...template,
+      inRotation: !template.inRotation,
+      updatedAt: new Date().toISOString(),
+    };
+    syncUpdateTemplate(updatedTemplate).catch((err) => {
+      console.error('[useWorkoutPlans] Failed to sync rotation toggle:', err);
+      const message = err instanceof Error ? err.message : 'Failed to save to cloud';
+      toast.error(`Sync failed: ${message}`);
+    });
+  };
+
   // Drag and drop
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -324,7 +388,7 @@ export const useWorkoutPlans = () => {
     // Store data
     templates,
     deleteTemplate,
-    toggleTemplateRotation,
+    handleToggleRotation,
 
     // State
     isCreating,
@@ -335,6 +399,7 @@ export const useWorkoutPlans = () => {
     showExercisePicker,
     exerciseSearch,
     isCreatingExercise,
+    isSavingToCloud,
     newExerciseName,
     newExerciseMuscles,
     newExerciseEquipment,
