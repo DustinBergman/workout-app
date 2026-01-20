@@ -8,6 +8,7 @@ import {
   FloatingOrbsBackground,
   ApiKeyBanner,
   WeightReminderBanner,
+  DeloadRecommendationBanner,
   PTSummaryCard,
   ActiveWorkoutBanner,
   QuickStartSection,
@@ -41,6 +42,8 @@ export const Home: FC = () => {
     shouldShowWeightReminder,
     ptSummary,
     loadingPTSummary,
+    deloadRecommendation,
+    dismissDeloadRecommendation,
   } = useHome();
 
   const resumeWorkout = () => {
@@ -78,6 +81,14 @@ export const Home: FC = () => {
         {/* Weight Reminder Banner */}
         {shouldShowWeightReminder && (
           <WeightReminderBanner onClick={openWeightModal} />
+        )}
+
+        {/* Deload Recommendation Banner */}
+        {deloadRecommendation && (
+          <DeloadRecommendationBanner
+            recommendation={deloadRecommendation}
+            onDismiss={dismissDeloadRecommendation}
+          />
         )}
 
         {/* PT Summary */}
@@ -122,6 +133,7 @@ export const Home: FC = () => {
           <RecentWorkoutsSection
             sessions={recentSessions}
             weightUnit={preferences.weightUnit}
+            distanceUnit={preferences.distanceUnit}
           />
         )}
 

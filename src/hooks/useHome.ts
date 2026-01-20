@@ -1,7 +1,12 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { useAuth } from './useAuth';
 import { getPTSummary, hasValidPTSummaryCache, PTSummaryResponse } from '../services/openai';
+import {
+  detectDeloadNeed,
+  DeloadRecommendation,
+  calculateWeeksSinceDeload,
+} from '../services/deloadDetection';
 import {
   WorkoutTemplate,
   WorkoutSession,
@@ -11,6 +16,7 @@ import {
   GoalInfo,
   WeightEntry,
   WORKOUT_GOALS,
+  Exercise,
 } from '../types';
 
 export interface UseHomeReturn {
@@ -37,6 +43,10 @@ export interface UseHomeReturn {
   // PT Summary
   ptSummary: PTSummaryResponse | null;
   loadingPTSummary: boolean;
+
+  // Deload recommendation
+  deloadRecommendation: DeloadRecommendation | null;
+  dismissDeloadRecommendation: () => void;
 }
 
 export const useHome = (): UseHomeReturn => {
@@ -54,6 +64,9 @@ export const useHome = (): UseHomeReturn => {
   const weightEntries = useAppStore((state) => state.weightEntries);
   const customExercises = useAppStore((state) => state.customExercises);
   const experienceLevel = preferences.experienceLevel;
+  const cycleConfig = useAppStore((state) => state.cycleConfig);
+  const cycleState = useAppStore((state) => state.cycleState);
+  const advancePhase = useAppStore((state) => state.advancePhase);
 
   // Get member since date from user's created_at
   const memberSince = useMemo(() => user?.created_at || undefined, [user?.created_at]);
@@ -61,6 +74,27 @@ export const useHome = (): UseHomeReturn => {
   // Local state
   const [ptSummary, setPTSummary] = useState<PTSummaryResponse | null>(null);
   const [loadingPTSummary, setLoadingPTSummary] = useState(false);
+  const [deloadDismissed, setDeloadDismissed] = useState(false);
+
+  const dismissDeloadRecommendation = useCallback(() => {
+    setDeloadDismissed(true);
+    // Reset dismiss after 24 hours (on next page load)
+    const dismissedAt = Date.now();
+    localStorage.setItem('deloadDismissedAt', String(dismissedAt));
+  }, []);
+
+  // Check if deload was dismissed recently (within 24 hours)
+  useEffect(() => {
+    const dismissedAt = localStorage.getItem('deloadDismissedAt');
+    if (dismissedAt) {
+      const hoursSinceDismiss = (Date.now() - Number(dismissedAt)) / (1000 * 60 * 60);
+      if (hoursSinceDismiss < 24) {
+        setDeloadDismissed(true);
+      } else {
+        localStorage.removeItem('deloadDismissedAt');
+      }
+    }
+  }, []);
 
   // Computed values
   const hasApiKey = !!preferences.openaiApiKey;
@@ -91,6 +125,46 @@ export const useHome = (): UseHomeReturn => {
       .slice(0, 3);
   }, [sessions]);
 
+  // Deload recommendation (only if not dismissed)
+  const deloadRecommendation = useMemo<DeloadRecommendation | null>(() => {
+    if (deloadDismissed) return null;
+
+    // Need at least 5 completed sessions to make recommendations
+    const completedSessions = sessions.filter(s => s.completedAt);
+    if (completedSessions.length < 5) return null;
+
+    // Check if current phase is a deload phase
+    let currentPhaseIsDeload = false;
+    if (cycleConfig && cycleState) {
+      const currentPhase = cycleConfig.phases[cycleState.currentPhaseIndex];
+      currentPhaseIsDeload = currentPhase.type === 'deload';
+    } else {
+      // Legacy system: week 4 (index 4) is deload
+      currentPhaseIsDeload = currentWeek === 4;
+    }
+
+    // Calculate weeks since last deload
+    const weeksSinceLastDeload = cycleConfig && cycleState
+      ? calculateWeeksSinceDeload(
+          sessions,
+          cycleState.cycleStartDate,
+          cycleState.currentPhaseIndex,
+          cycleConfig.phases.map(p => ({ type: p.type, durationWeeks: p.durationWeeks })),
+          cycleState.currentWeekInPhase
+        )
+      : calculateWeeksSinceDeload(sessions);
+
+    const recommendation = detectDeloadNeed({
+      sessions: completedSessions,
+      customExercises: customExercises as Exercise[],
+      weeksSinceLastDeload,
+      currentPhaseIsDeload,
+    });
+
+    // Only return if should deload
+    return recommendation.shouldDeload ? recommendation : null;
+  }, [sessions, customExercises, cycleConfig, cycleState, currentWeek, deloadDismissed]);
+
   // Next workout suggestion based on template rotation
   const nextWorkout = useMemo(() => {
     if (templates.length === 0) return null;
@@ -116,8 +190,52 @@ export const useHome = (): UseHomeReturn => {
     return templates[nextIndex];
   }, [templates, sessions]);
 
-  // Auto-advance week if 7 days have passed (runs once on mount)
+  // Auto-advance week/phase if 7 days have passed (runs once on mount)
   useEffect(() => {
+    // If using new cycle system
+    if (cycleConfig && cycleState) {
+      const cycleStart = new Date(cycleState.cycleStartDate);
+      const now = new Date();
+
+      // Calculate which week of the cycle we should be in
+      const daysSinceCycleStart = Math.floor(
+        (now.getTime() - cycleStart.getTime()) / (1000 * 60 * 60 * 24)
+      );
+      const weeksSinceCycleStart = Math.floor(daysSinceCycleStart / 7);
+
+      // Calculate current expected week position
+      let expectedPhaseIndex = 0;
+      let expectedWeekInPhase = 1;
+      let weekCounter = 0;
+
+      for (let i = 0; i < cycleConfig.phases.length; i++) {
+        const phase = cycleConfig.phases[i];
+        if (weekCounter + phase.durationWeeks > weeksSinceCycleStart) {
+          expectedPhaseIndex = i;
+          expectedWeekInPhase = weeksSinceCycleStart - weekCounter + 1;
+          break;
+        }
+        weekCounter += phase.durationWeeks;
+
+        // If we've gone past the end of the cycle, it should have reset
+        if (i === cycleConfig.phases.length - 1) {
+          // Cycle should reset - for now just keep current state
+          return;
+        }
+      }
+
+      // Advance if we're behind
+      if (
+        expectedPhaseIndex > cycleState.currentPhaseIndex ||
+        (expectedPhaseIndex === cycleState.currentPhaseIndex &&
+          expectedWeekInPhase > cycleState.currentWeekInPhase)
+      ) {
+        advancePhase();
+      }
+      return;
+    }
+
+    // Legacy system - advance week if 7 days have passed
     if (!weekStartedAt) return;
 
     const weekStart = new Date(weekStartedAt);
@@ -159,7 +277,8 @@ export const useHome = (): UseHomeReturn => {
           experienceLevel || 'intermediate',
           workoutGoal,
           currentWeek,
-          preferences.weeklyWorkoutGoal ?? 4
+          preferences.weeklyWorkoutGoal ?? 4,
+          preferences.distanceUnit
         );
         setPTSummary(summary);
       } catch (err) {
@@ -197,5 +316,9 @@ export const useHome = (): UseHomeReturn => {
     // PT Summary
     ptSummary,
     loadingPTSummary,
+
+    // Deload recommendation
+    deloadRecommendation,
+    dismissDeloadRecommendation,
   };
 };

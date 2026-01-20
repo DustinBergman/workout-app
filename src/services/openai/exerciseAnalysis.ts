@@ -346,18 +346,18 @@ const detectPlateauSignals = (
   sessionData: { date: Date; sets: { weight: number; reps: number }[] }[],
   targetReps?: number
 ): PlateauSignals => {
-  // Signal 1: Same max weight for 3+ sessions
+  // Signal 1: Same max weight for 4+ sessions (relaxed from 3)
   let sameWeight3Sessions = false;
-  if (sessionData.length >= 3) {
-    const maxWeights = sessionData.slice(0, 5).map((s) =>
+  if (sessionData.length >= 4) {
+    const maxWeights = sessionData.slice(0, 6).map((s) =>
       Math.max(...s.sets.map((set) => set.weight))
     );
     const firstWeight = maxWeights[0];
-    const tolerance = firstWeight * 0.02; // 2% tolerance
+    const tolerance = firstWeight * 0.025; // 2.5% tolerance
     const sameWeightCount = maxWeights.filter((w) =>
       Math.abs(w - firstWeight) <= tolerance
     ).length;
-    sameWeight3Sessions = sameWeightCount >= 3;
+    sameWeight3Sessions = sameWeightCount >= 4;
   }
 
   // Signal 2: Failed rep targets for 2+ sessions
@@ -370,21 +370,21 @@ const detectPlateauSignals = (
     failedRepTargets = failedSessions.length >= 2;
   }
 
-  // Signal 3: Stalled 1RM (unchanged ±2% for 3+ sessions)
+  // Signal 3: Stalled 1RM (unchanged ±3% for 4+ sessions)
   let stalled1RM = false;
-  if (sessionData.length >= 3) {
-    const estimated1RMs = sessionData.slice(0, 5).map((s) => {
+  if (sessionData.length >= 4) {
+    const estimated1RMs = sessionData.slice(0, 6).map((s) => {
       const maxWeight = Math.max(...s.sets.map((set) => set.weight));
       const avgReps = s.sets.reduce((sum, set) => sum + set.reps, 0) / s.sets.length;
       return calculateEpley1RM(maxWeight, Math.round(avgReps));
     });
 
     const first1RM = estimated1RMs[0];
-    const tolerance = first1RM * 0.02; // 2% tolerance
+    const tolerance = first1RM * 0.03; // 3% tolerance
     const stalled1RMCount = estimated1RMs.filter((rm) =>
       Math.abs(rm - first1RM) <= tolerance
     ).length;
-    stalled1RM = stalled1RMCount >= 3;
+    stalled1RM = stalled1RMCount >= 4;
   }
 
   return {
@@ -413,26 +413,27 @@ const determineProgressStatus = (
     signals.stalled1RM,
   ].filter(Boolean).length;
 
-  // Plateau if 2+ signals are true
-  if (signalCount >= 2) {
-    return 'plateau';
-  }
-
   // Declining if 1RM trend is significantly negative
   if (estimated1RMTrend < -5) {
     return 'declining';
   }
 
-  // Improving if 1RM trend is positive or 1 or fewer plateau signals
-  if (estimated1RMTrend > 2 || signalCount === 0) {
+  // Improving if 1RM trend is positive (any positive trend means progress)
+  if (estimated1RMTrend > 0) {
     return 'improving';
   }
 
-  // Default to plateau if one signal and no clear trend
-  if (signalCount === 1 && Math.abs(estimated1RMTrend) < 3) {
+  // Plateau requires 2+ signals AND negative/flat trend
+  if (signalCount >= 2 && estimated1RMTrend <= 0) {
     return 'plateau';
   }
 
+  // If only 1 signal but trend is negative, it's plateau
+  if (signalCount === 1 && estimated1RMTrend < -2) {
+    return 'plateau';
+  }
+
+  // Default to improving - give benefit of the doubt
   return 'improving';
 };
 

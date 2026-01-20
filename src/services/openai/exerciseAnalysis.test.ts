@@ -150,12 +150,13 @@ describe('Exercise Analysis', () => {
       expect(result.weeklyPerformance).toHaveLength(0);
     });
 
-    it('should detect plateau when same weight for 3+ sessions', () => {
-      // Create 3 sessions with same weight
+    it('should detect plateau when same weight for 4+ sessions', () => {
+      // Create 4 sessions with same weight
       const sessions = [
         createSessionDaysAgo(1, 'bench-press', 135, 10, 'session-1'),
         createSessionDaysAgo(4, 'bench-press', 135, 10, 'session-2'),
         createSessionDaysAgo(7, 'bench-press', 135, 10, 'session-3'),
+        createSessionDaysAgo(10, 'bench-press', 135, 10, 'session-4'),
       ];
 
       const result = analyzeExercise10Weeks('bench-press', sessions, [], 10);
@@ -196,12 +197,13 @@ describe('Exercise Analysis', () => {
       expect(result.plateauSignals.failedRepTargets).toBe(false);
     });
 
-    it('should detect stalled 1RM for 3+ sessions', () => {
+    it('should detect stalled 1RM for 4+ sessions', () => {
       // Create sessions with same effective 1RM (same weight and reps)
       const sessions = [
         createSessionDaysAgo(1, 'bench-press', 135, 10, 'session-1'),
         createSessionDaysAgo(4, 'bench-press', 135, 10, 'session-2'),
         createSessionDaysAgo(7, 'bench-press', 135, 10, 'session-3'),
+        createSessionDaysAgo(10, 'bench-press', 135, 10, 'session-4'),
       ];
 
       const result = analyzeExercise10Weeks('bench-press', sessions, [], 10);
@@ -234,12 +236,13 @@ describe('Exercise Analysis', () => {
       expect(result.estimated1RMTrend).toBeLessThan(-5);
     });
 
-    it('should detect plateau when 2+ signals are true', () => {
-      // Create sessions with same weight and stalled 1RM (2 signals)
+    it('should detect plateau when 2+ signals are true and trend is flat/negative', () => {
+      // Create sessions with same weight and stalled 1RM (2 signals) and flat trend
       const sessions = [
         createSessionDaysAgo(1, 'bench-press', 135, 10, 'session-1'),
         createSessionDaysAgo(4, 'bench-press', 135, 10, 'session-2'),
         createSessionDaysAgo(7, 'bench-press', 135, 10, 'session-3'),
+        createSessionDaysAgo(10, 'bench-press', 135, 10, 'session-4'),
       ];
 
       const result = analyzeExercise10Weeks('bench-press', sessions, [], 10);
@@ -322,12 +325,13 @@ describe('Exercise Analysis', () => {
       expect(result.exerciseId).toBe('custom-exercise');
     });
 
-    it('should allow 2% tolerance for same weight detection', () => {
-      // 135 * 0.02 = 2.7, so weights within 2.7 lbs should be considered "same"
+    it('should allow 2.5% tolerance for same weight detection', () => {
+      // 135 * 0.025 = 3.375, so weights within 3.375 lbs should be considered "same"
       const sessions = [
         createSessionDaysAgo(1, 'bench-press', 135, 10, 'session-1'),
-        createSessionDaysAgo(4, 'bench-press', 137, 10, 'session-2'), // Within 2% tolerance
-        createSessionDaysAgo(7, 'bench-press', 136, 10, 'session-3'), // Within 2% tolerance
+        createSessionDaysAgo(4, 'bench-press', 137, 10, 'session-2'), // Within 2.5% tolerance
+        createSessionDaysAgo(7, 'bench-press', 136, 10, 'session-3'), // Within 2.5% tolerance
+        createSessionDaysAgo(10, 'bench-press', 138, 10, 'session-4'), // Within 2.5% tolerance
       ];
 
       const result = analyzeExercise10Weeks('bench-press', sessions, [], 10);

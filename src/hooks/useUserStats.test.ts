@@ -55,6 +55,16 @@ describe('useUserStats', () => {
         averageVolumePerSession: 0,
         averageWeightChangePerWeek: 0,
         totalSessions: 0,
+        isCardioPrimary: false,
+        cardio: {
+          totalDistance: 0,
+          distanceUnit: 'mi',
+          averagePace: null,
+          paceImprovement: 0,
+          totalCalories: 0,
+          sessionCount: 0,
+          averageDuration: 0,
+        },
       });
     });
   });

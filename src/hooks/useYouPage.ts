@@ -50,7 +50,7 @@ export const useYouPage = () => {
   const customExercises = useAppStore((state) => state.customExercises);
   const weightEntries = useAppStore((state) => state.weightEntries);
 
-  const stats = useUserStats(sessions, timePeriod, customExercises, weightEntries);
+  const stats = useUserStats(sessions, timePeriod, customExercises, weightEntries, preferences.distanceUnit);
 
   // Update avatar and cache when changed
   const updateAvatarUrl = useCallback((url: string | null) => {
@@ -102,6 +102,8 @@ export const useYouPage = () => {
     // Store data
     preferences,
     weightEntries,
+    sessions,
+    customExercises,
     // Stats
     stats,
     // Computed

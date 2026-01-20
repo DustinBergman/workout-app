@@ -6,6 +6,7 @@ import {
   Exercise,
   WeightEntry,
   WORKOUT_GOALS,
+  DistanceUnit,
 } from '../../types';
 import { callOpenAI, parseJSONResponse } from './client';
 import { analyzeExercise10Weeks, ExerciseAnalysis } from './exerciseAnalysis';
@@ -109,6 +110,17 @@ export interface PTSummaryInputData {
   // Mood trends (optional)
   averageMoodLast5Workouts?: number;
   moodTrend?: 'improving' | 'stable' | 'declining';
+
+  // Cardio stats (for cardio-focused users)
+  isCardioPrimary: boolean;
+  cardioStats?: {
+    totalDistance: number;
+    distanceUnit: DistanceUnit;
+    totalCalories: number;
+    sessionCount: number;
+    averageDuration: number; // in minutes
+    paceImprovement?: number; // percentage improvement
+  };
 }
 
 // ============================================================================
@@ -276,7 +288,8 @@ export const aggregatePTSummaryData = (
   experienceLevel: ExperienceLevel,
   workoutGoal: WorkoutGoal,
   currentWeek: ProgressiveOverloadWeek,
-  weeklyWorkoutGoal: number = 4
+  weeklyWorkoutGoal: number = 4,
+  distanceUnit: DistanceUnit = 'mi'
 ): PTSummaryInputData => {
   const tenWeeksAgo = new Date();
   tenWeeksAgo.setDate(tenWeeksAgo.getDate() - 70);
@@ -404,6 +417,97 @@ export const aggregatePTSummaryData = (
     else moodTrend = 'stable';
   }
 
+  // Cardio stats calculation
+  let isCardioPrimary = false;
+  let cardioStats: PTSummaryInputData['cardioStats'];
+
+  // Determine if user is cardio-primary (>50% cardio-only sessions)
+  const cardioOnlySessions = completedSessions.filter(session => {
+    const hasCardio = session.exercises.some(ex => ex.type === 'cardio');
+    const hasStrength = session.exercises.some(ex => ex.type === 'strength');
+    return hasCardio && !hasStrength;
+  });
+  const cardioSessionCount = cardioOnlySessions.length;
+  isCardioPrimary = completedSessions.length > 0 && cardioSessionCount > completedSessions.length / 2;
+
+  // Calculate cardio stats for users with cardio sessions
+  const sessionsWithCardio = completedSessions.filter(session =>
+    session.exercises.some(ex => ex.type === 'cardio')
+  );
+
+  if (sessionsWithCardio.length > 0) {
+    let totalDistance = 0;
+    let totalCalories = 0;
+    let totalDurationSeconds = 0;
+    const paceValues: { pace: number; date: Date }[] = [];
+
+    sessionsWithCardio.forEach(session => {
+      session.exercises.forEach(ex => {
+        if (ex.type === 'cardio') {
+          ex.sets.forEach(set => {
+            if (set.type === 'cardio') {
+              // Normalize distance to user's preferred unit
+              let distance = set.distance ?? 0;
+              if (distance > 0) {
+                const setUnit = set.distanceUnit || 'mi';
+                if (setUnit !== distanceUnit) {
+                  if (setUnit === 'km' && distanceUnit === 'mi') {
+                    distance = distance * 0.621371;
+                  } else if (setUnit === 'mi' && distanceUnit === 'km') {
+                    distance = distance * 1.60934;
+                  }
+                }
+              }
+              totalDistance += distance;
+              totalCalories += set.calories ?? 0;
+              totalDurationSeconds += set.durationSeconds ?? 0;
+
+              // Calculate pace if both distance and duration available (use normalized distance)
+              if (distance > 0 && set.durationSeconds && set.durationSeconds > 0) {
+                const paceMinPerUnit = (set.durationSeconds / 60) / distance;
+                if (paceMinPerUnit > 0 && paceMinPerUnit < 60) { // Sanity check
+                  paceValues.push({
+                    pace: paceMinPerUnit,
+                    date: new Date(session.completedAt || session.startedAt),
+                  });
+                }
+              }
+            }
+          });
+        }
+      });
+    });
+
+    // Calculate pace improvement (compare last 2 weeks vs prior 2 weeks)
+    let paceImprovement: number | undefined;
+    if (paceValues.length >= 4) {
+      const twoWeeksAgo = new Date();
+      twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+
+      const recentPaces = paceValues.filter(p => p.date >= twoWeeksAgo);
+      const olderPaces = paceValues.filter(p => p.date < twoWeeksAgo);
+
+      if (recentPaces.length >= 2 && olderPaces.length >= 2) {
+        const avgRecentPace = recentPaces.reduce((a, b) => a + b.pace, 0) / recentPaces.length;
+        const avgOlderPace = olderPaces.reduce((a, b) => a + b.pace, 0) / olderPaces.length;
+
+        // Negative pace improvement means faster (better)
+        if (avgOlderPace > 0) {
+          paceImprovement = ((avgOlderPace - avgRecentPace) / avgOlderPace) * 100;
+        }
+      }
+    }
+
+    cardioStats = {
+      totalDistance: Math.round(totalDistance * 10) / 10,
+      distanceUnit,
+      totalCalories: Math.round(totalCalories),
+      sessionCount: sessionsWithCardio.length,
+      averageDuration: Math.round(totalDurationSeconds / sessionsWithCardio.length / 60),
+      paceImprovement: paceImprovement !== undefined ? Math.round(paceImprovement * 10) / 10 : undefined,
+    };
+  }
+
   return {
     firstName,
     experienceLevel,
@@ -420,6 +524,8 @@ export const aggregatePTSummaryData = (
     bodyWeightTrend,
     averageMoodLast5Workouts,
     moodTrend,
+    isCardioPrimary,
+    cardioStats,
   };
 };
 
@@ -427,7 +533,16 @@ export const aggregatePTSummaryData = (
 // AI Service
 // ============================================================================
 
-const buildSystemPrompt = (): string => {
+const buildSystemPrompt = (isCardioPrimary: boolean): string => {
+  const cardioGuidelines = isCardioPrimary ? `
+FOR CARDIO-FOCUSED USERS:
+- Focus on endurance, pace improvements, and distance milestones
+- Celebrate consistency and time spent training
+- For pace: improvement means getting faster (lower minutes per mile/km is better)
+- Relevant tips: recovery between sessions, nutrition for endurance, cross-training
+- Avoid strength-specific advice unless they do hybrid training
+` : '';
+
   return `You are an encouraging, knowledgeable personal trainer providing a check-in summary for your client. Your tone is:
 - Warm and supportive, like talking to a friend
 - Specific to THEIR progress (use their name if available)
@@ -444,6 +559,7 @@ CRITICAL GUIDELINES:
 - NEVER use emdashes (—) anywhere in your response. Use commas or separate sentences instead.
 - ONLY suggest adding variety or changing exercises if PLATEAUS DETECTED shows actual exercises. If no plateaus, do NOT suggest variety.
 - If the user is early in their program (weeks 0-2) and improving, the best advice is to stay the course.
+${cardioGuidelines}
 
 IMPORTANT FOR nextSessionFocus:
 - Only include nextSessionFocus if there is a SPECIFIC, ACTIONABLE issue to address (like a plateau or declining area)
@@ -460,6 +576,33 @@ const buildUserPrompt = (data: PTSummaryInputData): string => {
     .map(g => `- ${g.muscleGroup}: ${g.status} (${g.trendPercent > 0 ? '+' : ''}${g.trendPercent}%)`)
     .join('\n');
 
+  // Build cardio section if relevant
+  let cardioSection = '';
+  if (data.cardioStats && data.cardioStats.sessionCount > 0) {
+    const paceInfo = data.cardioStats.paceImprovement !== undefined
+      ? `\n- Pace trend: ${data.cardioStats.paceImprovement > 0 ? 'Improving' : data.cardioStats.paceImprovement < 0 ? 'Slowing' : 'Stable'} (${data.cardioStats.paceImprovement > 0 ? '+' : ''}${data.cardioStats.paceImprovement}%)`
+      : '';
+    cardioSection = `
+
+CARDIO ACTIVITY (last 10 weeks):
+- Total distance: ${data.cardioStats.totalDistance} ${data.cardioStats.distanceUnit}
+- Total calories burned: ${data.cardioStats.totalCalories.toLocaleString()} cal
+- Sessions with cardio: ${data.cardioStats.sessionCount}
+- Average duration: ${data.cardioStats.averageDuration} min${paceInfo}
+- Training focus: ${data.isCardioPrimary ? 'CARDIO-PRIMARY (focus your feedback on cardio metrics)' : 'Hybrid (strength + cardio)'}`;
+  }
+
+  // Conditionally include strength section
+  const strengthSection = data.isCardioPrimary ? '' : `
+
+PROGRESS BY AREA:
+${progressLines || 'No data yet'}
+
+PLATEAUS DETECTED: ${data.exercisesOnPlateau.join(', ') || 'None'}
+IMPROVING: ${data.exercisesImproving.join(', ') || 'None'}
+
+RECENT PRs: ${data.recentPRs.map(p => `${p.exerciseName} (${p.daysAgo}d ago)`).join(', ') || 'None in last 30 days'}`;
+
   return `Based on this client data, provide a personalized PT summary:
 
 CLIENT PROFILE:
@@ -473,14 +616,7 @@ RECENT ACTIVITY:
 - Average per week: ${data.workoutsPerWeek}
 - Current streak: ${data.currentStreak} weeks (consecutive weeks hitting workout goal)
 - Longest streak (30d): ${data.longestStreakLast30Days} days
-
-PROGRESS BY AREA:
-${progressLines || 'No data yet'}
-
-PLATEAUS DETECTED: ${data.exercisesOnPlateau.join(', ') || 'None'}
-IMPROVING: ${data.exercisesImproving.join(', ') || 'None'}
-
-RECENT PRs: ${data.recentPRs.map(p => `${p.exerciseName} (${p.daysAgo}d ago)`).join(', ') || 'None in last 30 days'}
+${cardioSection}${strengthSection}
 
 ${data.bodyWeightTrend ? `BODY WEIGHT: ${data.bodyWeightTrend.direction} ${data.bodyWeightTrend.changePercent}%` : ''}
 ${data.averageMoodLast5Workouts ? `AVERAGE MOOD: ${data.averageMoodLast5Workouts.toFixed(1)}/5 (${data.moodTrend})` : ''}
@@ -503,7 +639,8 @@ REMEMBER:
 - NO specific weights or rep numbers
 - NO emdashes (—) anywhere
 - NO generic "add variety" advice unless plateaus exist
-- If improving and no plateaus, encourage staying the course`;
+- If improving and no plateaus, encourage staying the course
+${data.isCardioPrimary ? '- This is a CARDIO-FOCUSED user, prioritize cardio feedback over strength feedback' : ''}`;
 };
 
 export const getPTSummary = async (
@@ -515,7 +652,8 @@ export const getPTSummary = async (
   experienceLevel: ExperienceLevel,
   workoutGoal: WorkoutGoal,
   currentWeek: ProgressiveOverloadWeek,
-  weeklyWorkoutGoal: number = 4
+  weeklyWorkoutGoal: number = 4,
+  distanceUnit: DistanceUnit = 'mi'
 ): Promise<PTSummaryResponse | null> => {
   // Need at least 2 sessions for meaningful summary
   if (sessions.filter(s => s.completedAt).length < 2) {
@@ -538,7 +676,8 @@ export const getPTSummary = async (
     experienceLevel,
     workoutGoal,
     currentWeek,
-    weeklyWorkoutGoal
+    weeklyWorkoutGoal,
+    distanceUnit
   );
 
   // Call OpenAI
@@ -546,7 +685,7 @@ export const getPTSummary = async (
     const content = await callOpenAI({
       apiKey,
       messages: [
-        { role: 'system', content: buildSystemPrompt() },
+        { role: 'system', content: buildSystemPrompt(inputData.isCardioPrimary) },
         { role: 'user', content: buildUserPrompt(inputData) },
       ],
       maxTokens: 800,

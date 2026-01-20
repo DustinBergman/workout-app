@@ -15,9 +15,17 @@ import {
   Modal,
 } from '../components/ui';
 import { exportAllData, importAllData, clearAllData } from '../services/storage';
-import { WorkoutGoal, WORKOUT_GOALS, ExperienceLevel, ProgressiveOverloadWeek } from '../types';
+import {
+  WorkoutGoal,
+  WORKOUT_GOALS,
+  ExperienceLevel,
+  ProgressiveOverloadWeek,
+  PREDEFINED_CYCLES,
+  TrainingCycleConfig,
+} from '../types';
 import { useAuth } from '../hooks/useAuth';
 import { getProfile, updateUsername, checkUsernameAvailability } from '../services/supabase/profiles';
+import { getCycleRecommendation, CycleRecommendation } from '../services/openai';
 
 export const Settings: FC = () => {
   const navigate = useNavigate();
@@ -27,13 +35,22 @@ export const Settings: FC = () => {
   const workoutGoal = useAppStore((state) => state.workoutGoal);
   const setWorkoutGoal = useAppStore((state) => state.setWorkoutGoal);
   const setCurrentWeek = useAppStore((state) => state.setCurrentWeek);
+  const cycleConfig = useAppStore((state) => state.cycleConfig);
+  const cycleState = useAppStore((state) => state.cycleState);
+  const setCycleConfig = useAppStore((state) => state.setCycleConfig);
+  const sessions = useAppStore((state) => state.sessions);
+  const customExercises = useAppStore((state) => state.customExercises);
   const [showApiKey, setShowApiKey] = useState(false);
+  const [cycleRecommendation, setCycleRecommendation] = useState<CycleRecommendation | null>(null);
+  const [loadingRecommendation, setLoadingRecommendation] = useState(false);
   const [apiKeyInput, setApiKeyInput] = useState(preferences.openaiApiKey || '');
   const [importError, setImportError] = useState('');
   const [importSuccess, setImportSuccess] = useState(false);
   const [apiKeySaved, setApiKeySaved] = useState(false);
   const [showGoalConfirm, setShowGoalConfirm] = useState(false);
   const [pendingGoal, setPendingGoal] = useState<WorkoutGoal | null>(null);
+  const [showCycleConfirm, setShowCycleConfirm] = useState(false);
+  const [pendingCycle, setPendingCycle] = useState<TrainingCycleConfig | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [username, setUsername] = useState('');
   const [usernameInput, setUsernameInput] = useState('');
@@ -166,6 +183,62 @@ export const Settings: FC = () => {
     setShowGoalConfirm(false);
     setPendingGoal(null);
   };
+
+  const handleCycleClick = (cycle: TrainingCycleConfig) => {
+    if (cycle.id === cycleConfig?.id) return;
+    setPendingCycle(cycle);
+    setShowCycleConfirm(true);
+  };
+
+  const confirmCycleChange = () => {
+    if (pendingCycle) {
+      setCycleConfig(pendingCycle);
+    }
+    setShowCycleConfirm(false);
+    setPendingCycle(null);
+  };
+
+  const cancelCycleChange = () => {
+    setShowCycleConfirm(false);
+    setPendingCycle(null);
+  };
+
+  const getRecommendation = async () => {
+    if (!preferences.openaiApiKey) return;
+
+    setLoadingRecommendation(true);
+    setCycleRecommendation(null);
+
+    try {
+      const recommendation = await getCycleRecommendation(
+        preferences.openaiApiKey,
+        sessions,
+        preferences.experienceLevel || 'intermediate',
+        workoutGoal,
+        customExercises,
+        cycleConfig?.id
+      );
+      setCycleRecommendation(recommendation);
+    } catch (error) {
+      console.error('Failed to get cycle recommendation:', error);
+    } finally {
+      setLoadingRecommendation(false);
+    }
+  };
+
+  const applyRecommendedCycle = () => {
+    if (!cycleRecommendation) return;
+    const cycle = PREDEFINED_CYCLES.find(c => c.id === cycleRecommendation.recommendedCycleId);
+    if (cycle) {
+      handleCycleClick(cycle);
+    }
+  };
+
+  // Filter cycles based on type - show strength cycles for strength goals, cardio for cardio
+  const relevantCycles = PREDEFINED_CYCLES.filter(cycle => {
+    // For now, show strength cycles to everyone, cardio cycles only for hybrid/cardio users
+    return cycle.cycleType === 'strength' || cycle.cycleType === 'cardio';
+  });
 
   return (
     <div className="p-4 pb-20">
@@ -430,6 +503,136 @@ export const Settings: FC = () => {
         </div>
       </section>
 
+      {/* Training Cycle */}
+      <section className="mb-8">
+        <h2 className="text-lg font-semibold text-foreground mb-4">
+          Training Cycle
+        </h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Choose a periodization cycle that fits your experience level. This controls how your training phases progress.
+        </p>
+
+        {/* Current cycle status */}
+        {cycleConfig && cycleState && (
+          <Card className="mb-4 bg-primary/5 border-primary/20">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Current cycle</p>
+                <p className="font-semibold text-foreground">{cycleConfig.name}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm text-muted-foreground">Current phase</p>
+                <p className="font-semibold text-primary">
+                  {cycleConfig.phases[cycleState.currentPhaseIndex]?.name ?? 'Unknown'}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Week {cycleState.currentWeekInPhase} of {cycleConfig.phases[cycleState.currentPhaseIndex]?.durationWeeks ?? '?'}
+                </p>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {/* AI Recommendation */}
+        {preferences.openaiApiKey && (
+          <Card className="mb-4">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <p className="font-medium text-foreground">AI Recommendation</p>
+                <p className="text-xs text-muted-foreground">
+                  Get a personalized cycle recommendation based on your training history
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={getRecommendation}
+                disabled={loadingRecommendation}
+              >
+                {loadingRecommendation ? 'Analyzing...' : 'Get Recommendation'}
+              </Button>
+            </div>
+
+            {cycleRecommendation && (
+              <div className="mt-3 pt-3 border-t border-border">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-lg bg-primary/10 flex-shrink-0">
+                    <svg className="w-5 h-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium text-foreground">
+                      {PREDEFINED_CYCLES.find(c => c.id === cycleRecommendation.recommendedCycleId)?.name}
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {cycleRecommendation.reasoning}
+                    </p>
+                    {cycleRecommendation.alternativeId && (
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Alternative: {PREDEFINED_CYCLES.find(c => c.id === cycleRecommendation.alternativeId)?.name}
+                        {cycleRecommendation.alternativeReason && ` - ${cycleRecommendation.alternativeReason}`}
+                      </p>
+                    )}
+                    <div className="flex gap-2 mt-3">
+                      <Button size="sm" onClick={applyRecommendedCycle}>
+                        Apply This Cycle
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setCycleRecommendation(null)}
+                      >
+                        Dismiss
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </Card>
+        )}
+
+        <div className="space-y-3">
+          {relevantCycles.map((cycle) => {
+            const isSelected = cycle.id === cycleConfig?.id;
+            const phaseNames = cycle.phases.map(p => p.name).join(' → ');
+            return (
+              <button
+                key={cycle.id}
+                onClick={() => handleCycleClick(cycle)}
+                className={`w-full p-4 rounded-xl border text-left transition-all ${
+                  isSelected
+                    ? 'border-primary bg-primary/10'
+                    : 'border-border bg-card hover:border-primary/50 hover:bg-muted/50'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="font-semibold text-foreground">
+                    {cycle.name}
+                  </span>
+                  {isSelected && (
+                    <svg className="w-5 h-5 text-primary" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {cycle.description}
+                </p>
+                <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
+                  <span>{cycle.totalWeeks} weeks</span>
+                  <span className="text-primary">{cycle.cycleType === 'cardio' ? 'Cardio' : 'Strength'}</span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {phaseNames}
+                </p>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
       {/* AI Assistant */}
       <section className="mb-8">
         <h2 className="text-lg font-semibold text-foreground mb-4">
@@ -612,6 +815,40 @@ export const Settings: FC = () => {
             <p className="text-sm text-muted-foreground">New goal:</p>
             <p className="font-semibold text-foreground">{WORKOUT_GOALS[pendingGoal].name}</p>
             <p className="text-sm text-primary">{WORKOUT_GOALS[pendingGoal].cycleName} cycle</p>
+          </div>
+        )}
+      </Modal>
+
+      {/* Cycle Change Confirmation Modal */}
+      <Modal
+        isOpen={showCycleConfirm}
+        onClose={cancelCycleChange}
+        title="Change Training Cycle"
+        footer={
+          <>
+            <Button variant="secondary" onClick={cancelCycleChange}>
+              Cancel
+            </Button>
+            <Button onClick={confirmCycleChange}>
+              Continue
+            </Button>
+          </>
+        }
+      >
+        <p className="text-foreground">
+          Are you sure you want to change your training cycle?
+        </p>
+        <p className="text-muted-foreground mt-2">
+          You will start at Week 1, Phase 1 of the new cycle.
+        </p>
+        {pendingCycle && (
+          <div className="mt-4 p-4 bg-muted rounded-lg">
+            <p className="text-sm text-muted-foreground">New cycle:</p>
+            <p className="font-semibold text-foreground">{pendingCycle.name}</p>
+            <p className="text-sm text-primary">{pendingCycle.totalWeeks} weeks total</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {pendingCycle.phases.map(p => p.name).join(' → ')}
+            </p>
           </div>
         )}
       </Modal>

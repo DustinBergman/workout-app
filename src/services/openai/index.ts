@@ -18,3 +18,7 @@ export type { WorkoutType, GeneratePlanInput, GeneratedPlan, GeneratedCardioPlan
 // PT Summary
 export { getPTSummary, hasValidPTSummaryCache, clearPTSummaryCache } from './ptSummary';
 export type { PTSummaryResponse, PTComponent, StatCardComponent, ProgressIndicatorComponent, HighlightBadgeComponent, TipComponent } from './ptSummary';
+
+// Cycle Recommendation
+export { getCycleRecommendation, getRecommendedCycleConfig } from './cycleRecommendation';
+export type { CycleRecommendation, CycleRecommendationInput } from './cycleRecommendation';

@@ -10,6 +10,8 @@ import {
   WeightEntry,
   CARDIO_TYPE_TO_CATEGORY,
   CardioExercise,
+  TrainingCycleConfig,
+  UserCycleState,
 } from '../types';
 import { getAllExercises } from '../data/exercises';
 
@@ -25,6 +27,8 @@ interface AppState {
   workoutGoal: WorkoutGoal;
   hasCompletedIntro: boolean;
   weightEntries: WeightEntry[];
+  cycleConfig: TrainingCycleConfig | null;
+  cycleState: UserCycleState | null;
 
   // Template actions
   addTemplate: (template: WorkoutTemplate) => void;
@@ -58,6 +62,11 @@ interface AppState {
   // Weight tracking actions
   addWeightEntry: (weight: number) => void;
   deleteWeightEntry: (date: string) => void;
+
+  // Cycle actions
+  setCycleConfig: (config: TrainingCycleConfig) => void;
+  advancePhase: () => void;
+  resetCycle: () => void;
 }
 
 const defaultPreferences: UserPreferences = {
@@ -84,6 +93,8 @@ export const useAppStore = create<AppState>()(
         workoutGoal: 'build' as WorkoutGoal,
         hasCompletedIntro: false,
         weightEntries: [],
+        cycleConfig: null,
+        cycleState: null,
 
         // Template actions
         addTemplate: (template) =>
@@ -196,6 +207,74 @@ export const useAppStore = create<AppState>()(
           set((state) => ({
             weightEntries: state.weightEntries.filter((e) => e.date !== date),
           })),
+
+        // Cycle actions
+        setCycleConfig: (config) =>
+          set(() => ({
+            cycleConfig: config,
+            cycleState: {
+              cycleConfigId: config.id,
+              cycleStartDate: new Date().toISOString(),
+              currentPhaseIndex: 0,
+              currentWeekInPhase: 1,
+            },
+          })),
+
+        advancePhase: () =>
+          set((state) => {
+            if (!state.cycleConfig || !state.cycleState) return state;
+
+            const { cycleConfig, cycleState } = state;
+            const currentPhase = cycleConfig.phases[cycleState.currentPhaseIndex];
+
+            // Check if we need to advance to next week in current phase
+            if (cycleState.currentWeekInPhase < currentPhase.durationWeeks) {
+              return {
+                cycleState: {
+                  ...cycleState,
+                  currentWeekInPhase: cycleState.currentWeekInPhase + 1,
+                },
+              };
+            }
+
+            // Need to advance to next phase
+            const nextPhaseIndex = cycleState.currentPhaseIndex + 1;
+
+            // Check if cycle is complete
+            if (nextPhaseIndex >= cycleConfig.phases.length) {
+              // Reset to start of cycle
+              return {
+                cycleState: {
+                  ...cycleState,
+                  cycleStartDate: new Date().toISOString(),
+                  currentPhaseIndex: 0,
+                  currentWeekInPhase: 1,
+                },
+              };
+            }
+
+            // Advance to next phase
+            return {
+              cycleState: {
+                ...cycleState,
+                currentPhaseIndex: nextPhaseIndex,
+                currentWeekInPhase: 1,
+              },
+            };
+          }),
+
+        resetCycle: () =>
+          set((state) => {
+            if (!state.cycleConfig) return state;
+            return {
+              cycleState: {
+                cycleConfigId: state.cycleConfig.id,
+                cycleStartDate: new Date().toISOString(),
+                currentPhaseIndex: 0,
+                currentWeekInPhase: 1,
+              },
+            };
+          }),
       }),
       {
         name: 'workout-app-storage',

@@ -11,6 +11,7 @@ import {
   Exercise,
   ExperienceLevel,
   getWeekConfigForGoal,
+  PhaseConfig,
 } from '../../types';
 import { getExerciseById } from '../../data/exercises';
 import { getCustomExercises } from '../storage';
@@ -100,11 +101,28 @@ const buildExperienceLevelGuidance = (experienceLevel: ExperienceLevel): string 
 const buildTrainingGuidance = (
   workoutGoal: WorkoutGoal,
   currentWeek?: ProgressiveOverloadWeek,
-  experienceLevel: ExperienceLevel = 'intermediate'
+  experienceLevel: ExperienceLevel = 'intermediate',
+  currentPhase?: PhaseConfig
 ): string => {
   const goalInfo = WORKOUT_GOALS[workoutGoal];
   const experienceGuidance = buildExperienceLevelGuidance(experienceLevel);
 
+  // If we have a phase config, use its AI guidance
+  if (currentPhase) {
+    const phaseGuidance = currentPhase.aiGuidance;
+    const intensityInfo = currentPhase.intensityDescription;
+
+    // For strength phases, include rep range
+    if ('repRangeMin' in currentPhase && 'repRangeMax' in currentPhase) {
+      const repRange = `${currentPhase.repRangeMin}-${currentPhase.repRangeMax} reps`;
+      return `Goal: ${goalInfo.name}. ${experienceGuidance}. Phase: ${currentPhase.name} (${intensityInfo}, ${repRange}). ${phaseGuidance}`;
+    }
+
+    // For cardio phases
+    return `Goal: ${goalInfo.name}. Phase: ${currentPhase.name} (${intensityInfo}). ${phaseGuidance}`;
+  }
+
+  // Legacy system fallback
   if (currentWeek === undefined) {
     return `Goal: ${goalInfo.name}. ${experienceGuidance}. Target: ${goalInfo.defaultRepRange}`;
   }
@@ -345,7 +363,8 @@ export const getPreWorkoutSuggestions = async (
   currentWeek?: ProgressiveOverloadWeek,
   workoutGoal: WorkoutGoal = 'build',
   weightEntries: WeightEntry[] = [],
-  experienceLevel: ExperienceLevel = 'intermediate'
+  experienceLevel: ExperienceLevel = 'intermediate',
+  currentPhase?: PhaseConfig
 ): Promise<ExerciseSuggestion[]> => {
   const customExercises = getCustomExercises();
 
@@ -376,7 +395,7 @@ export const getPreWorkoutSuggestions = async (
 
   // Build shared context (compact)
   const context: SuggestionContext = {
-    trainingGuidance: buildTrainingGuidance(workoutGoal, currentWeek, experienceLevel),
+    trainingGuidance: buildTrainingGuidance(workoutGoal, currentWeek, experienceLevel, currentPhase),
     weightContext: buildWeightContext(weightEntries, weightUnit),
     weightUnit,
   };

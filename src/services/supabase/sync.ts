@@ -187,24 +187,50 @@ export const syncUpdateTemplate = async (template: WorkoutTemplate): Promise<voi
   templateSyncsInFlight.add(template.id);
 
   try {
-    // Guard against corrupted data - templates should never have more than 50 exercises
-    // and should never have more than 3 duplicates of the same exercise
+    // SAFETY: Fetch current DB state first
+    const { data: existingExercises } = await supabase
+      .from('template_exercises')
+      .select('id')
+      .eq('template_id', template.id);
+
+    const dbExerciseCount = existingExercises?.length || 0;
+    const localExerciseCount = template.exercises.length;
+
+    // SAFETY CHECK 1: Never sync if local has no exercises but DB does
+    if (dbExerciseCount > 0 && localExerciseCount === 0) {
+      console.error('[Sync] BLOCKED: Local template has 0 exercises but DB has', dbExerciseCount);
+      return;
+    }
+
+    // SAFETY CHECK 2: Never sync if local has significantly fewer exercises than DB
+    // This catches partial/corrupted state
+    if (dbExerciseCount > 0 && localExerciseCount < dbExerciseCount * 0.5) {
+      console.error('[Sync] BLOCKED: Local has fewer exercises than DB', {
+        templateId: template.id,
+        local: localExerciseCount,
+        db: dbExerciseCount,
+      });
+      return;
+    }
+
+    // SAFETY CHECK 3: Guard against obviously corrupted data
+    if (localExerciseCount > 50) {
+      console.error('[Sync] BLOCKED: Template has too many exercises:', localExerciseCount);
+      return;
+    }
+
+    // Check for duplicate exercises (corruption indicator)
     const exerciseIdCounts = new Map<string, number>();
     for (const ex of template.exercises) {
       exerciseIdCounts.set(ex.exerciseId, (exerciseIdCounts.get(ex.exerciseId) || 0) + 1);
     }
     const maxDuplicates = Math.max(...exerciseIdCounts.values(), 0);
-
-    if (template.exercises.length > 50 || maxDuplicates > 3) {
-      console.error('[Sync] Detected corrupted template data, skipping sync:', {
-        templateId: template.id,
-        exerciseCount: template.exercises.length,
-        maxDuplicates,
-      });
+    if (maxDuplicates > 3) {
+      console.error('[Sync] BLOCKED: Template has too many duplicate exercises:', maxDuplicates);
       return;
     }
 
-    // Update template metadata
+    // Update template metadata only (safe operation)
     await supabase
       .from('workout_templates')
       .update({
@@ -216,54 +242,54 @@ export const syncUpdateTemplate = async (template: WorkoutTemplate): Promise<voi
       .eq('id', template.id)
       .eq('user_id', userId);
 
-    // Delete existing exercises and re-insert
-    const { error: deleteError } = await supabase
+    // ONLY sync exercises if local has exercises AND count matches or exceeds DB
+    // This prevents accidental data loss
+    if (localExerciseCount === 0) {
+      console.log('[Sync] Skipping exercise sync - no local exercises');
+      return;
+    }
+
+    // Delete and re-insert (only if we passed all safety checks)
+    await supabase
       .from('template_exercises')
       .delete()
       .eq('template_id', template.id);
 
-    if (deleteError) {
-      console.error('[Sync] Failed to delete template exercises:', deleteError.message, deleteError.code);
-      throw deleteError;
-    }
+    const exercisesToInsert = template.exercises.map((ex, idx) => {
+      const base = {
+        template_id: template.id,
+        exercise_id: ex.exerciseId,
+        type: ex.type,
+        sort_order: idx,
+        rest_seconds: ex.restSeconds ?? null,
+      };
 
-    if (template.exercises.length > 0) {
-      const exercisesToInsert = template.exercises.map((ex, idx) => {
-        const base = {
-          template_id: template.id,
-          exercise_id: ex.exerciseId,
-          type: ex.type,
-          sort_order: idx,
-          rest_seconds: ex.restSeconds ?? null,
-        };
-
-        if (ex.type === 'cardio') {
-          return {
-            ...base,
-            cardio_category: ex.cardioCategory,
-            tracking_mode: ex.trackingMode || 'detailed',
-            target_calories: ex.targetCalories ?? null,
-            target_duration_minutes: 'targetDurationMinutes' in ex ? ex.targetDurationMinutes ?? null : null,
-            target_intensity: 'targetIntensity' in ex ? ex.targetIntensity ?? null : null,
-            rounds: 'rounds' in ex ? ex.rounds ?? null : null,
-            work_seconds: 'workSeconds' in ex ? ex.workSeconds ?? null : null,
-            rest_between_rounds_seconds: 'restBetweenRoundsSeconds' in ex ? ex.restBetweenRoundsSeconds ?? null : null,
-            target_laps: 'targetLaps' in ex ? ex.targetLaps ?? null : null,
-          };
-        }
-
+      if (ex.type === 'cardio') {
         return {
           ...base,
-          target_sets: ex.targetSets ?? null,
-          target_reps: ex.targetReps ?? null,
+          cardio_category: ex.cardioCategory,
+          tracking_mode: ex.trackingMode || 'detailed',
+          target_calories: ex.targetCalories ?? null,
+          target_duration_minutes: 'targetDurationMinutes' in ex ? ex.targetDurationMinutes ?? null : null,
+          target_intensity: 'targetIntensity' in ex ? ex.targetIntensity ?? null : null,
+          rounds: 'rounds' in ex ? ex.rounds ?? null : null,
+          work_seconds: 'workSeconds' in ex ? ex.workSeconds ?? null : null,
+          rest_between_rounds_seconds: 'restBetweenRoundsSeconds' in ex ? ex.restBetweenRoundsSeconds ?? null : null,
+          target_laps: 'targetLaps' in ex ? ex.targetLaps ?? null : null,
         };
-      });
-
-      const { error: insertError } = await supabase.from('template_exercises').insert(exercisesToInsert);
-      if (insertError) {
-        console.error('[Sync] Failed to insert template exercises:', insertError.message, insertError.code);
-        throw insertError;
       }
+
+      return {
+        ...base,
+        target_sets: ex.targetSets ?? null,
+        target_reps: ex.targetReps ?? null,
+      };
+    });
+
+    const { error: insertError } = await supabase.from('template_exercises').insert(exercisesToInsert);
+    if (insertError) {
+      console.error('[Sync] Failed to insert template exercises:', insertError.message, insertError.code);
+      throw insertError;
     }
   } finally {
     templateSyncsInFlight.delete(template.id);
@@ -304,6 +330,24 @@ export const syncReorderTemplates = async (templateIds: string[]): Promise<void>
 export const syncAddSession = async (session: WorkoutSession): Promise<void> => {
   const userId = await getUserId();
   if (!userId) return;
+
+  // SAFETY CHECK: Never sync a session with zero exercises - this is likely corrupted state
+  if (session.exercises.length === 0) {
+    console.warn('[Sync] SAFETY BLOCK: Refusing to add session with zero exercises:', {
+      sessionId: session.id,
+      sessionName: session.name,
+    });
+    // Save to localStorage for later reconciliation
+    const failedSyncs = JSON.parse(localStorage.getItem('workout-app-failed-syncs') || '[]');
+    failedSyncs.push({
+      type: 'empty_session_blocked',
+      sessionId: session.id,
+      sessionName: session.name,
+      timestamp: new Date().toISOString(),
+    });
+    localStorage.setItem('workout-app-failed-syncs', JSON.stringify(failedSyncs));
+    return;
+  }
 
   // Prevent concurrent syncs of the same session
   if (sessionSyncsInFlight.has(session.id)) {
@@ -414,9 +458,38 @@ export const syncUpdateSession = async (session: WorkoutSession): Promise<void> 
   sessionSyncsInFlight.add(session.id);
 
   try {
-    // For active session updates, we need to sync the full state
-    // This includes updating exercises and sets
+    // SAFETY: Fetch current DB state first
+    const { data: existingExercises } = await supabase
+      .from('session_exercises')
+      .select('id')
+      .eq('session_id', session.id);
 
+    const dbExerciseCount = existingExercises?.length || 0;
+    const localExerciseCount = session.exercises.length;
+
+    // SAFETY CHECK 1: Never sync if local has no exercises but DB does
+    if (dbExerciseCount > 0 && localExerciseCount === 0) {
+      console.error('[Sync] BLOCKED: Local session has 0 exercises but DB has', dbExerciseCount);
+      return;
+    }
+
+    // SAFETY CHECK 2: Never sync if local has significantly fewer exercises than DB
+    if (dbExerciseCount > 0 && localExerciseCount < dbExerciseCount * 0.5) {
+      console.error('[Sync] BLOCKED: Local session has fewer exercises than DB', {
+        sessionId: session.id,
+        local: localExerciseCount,
+        db: dbExerciseCount,
+      });
+      return;
+    }
+
+    // SAFETY CHECK 3: Guard against obviously corrupted data
+    if (localExerciseCount > 50) {
+      console.error('[Sync] BLOCKED: Session has too many exercises:', localExerciseCount);
+      return;
+    }
+
+    // Update session metadata only (safe operation)
     const { error: updateError } = await supabase
       .from('workout_sessions')
       .update({
@@ -438,8 +511,13 @@ export const syncUpdateSession = async (session: WorkoutSession): Promise<void> 
       throw updateError;
     }
 
-    // For completed sessions, also ensure all sets are synced
-    // Delete and re-insert exercises + sets for simplicity
+    // ONLY sync exercises if local has exercises
+    if (localExerciseCount === 0) {
+      console.log('[Sync] Skipping exercise sync - no local exercises');
+      return;
+    }
+
+    // Delete and re-insert exercises + sets (only if we passed all safety checks)
     await supabase.from('session_exercises').delete().eq('session_id', session.id);
 
     if (session.exercises.length > 0) {

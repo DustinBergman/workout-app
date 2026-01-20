@@ -21,8 +21,15 @@ export const useStartWorkout = (): UseStartWorkoutReturn => {
   const workoutGoal = useAppStore((state) => state.workoutGoal);
   const weightEntries = useAppStore((state) => state.weightEntries);
   const setActiveSession = useAppStore((state) => state.setActiveSession);
+  const cycleConfig = useAppStore((state) => state.cycleConfig);
+  const cycleState = useAppStore((state) => state.cycleState);
   const navigate = useNavigate();
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+
+  // Get current phase if using new cycle system
+  const currentPhase = cycleConfig && cycleState
+    ? cycleConfig.phases[cycleState.currentPhaseIndex]
+    : undefined;
 
   const startWorkout = useCallback(async (template: WorkoutTemplate) => {
     const session: WorkoutSession = {
@@ -72,7 +79,8 @@ export const useStartWorkout = (): UseStartWorkoutReturn => {
             currentWeek,
             workoutGoal,
             weightEntries,
-            preferences.experienceLevel || 'intermediate'
+            preferences.experienceLevel || 'intermediate',
+            currentPhase
           ),
           timeoutPromise,
         ]);
@@ -87,7 +95,7 @@ export const useStartWorkout = (): UseStartWorkoutReturn => {
     }
 
     navigate('/workout');
-  }, [sessions, preferences, currentWeek, workoutGoal, weightEntries, setActiveSession, navigate]);
+  }, [sessions, preferences, currentWeek, workoutGoal, weightEntries, setActiveSession, navigate, currentPhase]);
 
   const startQuickWorkout = useCallback(() => {
     const session: WorkoutSession = {

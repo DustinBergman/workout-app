@@ -7,3 +7,5 @@ export { WeightTrackingCard } from './WeightTrackingCard';
 export { MuscleGroupChart } from './MuscleGroupChart';
 export { StatsGrid } from './StatsGrid';
 export { VolumeCard } from './VolumeCard';
+export { CardioStatsCard } from './CardioStatsCard';
+export { ExerciseProgressChart } from './ExerciseProgressChart';

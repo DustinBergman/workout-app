@@ -7,6 +7,7 @@ interface SessionStats {
   totalReps: number;
   totalCardioDistance: number;
   totalCardioDurationSeconds: number;
+  totalCardioCalories: number;
 }
 
 const processSet = (set: CompletedSet) => {
@@ -16,6 +17,7 @@ const processSet = (set: CompletedSet) => {
       reps: 0,
       distance: set.distance ?? 0,
       duration: set.durationSeconds,
+      calories: set.calories ?? 0,
     };
   }
   // Handle strength sets (including legacy sets without type)
@@ -25,6 +27,7 @@ const processSet = (set: CompletedSet) => {
     reps: strengthSet.reps,
     distance: 0,
     duration: 0,
+    calories: 0,
   };
 };
 
@@ -37,6 +40,7 @@ export const useSessionStats = (session: WorkoutSession | null): SessionStats =>
         totalReps: 0,
         totalCardioDistance: 0,
         totalCardioDurationSeconds: 0,
+        totalCardioCalories: 0,
       };
     }
 
@@ -45,6 +49,7 @@ export const useSessionStats = (session: WorkoutSession | null): SessionStats =>
     let totalReps = 0;
     let totalCardioDistance = 0;
     let totalCardioDurationSeconds = 0;
+    let totalCardioCalories = 0;
 
     session.exercises.forEach((ex: SessionExercise) => {
       ex.sets.forEach((set) => {
@@ -54,6 +59,7 @@ export const useSessionStats = (session: WorkoutSession | null): SessionStats =>
         totalReps += processed.reps;
         totalCardioDistance += processed.distance;
         totalCardioDurationSeconds += processed.duration;
+        totalCardioCalories += processed.calories;
       });
     });
 
@@ -63,6 +69,7 @@ export const useSessionStats = (session: WorkoutSession | null): SessionStats =>
       totalReps,
       totalCardioDistance,
       totalCardioDurationSeconds,
+      totalCardioCalories,
     };
   }, [session]);
 };
@@ -74,6 +81,7 @@ export const calculateSessionStats = (session: WorkoutSession): SessionStats => 
   let totalReps = 0;
   let totalCardioDistance = 0;
   let totalCardioDurationSeconds = 0;
+  let totalCardioCalories = 0;
 
   session.exercises.forEach((ex: SessionExercise) => {
     ex.sets.forEach((set) => {
@@ -83,6 +91,7 @@ export const calculateSessionStats = (session: WorkoutSession): SessionStats => 
       totalReps += processed.reps;
       totalCardioDistance += processed.distance;
       totalCardioDurationSeconds += processed.duration;
+      totalCardioCalories += processed.calories;
     });
   });
 
@@ -92,5 +101,6 @@ export const calculateSessionStats = (session: WorkoutSession): SessionStats => 
     totalReps,
     totalCardioDistance,
     totalCardioDurationSeconds,
+    totalCardioCalories,
   };
 };

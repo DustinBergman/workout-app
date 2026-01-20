@@ -1,6 +1,6 @@
 import { supabase } from '../../lib/supabase';
 import { getAuthUser } from './authHelper';
-import type { UserPreferences, WorkoutGoal, ExperienceLevel, ProgressiveOverloadWeek } from '../../types';
+import type { UserPreferences, WorkoutGoal, ExperienceLevel, ProgressiveOverloadWeek, UserCycleState } from '../../types';
 
 export interface Profile {
   id: string;
@@ -20,6 +20,8 @@ export interface Profile {
   has_completed_intro: boolean;
   openai_api_key: string | null;
   weekly_workout_goal: number;
+  cycle_config_id: string | null;
+  cycle_state: UserCycleState | null;
   created_at: string;
   updated_at: string;
 }

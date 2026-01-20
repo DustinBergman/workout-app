@@ -545,3 +545,6 @@ export const STORAGE_KEYS = {
   ACTIVE_SESSION: 'workout-app-active-session',
   CUSTOM_EXERCISES: 'workout-app-custom-exercises',
 } as const;
+
+// Re-export cycle types
+export * from './cycles';

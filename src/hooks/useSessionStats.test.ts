@@ -43,6 +43,7 @@ describe('useSessionStats', () => {
       totalReps: 0,
       totalCardioDistance: 0,
       totalCardioDurationSeconds: 0,
+      totalCardioCalories: 0,
     });
   });
 
@@ -56,6 +57,7 @@ describe('useSessionStats', () => {
       totalReps: 0,
       totalCardioDistance: 0,
       totalCardioDurationSeconds: 0,
+      totalCardioCalories: 0,
     });
   });
 
@@ -77,6 +79,7 @@ describe('useSessionStats', () => {
       totalReps: 18, // 10 + 8
       totalCardioDistance: 0,
       totalCardioDurationSeconds: 0,
+      totalCardioCalories: 0,
     });
   });
 
@@ -101,6 +104,7 @@ describe('useSessionStats', () => {
       totalReps: 20, // 10 + 5 + 5
       totalCardioDistance: 0,
       totalCardioDurationSeconds: 0,
+      totalCardioCalories: 0,
     });
   });
 
@@ -122,6 +126,7 @@ describe('useSessionStats', () => {
       totalReps: 5,
       totalCardioDistance: 0,
       totalCardioDurationSeconds: 0,
+      totalCardioCalories: 0,
     });
   });
 
@@ -143,6 +148,7 @@ describe('useSessionStats', () => {
       totalReps: 35,
       totalCardioDistance: 0,
       totalCardioDurationSeconds: 0,
+      totalCardioCalories: 0,
     });
   });
 });
@@ -167,6 +173,7 @@ describe('calculateSessionStats', () => {
       totalReps: 24,
       totalCardioDistance: 0,
       totalCardioDurationSeconds: 0,
+      totalCardioCalories: 0,
     });
   });
 });
