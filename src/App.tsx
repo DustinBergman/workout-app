@@ -25,6 +25,9 @@ import { NotificationBell } from './components/notifications';
 import { ToastContainer } from './components/ui/ToastContainer';
 import { useAuth } from './hooks/useAuth';
 import { useSync } from './hooks/useSync';
+import { Capacitor } from '@capacitor/core';
+import { App as CapApp } from '@capacitor/app';
+import { StatusBar, Style } from '@capacitor/status-bar';
 
 const HeaderContent: FC = () => {
   const location = useLocation();
@@ -183,7 +186,7 @@ const AppContent: FC = () => {
         <GlobalTimerNotification />
 
         {/* Header */}
-        <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-sm border-b border-border">
+        <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-sm border-b border-border safe-area-pt">
           <HeaderContent />
         </header>
 
@@ -217,6 +220,26 @@ const App: FC = () => {
   useEffect(() => {
     migrateTemplates();
     migrateToUUIDs();
+  }, []);
+
+  // Setup native platform features (iOS/Android)
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      // Set status bar style for dark theme
+      StatusBar.setStyle({ style: Style.Dark }).catch(console.error);
+
+      // Handle deep links for OAuth callbacks
+      CapApp.addListener('appUrlOpen', (event) => {
+        console.log('Deep link received:', event.url);
+        // The URL will be handled by Supabase auth automatically
+      });
+    }
+
+    return () => {
+      if (Capacitor.isNativePlatform()) {
+        CapApp.removeAllListeners();
+      }
+    };
   }, []);
 
   return (
