@@ -6,7 +6,7 @@ interface CopyWorkoutModalProps {
   isOpen: boolean;
   onClose: () => void;
   workout: FeedWorkout;
-  onCopy: (name: string) => void;
+  onCopy: (name: string) => Promise<void>;
 }
 
 export const CopyWorkoutModal: FC<CopyWorkoutModalProps> = ({
@@ -27,7 +27,7 @@ export const CopyWorkoutModal: FC<CopyWorkoutModalProps> = ({
 
     setIsCopying(true);
     try {
-      onCopy(templateName.trim());
+      await onCopy(templateName.trim());
       onClose();
     } finally {
       setIsCopying(false);

@@ -2,6 +2,7 @@ import { FC, useState, useCallback } from 'react';
 import Cropper, { Area } from 'react-easy-crop';
 import { Button } from '../ui';
 import { getCroppedImg } from '../../utils/cropImage';
+import { toast } from '../../store/toastStore';
 
 interface ImageCropperProps {
   imageSrc: string;
@@ -40,6 +41,7 @@ export const ImageCropper: FC<ImageCropperProps> = ({
       onCropComplete(croppedBlob);
     } catch (error) {
       console.error('Error cropping image:', error);
+      toast.error('Failed to crop image');
     } finally {
       setIsProcessing(false);
     }

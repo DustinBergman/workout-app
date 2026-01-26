@@ -17,6 +17,7 @@ import { WORKOUT_MOOD_CONFIG, getWeekConfigForGoal, CardioType, DistanceUnit } f
 import { deleteSession } from '../../services/supabase/sessions';
 import { toast } from '../../store/toastStore';
 import { convertFeedWorkoutToTemplate, estimateCardioCalories } from '../../utils/workoutUtils';
+import { syncAddTemplate, syncAddCustomExercise } from '../../services/supabase/sync';
 
 interface FeedWorkoutCardProps {
   workout: FeedWorkout;
@@ -174,19 +175,41 @@ export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
     }
   }, [workout.id, deleteSessionFromStore, onDelete]);
 
-  const handleCopyWorkout = useCallback((templateName: string) => {
+  const handleCopyWorkout = useCallback(async (templateName: string) => {
     try {
       const { template, newCustomExercises } = convertFeedWorkoutToTemplate(workout, templateName, customExercises);
 
-      // First, add any new custom exercises that were copied
+      // First, add any new custom exercises that were copied to local state
       for (const exercise of newCustomExercises) {
         addCustomExercise(exercise);
       }
 
-      // Then add the template (which references the new exercise IDs)
+      // Then add the template to local state (which references the new exercise IDs)
       addTemplate(template);
 
-      if (newCustomExercises.length > 0) {
+      // Sync to cloud: custom exercises first, then template
+      // This ensures the exercises exist before the template references them
+      const syncErrors: string[] = [];
+
+      for (const exercise of newCustomExercises) {
+        try {
+          await syncAddCustomExercise(exercise);
+        } catch (err) {
+          console.error('[Copy] Failed to sync custom exercise:', err);
+          syncErrors.push(`Exercise: ${exercise.name}`);
+        }
+      }
+
+      try {
+        await syncAddTemplate(template);
+      } catch (err) {
+        console.error('[Copy] Failed to sync template:', err);
+        syncErrors.push('Template');
+      }
+
+      if (syncErrors.length > 0) {
+        toast.success('Workout copied! (Some items saved locally only)');
+      } else if (newCustomExercises.length > 0) {
         toast.success(`Workout copied with ${newCustomExercises.length} custom exercise${newCustomExercises.length > 1 ? 's' : ''}!`);
       } else {
         toast.success('Workout copied to your plans!');

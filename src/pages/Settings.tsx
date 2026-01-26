@@ -26,6 +26,7 @@ import {
 import { useAuth } from '../hooks/useAuth';
 import { getProfile, updateUsername, checkUsernameAvailability } from '../services/supabase/profiles';
 import { getCycleRecommendation, CycleRecommendation } from '../services/openai';
+import { toast } from '../store/toastStore';
 
 export const Settings: FC = () => {
   const navigate = useNavigate();
@@ -221,6 +222,7 @@ export const Settings: FC = () => {
       setCycleRecommendation(recommendation);
     } catch (error) {
       console.error('Failed to get cycle recommendation:', error);
+      toast.error('Failed to get AI recommendation');
     } finally {
       setLoadingRecommendation(false);
     }
