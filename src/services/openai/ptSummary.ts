@@ -543,7 +543,7 @@ FOR CARDIO-FOCUSED USERS:
 - Avoid strength-specific advice unless they do hybrid training
 ` : '';
 
-  return `You are an encouraging, knowledgeable personal trainer providing a check-in summary for your client. Your tone is:
+  return `You are an AI fitness assistant providing a check-in summary for the user. Your tone is:
 - Warm and supportive, like talking to a friend
 - Specific to THEIR progress (use their name if available)
 - Action-oriented without being pushy
@@ -603,9 +603,9 @@ IMPROVING: ${data.exercisesImproving.join(', ') || 'None'}
 
 RECENT PRs: ${data.recentPRs.map(p => `${p.exerciseName} (${p.daysAgo}d ago)`).join(', ') || 'None in last 30 days'}`;
 
-  return `Based on this client data, provide a personalized PT summary:
+  return `Based on this user data, provide a personalized PT summary:
 
-CLIENT PROFILE:
+USER PROFILE:
 - Name: ${data.firstName || 'there'}
 - Experience: ${data.experienceLevel}
 - Goal: ${goalInfo.name}

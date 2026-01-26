@@ -42,7 +42,7 @@ export interface GeneratedCardioPlan {
   }>;
 }
 
-const SYSTEM_PROMPT = `You are a professional fitness coach AI that creates personalized workout plans.
+const SYSTEM_PROMPT = `You are an AI fitness assistant that creates personalized workout plans.
 
 IMPORTANT RULES:
 1. Only use exercises from the provided exercise list - do not invent exercises

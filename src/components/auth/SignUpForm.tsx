@@ -4,6 +4,7 @@ import { Button, Input } from '../ui';
 import { useAuth } from '../../hooks/useAuth';
 import { resendConfirmation } from '../../services/supabase/auth';
 import { checkUsernameAvailability } from '../../services/supabase/profiles';
+import { DisclaimerModal } from './DisclaimerModal';
 
 interface SignUpFormProps {
   onSwitchToLogin: () => void;
@@ -28,6 +29,8 @@ export const SignUpForm: FC<SignUpFormProps> = ({
   const [confirmedEmail, setConfirmedEmail] = useState('');
   const [resendStatus, setResendStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [isCheckingUsername, setIsCheckingUsername] = useState(false);
+  const [showDisclaimer, setShowDisclaimer] = useState(false);
+  const [pendingFormData, setPendingFormData] = useState<SignUpFormData | null>(null);
 
   // Cache the last validated username to avoid redundant API calls
   const usernameValidationCache = useRef<{ username: string; result: string | true } | null>(null);
@@ -96,24 +99,40 @@ export const SignUpForm: FC<SignUpFormProps> = ({
   }, []);
 
   const onSubmit = async (data: SignUpFormData) => {
+    // Show disclaimer first
+    setPendingFormData(data);
+    setShowDisclaimer(true);
+  };
+
+  const handleDisclaimerAccept = async () => {
+    if (!pendingFormData) return;
+
+    setShowDisclaimer(false);
     setError(null);
     setIsLoading(true);
 
-    const { error: authError } = await signUp(data.email, data.password, {
-      username: data.username,
-      firstName: data.firstName || undefined,
-      lastName: data.lastName || undefined,
+    const { error: authError } = await signUp(pendingFormData.email, pendingFormData.password, {
+      username: pendingFormData.username,
+      firstName: pendingFormData.firstName || undefined,
+      lastName: pendingFormData.lastName || undefined,
     });
 
     if (authError) {
       setError(authError.message);
       setIsLoading(false);
+      setPendingFormData(null);
       return;
     }
 
-    setConfirmedEmail(data.email);
+    setConfirmedEmail(pendingFormData.email);
     setIsLoading(false);
     setShowConfirmation(true);
+    setPendingFormData(null);
+  };
+
+  const handleDisclaimerDecline = () => {
+    setShowDisclaimer(false);
+    setPendingFormData(null);
   };
 
   const handleResendEmail = async () => {
@@ -284,6 +303,12 @@ export const SignUpForm: FC<SignUpFormProps> = ({
           Sign in
         </button>
       </p>
+
+      <DisclaimerModal
+        isOpen={showDisclaimer}
+        onAccept={handleDisclaimerAccept}
+        onDecline={handleDisclaimerDecline}
+      />
     </form>
   );
 };

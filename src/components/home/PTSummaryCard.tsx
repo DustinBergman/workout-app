@@ -41,7 +41,7 @@ export const PTSummaryCard: FC<PTSummaryCardProps> = ({ summary, loading }) => {
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-semibold text-purple-900 dark:text-purple-100 flex items-center">
             <Sparkles className="w-4 h-4 mr-2 text-purple-500" />
-            Your Coach Says
+            AI Suggestions
           </h2>
           {hasExpandableContent && (
             <button
