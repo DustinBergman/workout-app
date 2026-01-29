@@ -15,6 +15,7 @@ body {
 }
 
 @theme inline {
+  /* Radius tokens */
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -22,6 +23,42 @@ body {
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
+
+  /* ===========================================
+     SEMANTIC COLOR TOKENS
+     Use these in components for consistent theming
+     =========================================== */
+
+  /* Foreground (text) hierarchy - use for text colors */
+  --color-fg-1: var(--fg-1);           /* Primary text - headings, important content */
+  --color-fg-2: var(--fg-2);           /* Secondary text - body text, descriptions */
+  --color-fg-3: var(--fg-3);           /* Tertiary text - placeholders, hints, disabled */
+  --color-fg-inverted: var(--fg-inverted); /* Inverted text - text on primary/dark backgrounds */
+
+  /* Background hierarchy - use for surfaces */
+  --color-bg-1: var(--bg-1);           /* Primary background - main app background */
+  --color-bg-2: var(--bg-2);           /* Secondary background - cards, panels */
+  --color-bg-3: var(--bg-3);           /* Tertiary background - modals, elevated surfaces */
+  --color-bg-subtle: var(--bg-subtle); /* Subtle background - hover states, highlights */
+
+  /* Border hierarchy */
+  --color-border-1: var(--border-1);   /* Primary border - dividers, card borders */
+  --color-border-2: var(--border-2);   /* Subtle border - inner dividers, subtle separators */
+
+  /* Interactive colors */
+  --color-interactive: var(--interactive);             /* Interactive elements - buttons, links */
+  --color-interactive-hover: var(--interactive-hover); /* Hover state */
+  --color-interactive-fg: var(--interactive-fg);       /* Text on interactive backgrounds */
+
+  /* Status colors */
+  --color-success: var(--success);
+  --color-success-fg: var(--success-fg);
+  --color-warning: var(--warning);
+  --color-warning-fg: var(--warning-fg);
+  --color-error: var(--error);
+  --color-error-fg: var(--error-fg);
+
+  /* Legacy tokens (keeping for backwards compatibility) */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -57,7 +94,41 @@ body {
 
 :root {
   --radius: 0.625rem;
-  /* Slate-based light theme with blue primary */
+
+  /* ===========================================
+     SEMANTIC TOKENS - Light Mode
+     =========================================== */
+
+  /* Foreground (text) hierarchy */
+  --fg-1: oklch(0.129 0.042 264.695);      /* Primary text - almost black */
+  --fg-2: oklch(0.35 0.03 260);            /* Secondary text - dark gray */
+  --fg-3: oklch(0.554 0.022 257.417);      /* Tertiary text - medium gray */
+  --fg-inverted: oklch(0.984 0.003 247.858); /* White text for dark backgrounds */
+
+  /* Background hierarchy */
+  --bg-1: oklch(0.984 0.003 247.858);      /* Main background - off-white */
+  --bg-2: oklch(1 0 0);                     /* Card background - pure white */
+  --bg-3: oklch(1 0 0);                     /* Modal background - pure white */
+  --bg-subtle: oklch(0.968 0.007 247.896); /* Subtle background - very light gray */
+
+  /* Border hierarchy */
+  --border-1: oklch(0.929 0.013 255.508);  /* Primary border */
+  --border-2: oklch(0.95 0.008 250);       /* Subtle border */
+
+  /* Interactive colors */
+  --interactive: oklch(0.546 0.245 262.881);       /* Blue primary */
+  --interactive-hover: oklch(0.48 0.22 262.881);   /* Darker on hover */
+  --interactive-fg: oklch(0.984 0.003 247.858);    /* White text on interactive */
+
+  /* Status colors */
+  --success: oklch(0.55 0.17 145);         /* Green */
+  --success-fg: oklch(0.98 0.01 145);      /* White/light text on success */
+  --warning: oklch(0.75 0.15 85);          /* Amber/Orange */
+  --warning-fg: oklch(0.25 0.05 85);       /* Dark text on warning */
+  --error: oklch(0.577 0.245 27.325);      /* Red */
+  --error-fg: oklch(0.98 0.01 27);         /* White text on error */
+
+  /* Legacy tokens (Slate-based light theme with blue primary) */
   --background: oklch(0.984 0.003 247.858);
   --foreground: oklch(0.129 0.042 264.695);
   --card: oklch(1 0 0);
@@ -92,7 +163,40 @@ body {
 }
 
 .dark {
-  /* Slate-based dark theme with baby blue primary */
+  /* ===========================================
+     SEMANTIC TOKENS - Dark Mode
+     =========================================== */
+
+  /* Foreground (text) hierarchy */
+  --fg-1: oklch(0.984 0.003 247.858);      /* Primary text - almost white */
+  --fg-2: oklch(0.8 0.01 260);             /* Secondary text - light gray */
+  --fg-3: oklch(0.704 0.015 261.285);      /* Tertiary text - medium gray */
+  --fg-inverted: oklch(0.129 0.042 264.695); /* Dark text for light backgrounds */
+
+  /* Background hierarchy */
+  --bg-1: oklch(0.129 0.042 264.695);      /* Main background - very dark */
+  --bg-2: oklch(0.34 0.028 265.755);       /* Card background - lighter */
+  --bg-3: oklch(0.38 0.025 265.755);       /* Modal background - even lighter */
+  --bg-subtle: oklch(0.36 0.025 260.031);  /* Subtle background */
+
+  /* Border hierarchy */
+  --border-1: oklch(0.35 0.04 260);        /* Primary border */
+  --border-2: oklch(0.279 0.041 260.031);  /* Subtle border */
+
+  /* Interactive colors */
+  --interactive: oklch(0.75 0.14 230);          /* Baby blue primary */
+  --interactive-hover: oklch(0.8 0.12 230);     /* Lighter on hover */
+  --interactive-fg: oklch(0.15 0.03 260);       /* Dark text on interactive */
+
+  /* Status colors */
+  --success: oklch(0.65 0.17 145);         /* Brighter green for dark mode */
+  --success-fg: oklch(0.15 0.05 145);      /* Dark text on success */
+  --warning: oklch(0.8 0.15 85);           /* Brighter amber */
+  --warning-fg: oklch(0.2 0.05 85);        /* Dark text on warning */
+  --error: oklch(0.704 0.191 22.216);      /* Brighter red */
+  --error-fg: oklch(0.98 0.01 22);         /* Light text on error */
+
+  /* Legacy tokens (Slate-based dark theme with baby blue primary) */
   --background: oklch(0.129 0.042 264.695);
   --foreground: oklch(0.984 0.003 247.858);
   --card: oklch(0.28 0.042 265.755);

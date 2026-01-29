@@ -2,6 +2,7 @@ import { FC } from 'react';
 import {
   Card,
   Input,
+  Button,
   Select,
   SelectTrigger,
   SelectValue,
@@ -59,36 +60,39 @@ export const ExerciseLibrary: FC = () => {
 
         {/* Exercise Type Toggle */}
         <div className="flex rounded-lg overflow-hidden border border-gray-300 dark:border-gray-600 mb-4">
-          <button
+          <Button
+            variant="ghost"
             onClick={() => setSelectedType('')}
-            className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
+            className={`flex-1 px-4 py-2 text-sm font-medium rounded-none ${
               selectedType === ''
-                ? 'bg-blue-500 text-white'
+                ? 'bg-blue-500 text-white hover:bg-blue-500'
                 : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
             }`}
           >
             All
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="ghost"
             onClick={() => setSelectedType('strength')}
-            className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
+            className={`flex-1 px-4 py-2 text-sm font-medium rounded-none ${
               selectedType === 'strength'
-                ? 'bg-blue-500 text-white'
+                ? 'bg-blue-500 text-white hover:bg-blue-500'
                 : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
             }`}
           >
             Strength
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="ghost"
             onClick={() => setSelectedType('cardio')}
-            className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
+            className={`flex-1 px-4 py-2 text-sm font-medium rounded-none ${
               selectedType === 'cardio'
-                ? 'bg-blue-500 text-white'
+                ? 'bg-blue-500 text-white hover:bg-blue-500'
                 : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
             }`}
           >
             Cardio
-          </button>
+          </Button>
         </div>
 
         {/* Filters */}

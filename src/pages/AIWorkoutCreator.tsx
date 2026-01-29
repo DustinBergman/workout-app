@@ -265,30 +265,33 @@ export const AIWorkoutCreator: FC = () => {
 
             <div className="flex-1 space-y-3 mb-6 overflow-y-auto">
               {WORKOUT_TYPE_OPTIONS.map((option) => (
-                <button
+                <Button
                   key={option.value}
                   type="button"
+                  variant="ghost"
                   onClick={() => setValue('workoutType', option.value)}
-                  className={`w-full p-4 rounded-xl border text-left transition-all ${
+                  className={`w-full h-auto p-4 rounded-xl border text-left justify-start transition-all ${
                     selectedWorkoutType === option.value
                       ? 'border-primary bg-primary/10'
                       : 'border-border/50 bg-card/60 backdrop-blur-lg hover:border-primary/50'
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-semibold text-foreground">
-                      {option.label}
-                    </span>
-                    {selectedWorkoutType === option.value && (
-                      <svg className="w-5 h-5 text-primary" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                    )}
+                  <div className="w-full">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-semibold text-foreground">
+                        {option.label}
+                      </span>
+                      {selectedWorkoutType === option.value && (
+                        <svg className="w-5 h-5 text-primary" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      )}
+                    </div>
+                    <p className="text-sm text-muted-foreground font-normal whitespace-normal">
+                      {option.description}
+                    </p>
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    {option.description}
-                  </p>
-                </button>
+                </Button>
               ))}
 
               {/* Custom muscle group selection - inside scrollable area */}
@@ -297,18 +300,20 @@ export const AIWorkoutCreator: FC = () => {
                   <p className="font-medium text-foreground mb-3">Select muscle groups</p>
                   <div className="flex flex-wrap gap-2">
                     {MUSCLE_GROUP_OPTIONS.map((option) => (
-                      <button
+                      <Button
                         key={option.value}
                         type="button"
+                        variant="ghost"
+                        size="sm"
                         onClick={() => toggleMuscleGroup(option.value)}
-                        className={`px-3 py-1.5 text-sm rounded-full transition-all ${
+                        className={`rounded-full ${
                           selectedMuscleGroups.includes(option.value)
-                            ? 'bg-primary text-primary-foreground'
+                            ? 'bg-primary text-primary-foreground hover:bg-primary/90'
                             : 'bg-muted text-muted-foreground hover:bg-muted/80'
                         }`}
                       >
                         {option.label}
-                      </button>
+                      </Button>
                     ))}
                   </div>
                 </Card>
@@ -367,18 +372,20 @@ export const AIWorkoutCreator: FC = () => {
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {CARDIO_TYPE_OPTIONS.map((option) => (
-                      <button
+                      <Button
                         key={option.value}
                         type="button"
+                        variant="ghost"
+                        size="sm"
                         onClick={() => toggleCardioType(option.value)}
-                        className={`px-3 py-1.5 text-sm rounded-full transition-all ${
+                        className={`rounded-full ${
                           selectedCardioTypes.includes(option.value)
-                            ? 'bg-primary text-primary-foreground'
+                            ? 'bg-primary text-primary-foreground hover:bg-primary/90'
                             : 'bg-muted text-muted-foreground hover:bg-muted/80'
                         }`}
                       >
                         {option.label}
-                      </button>
+                      </Button>
                     ))}
                   </div>
                   {selectedCardioTypes.length === 0 && (
@@ -397,18 +404,20 @@ export const AIWorkoutCreator: FC = () => {
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {EQUIPMENT_OPTIONS.map((option) => (
-                      <button
+                      <Button
                         key={option.value}
                         type="button"
+                        variant="ghost"
+                        size="sm"
                         onClick={() => toggleEquipment(option.value)}
-                        className={`px-3 py-1.5 text-sm rounded-full transition-all ${
+                        className={`rounded-full ${
                           selectedEquipment.includes(option.value)
-                            ? 'bg-primary text-primary-foreground'
+                            ? 'bg-primary text-primary-foreground hover:bg-primary/90'
                             : 'bg-muted text-muted-foreground hover:bg-muted/80'
                         }`}
                       >
                         {option.label}
-                      </button>
+                      </Button>
                     ))}
                   </div>
                   {selectedEquipment.length === 0 && (

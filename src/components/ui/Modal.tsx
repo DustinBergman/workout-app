@@ -26,7 +26,7 @@ export const Modal: FC<ModalProps> = ({ isOpen, onClose, title, children, footer
           className={cn(
             'fixed bottom-0 left-0 right-0 z-50',
             'w-full',
-            'bg-background rounded-t-2xl shadow-xl border-t border-x border-border',
+            'bg-bg-1 rounded-t-2xl shadow-xl border-t border-x border-border-1',
             'h-[70vh] overflow-hidden flex flex-col',
             'data-[state=open]:animate-in data-[state=closed]:animate-out',
             'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
@@ -35,15 +35,15 @@ export const Modal: FC<ModalProps> = ({ isOpen, onClose, title, children, footer
           )}
         >
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-border">
-            <DialogPrimitive.Title className="text-lg font-semibold text-foreground">
+          <div className="flex items-center justify-between p-4 border-b border-border-1">
+            <DialogPrimitive.Title className="text-lg font-semibold text-fg-1">
               {title}
             </DialogPrimitive.Title>
             <DialogPrimitive.Close
               className={cn(
-                'rounded-md p-1.5 text-muted-foreground transition-colors',
-                'hover:bg-accent hover:text-foreground',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+                'rounded-md p-1.5 text-fg-3 transition-colors',
+                'hover:bg-bg-subtle hover:text-fg-1',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-interactive'
               )}
             >
               <X className="h-5 w-5" />
@@ -58,7 +58,7 @@ export const Modal: FC<ModalProps> = ({ isOpen, onClose, title, children, footer
 
           {/* Footer */}
           {footer && (
-            <div className="p-4 border-t border-border flex justify-end gap-2">
+            <div className="p-4 border-t border-border-1 flex justify-end gap-2">
               {footer}
             </div>
           )}

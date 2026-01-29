@@ -1,6 +1,6 @@
 import { FC, useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
-import { Navigation, SyncIndicator } from './components/ui';
+import { Navigation, SyncIndicator, Button } from './components/ui';
 import {
   Home,
   ExerciseLibrary,
@@ -68,9 +68,10 @@ const HeaderContent: FC = () => {
   if (hasActiveWorkout && !isOnWorkoutPage) {
     return (
       <div className="flex items-center justify-between px-4 h-14 bg-gradient-to-r from-yellow-500/20 to-amber-500/20 hover:from-yellow-500/30 hover:to-amber-500/30 border-b border-yellow-500/50 transition-colors">
-        <button
+        <Button
+          variant="ghost"
           onClick={() => navigate('/workout')}
-          className="flex-1 flex items-center gap-3 cursor-pointer"
+          className="flex-1 h-auto flex items-center gap-3 cursor-pointer justify-start px-0"
         >
           <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" />
           <span className="text-sm font-semibold text-yellow-400">
@@ -79,7 +80,7 @@ const HeaderContent: FC = () => {
           <span className="text-sm text-yellow-300">
             {formatTime(elapsedSeconds)}
           </span>
-        </button>
+        </Button>
         <Link
           to="/settings"
           className="p-2 text-muted-foreground hover:text-foreground transition-colors"

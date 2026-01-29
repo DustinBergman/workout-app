@@ -39,7 +39,7 @@ export const Avatar: FC<AvatarProps> = ({
   const baseClasses = cn(
     'rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden',
     sizeClasses[size],
-    onClick && 'cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all',
+    onClick && 'cursor-pointer hover:ring-2 hover:ring-interactive/50 transition-all',
     className
   );
 
@@ -61,7 +61,7 @@ export const Avatar: FC<AvatarProps> = ({
     <div
       className={cn(
         baseClasses,
-        'bg-gradient-to-br from-primary to-purple-600 text-white font-bold'
+        'bg-gradient-to-br from-interactive to-purple-600 text-fg-inverted font-bold'
       )}
       onClick={onClick}
     >

@@ -1,5 +1,5 @@
 import { FC, createElement, useCallback } from 'react';
-import { Card } from '../components/ui';
+import { Card, Button } from '../components/ui';
 import {
   WorkoutHeatmap,
   HistorySessionCard,
@@ -59,26 +59,30 @@ export const History: FC = () => {
             Workout History
           </h1>
           <div className="flex rounded-lg overflow-hidden border border-gray-300 dark:border-gray-600">
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => setViewMode('list')}
-              className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+              className={`rounded-none ${
                 viewMode === 'list'
-                  ? 'bg-blue-500 text-white'
+                  ? 'bg-blue-500 text-white hover:bg-blue-500'
                   : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
               }`}
             >
               List
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => setViewMode('heatmap')}
-              className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+              className={`rounded-none ${
                 viewMode === 'heatmap'
-                  ? 'bg-blue-500 text-white'
+                  ? 'bg-blue-500 text-white hover:bg-blue-500'
                   : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
               }`}
             >
               Heatmap
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -130,12 +134,14 @@ export const History: FC = () => {
                     year: 'numeric',
                   })}
                 </span>
-                <button
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={clearDateFilter}
-                  className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200"
+                  className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200"
                 >
                   Clear filter
-                </button>
+                </Button>
               </div>
             )}
 

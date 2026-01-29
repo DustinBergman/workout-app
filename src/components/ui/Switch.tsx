@@ -9,9 +9,9 @@ const Switch = forwardRef<
   <SwitchPrimitive.Root
     className={cn(
       'peer inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent shadow-sm transition-colors',
-      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-interactive focus-visible:ring-offset-2 focus-visible:ring-offset-bg-1',
       'disabled:cursor-not-allowed disabled:opacity-50',
-      'data-[state=checked]:bg-primary data-[state=unchecked]:bg-input',
+      'data-[state=checked]:bg-interactive data-[state=unchecked]:bg-border-1',
       className
     )}
     {...props}
@@ -19,7 +19,7 @@ const Switch = forwardRef<
   >
     <SwitchPrimitive.Thumb
       className={cn(
-        'pointer-events-none block h-5 w-5 rounded-full bg-background shadow-lg ring-0 transition-transform',
+        'pointer-events-none block h-5 w-5 rounded-full bg-bg-1 shadow-lg ring-0 transition-transform',
         'data-[state=checked]:translate-x-5 data-[state=unchecked]:translate-x-0'
       )}
     />

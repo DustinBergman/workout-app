@@ -16,7 +16,7 @@ export const SyncIndicator: FC = () => {
   if (status === 'syncing') {
     return (
       <div className="flex items-center">
-        <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        <div className="w-4 h-4 border-2 border-interactive border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -34,7 +34,7 @@ export const SyncIndicator: FC = () => {
 
   if (status === 'error') {
     return (
-      <div className="flex items-center gap-1.5 text-xs text-destructive">
+      <div className="flex items-center gap-1.5 text-xs text-error">
         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>

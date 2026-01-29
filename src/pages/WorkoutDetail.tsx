@@ -4,7 +4,7 @@ import { FeedWorkout, getWorkoutById } from '../services/supabase/feed';
 import { getLikeSummary, LikeSummary } from '../services/supabase/likes';
 import { getCommentCount } from '../services/supabase/comments';
 import { FeedWorkoutCard } from '../components/social/FeedWorkoutCard';
-import { Card } from '../components/ui';
+import { Card, Button } from '../components/ui';
 
 export const WorkoutDetail: FC = () => {
   const { workoutId } = useParams<{ workoutId: string }>();
@@ -68,15 +68,17 @@ export const WorkoutDetail: FC = () => {
   if (error || !workout) {
     return (
       <div className="px-3 py-2 max-w-2xl mx-auto">
-        <button
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={() => navigate(-1)}
-          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-3"
+          className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground mb-3 px-2"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
           Back
-        </button>
+        </Button>
         <Card className="p-6 text-center">
           <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-muted flex items-center justify-center">
             <svg className="w-6 h-6 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -94,15 +96,17 @@ export const WorkoutDetail: FC = () => {
 
   return (
     <div className="px-3 py-2 max-w-2xl mx-auto">
-      <button
+      <Button
+        variant="ghost"
+        size="sm"
         onClick={() => navigate(-1)}
-        className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-3"
+        className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground mb-3 px-2"
       >
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
         </svg>
         Back
-      </button>
+      </Button>
 
       <FeedWorkoutCard
         workout={workout}

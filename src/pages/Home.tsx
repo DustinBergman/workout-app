@@ -7,7 +7,6 @@ import { useModal } from '../contexts/ModalContext';
 import {
   FloatingOrbsBackground,
   ApiKeyBanner,
-  WeightReminderBanner,
   DeloadRecommendationBanner,
   PTSummaryCard,
   ActiveWorkoutBanner,
@@ -19,7 +18,6 @@ import {
   LoadingModal,
 } from '../components/home';
 import {
-  WeightLogModalWrapper,
   WeekSelectorModalWrapper,
 } from '../components/modals';
 
@@ -41,7 +39,6 @@ export const Home: FC = () => {
     recentSessions,
     nextWorkout,
     memberSince,
-    shouldShowWeightReminder,
     ptSummary,
     loadingPTSummary,
     deloadRecommendation,
@@ -51,10 +48,6 @@ export const Home: FC = () => {
   const resumeWorkout = () => {
     navigate('/workout');
   };
-
-  const openWeightModal = useCallback(() => {
-    openModal(createElement(WeightLogModalWrapper));
-  }, [openModal]);
 
   const openWeekSelector = useCallback(() => {
     openModal(createElement(WeekSelectorModalWrapper));
@@ -79,11 +72,6 @@ export const Home: FC = () => {
 
         {/* API Key Banner */}
         {!preferences.openaiApiKey && <ApiKeyBanner />}
-
-        {/* Weight Reminder Banner */}
-        {shouldShowWeightReminder && (
-          <WeightReminderBanner onClick={openWeightModal} />
-        )}
 
         {/* Deload Recommendation Banner */}
         {deloadRecommendation && (

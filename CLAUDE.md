@@ -51,3 +51,12 @@ This project uses Vitest for testing. Follow these guidelines:
 ### Build Commands
 - `npm run build` - TypeScript check + production build
 - `npm run dev` - Start development server
+
+---
+
+## Git Workflow
+
+**IMPORTANT:** Do NOT commit or push unless explicitly asked by the user.
+- Only run `git commit` when the user explicitly requests a commit
+- Only run `git push` when the user explicitly requests a push
+- It's fine to stage files with `git add` as part of reviewing changes

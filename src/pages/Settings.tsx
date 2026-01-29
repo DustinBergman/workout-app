@@ -473,33 +473,36 @@ export const Settings: FC = () => {
             const goalInfo = WORKOUT_GOALS[goal];
             const isSelected = goal === workoutGoal;
             return (
-              <button
+              <Button
                 key={goal}
+                variant="ghost"
                 onClick={() => handleGoalClick(goal)}
-                className={`w-full p-4 rounded-xl border text-left transition-all ${
+                className={`w-full h-auto p-4 rounded-xl border text-left justify-start transition-all ${
                   isSelected
                     ? 'border-primary bg-primary/10'
                     : 'border-border bg-card hover:border-primary/50 hover:bg-muted/50'
                 }`}
               >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="font-semibold text-foreground">
-                    {goalInfo.name}
-                  </span>
-                  {isSelected && (
-                    <svg className="w-5 h-5 text-primary" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                  )}
+                <div className="w-full">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-semibold text-foreground">
+                      {goalInfo.name}
+                    </span>
+                    {isSelected && (
+                      <svg className="w-5 h-5 text-primary" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                  </div>
+                  <p className="text-sm text-muted-foreground font-normal whitespace-normal">
+                    {goalInfo.description}
+                  </p>
+                  <div className="flex gap-4 mt-2 text-xs text-muted-foreground font-normal">
+                    <span>Rep range: {goalInfo.defaultRepRange}</span>
+                    <span className="text-primary">{goalInfo.cycleName} cycle</span>
+                  </div>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  {goalInfo.description}
-                </p>
-                <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
-                  <span>Rep range: {goalInfo.defaultRepRange}</span>
-                  <span className="text-primary">{goalInfo.cycleName} cycle</span>
-                </div>
-              </button>
+              </Button>
             );
           })}
         </div>
@@ -600,36 +603,39 @@ export const Settings: FC = () => {
             const isSelected = cycle.id === cycleConfig?.id;
             const phaseNames = cycle.phases.map(p => p.name).join(' → ');
             return (
-              <button
+              <Button
                 key={cycle.id}
+                variant="ghost"
                 onClick={() => handleCycleClick(cycle)}
-                className={`w-full p-4 rounded-xl border text-left transition-all ${
+                className={`w-full h-auto p-4 rounded-xl border text-left justify-start transition-all ${
                   isSelected
                     ? 'border-primary bg-primary/10'
                     : 'border-border bg-card hover:border-primary/50 hover:bg-muted/50'
                 }`}
               >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="font-semibold text-foreground">
-                    {cycle.name}
-                  </span>
-                  {isSelected && (
-                    <svg className="w-5 h-5 text-primary" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                  )}
+                <div className="w-full">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-semibold text-foreground">
+                      {cycle.name}
+                    </span>
+                    {isSelected && (
+                      <svg className="w-5 h-5 text-primary" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                  </div>
+                  <p className="text-sm text-muted-foreground font-normal whitespace-normal">
+                    {cycle.description}
+                  </p>
+                  <div className="flex gap-4 mt-2 text-xs text-muted-foreground font-normal">
+                    <span>{cycle.totalWeeks} weeks</span>
+                    <span className="text-primary">{cycle.cycleType === 'cardio' ? 'Cardio' : 'Strength'}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1 font-normal whitespace-normal">
+                    {phaseNames}
+                  </p>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  {cycle.description}
-                </p>
-                <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
-                  <span>{cycle.totalWeeks} weeks</span>
-                  <span className="text-primary">{cycle.cycleType === 'cardio' ? 'Cardio' : 'Strength'}</span>
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {phaseNames}
-                </p>
-              </button>
+              </Button>
             );
           })}
         </div>
@@ -676,10 +682,12 @@ export const Settings: FC = () => {
                   onChange={(e) => setApiKeyInput(e.target.value)}
                   placeholder="sk-..."
                 />
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="icon"
                   onClick={() => setShowApiKey(!showApiKey)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 h-8 w-8"
                 >
                   {showApiKey ? (
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -691,7 +699,7 @@ export const Settings: FC = () => {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                     </svg>
                   )}
-                </button>
+                </Button>
               </div>
               <Button onClick={saveApiKey}>
                 {apiKeySaved ? 'Saved!' : 'Save'}

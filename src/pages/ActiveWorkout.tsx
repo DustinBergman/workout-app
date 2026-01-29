@@ -7,6 +7,7 @@ import { EmptyWorkoutState } from '../components/active-workout/EmptyWorkoutStat
 import { ActiveWorkoutProvider, useActiveWorkoutContext } from '../contexts/ActiveWorkoutContext';
 import { useActiveWorkoutPage } from '../hooks/useActiveWorkoutPage';
 import { WorkoutSession } from '../types';
+import { Button } from '../components/ui';
 
 export const ActiveWorkout: FC = () => {
   const {
@@ -105,12 +106,13 @@ const ActiveWorkoutContent: FC<ActiveWorkoutContentProps> = ({
             />
 
             {/* Add Exercise Button */}
-            <button
+            <Button
+              variant="outline"
               onClick={openExercisePicker}
-              className="w-full py-4 mt-3 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl text-gray-500 dark:text-gray-400 hover:border-blue-400 hover:text-blue-500 transition-colors"
+              className="w-full py-4 mt-3 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl text-gray-500 dark:text-gray-400 hover:border-blue-400 hover:text-blue-500"
             >
               + Add Exercise
-            </button>
+            </Button>
           </>
         ) : (
           <EmptyWorkoutState onAddExercise={openExercisePicker} />

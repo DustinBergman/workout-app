@@ -2,9 +2,9 @@ import { FC, useEffect } from 'react';
 import { useToastStore, Toast, ToastType } from '../../store/toastStore';
 
 const toastStyles: Record<ToastType, string> = {
-  success: 'bg-green-600 text-white',
-  error: 'bg-red-600 text-white',
-  warning: 'bg-yellow-500 text-black',
+  success: 'bg-success text-success-fg',
+  error: 'bg-error text-error-fg',
+  warning: 'bg-warning text-warning-fg',
   info: 'bg-blue-600 text-white',
 };
 

@@ -4,7 +4,7 @@ import { FriendSearchInput } from '../components/social/FriendSearchInput';
 import { FriendRequestCard } from '../components/social/FriendRequestCard';
 import { FriendListItem } from '../components/social/FriendListItem';
 import { ProfileModal } from '../components/social/ProfileModal';
-import { Card, Avatar } from '../components/ui';
+import { Card, Avatar, Button } from '../components/ui';
 
 export const Friends: FC = () => {
   const {
@@ -128,28 +128,31 @@ export const Friends: FC = () => {
 
               return (
                 <Card key={request.id} className="flex items-center gap-3 p-4">
-                  <button
+                  <Button
+                    variant="ghost"
                     onClick={() => setSelectedProfileId(user.id)}
-                    className="flex items-center gap-3 flex-1 min-w-0 text-left hover:opacity-80 transition-opacity"
+                    className="flex items-center gap-3 flex-1 min-w-0 text-left justify-start h-auto p-0 hover:opacity-80"
                   >
                     <Avatar
                       src={user.avatar_url}
                       name={displayName}
                       size="md"
                     />
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-0 text-left">
                       <p className="font-medium truncate">{displayName}</p>
                       {user.username && (
                         <p className="text-xs text-muted-foreground truncate">@{user.username}</p>
                       )}
                     </div>
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={() => cancelRequest(request.id)}
-                    className="px-3 py-1.5 text-sm text-muted-foreground hover:text-destructive transition-colors"
+                    className="text-muted-foreground hover:text-destructive"
                   >
                     Cancel
-                  </button>
+                  </Button>
                 </Card>
               );
             })}
@@ -166,15 +169,16 @@ export const Friends: FC = () => {
               ({friends.length})
             </span>
           </h2>
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={refresh}
-            className="p-2 text-muted-foreground hover:text-foreground transition-colors"
             aria-label="Refresh"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
-          </button>
+          </Button>
         </div>
 
         {friends.length === 0 ? (

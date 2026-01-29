@@ -16,22 +16,22 @@ export const QuickStartSection: FC<QuickStartSectionProps> = ({
 }) => {
   return (
     <section className="mb-8">
-      <h2 className="text-lg font-semibold text-foreground mb-3">
+      <h2 className="text-lg font-semibold text-fg-1 mb-3">
         Quick Start
       </h2>
 
       {/* Next Workout Suggestion */}
       {nextWorkout && (
-        <Card className="mb-3 bg-primary/10 border-primary/30">
+        <Card className="mb-3">
           <div className="flex items-center justify-between">
             <div className="flex-1">
-              <p className="text-xs text-primary font-medium uppercase tracking-wide mb-1">
+              <p className="text-xs text-fg-3 font-medium uppercase tracking-wide mb-1">
                 Up Next
               </p>
-              <p className="text-lg font-semibold text-foreground">
+              <p className="text-lg font-semibold text-fg-1">
                 {nextWorkout.name}
               </p>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-fg-3">
                 {nextWorkout.exercises.length} exercises
               </p>
             </div>
@@ -45,7 +45,7 @@ export const QuickStartSection: FC<QuickStartSectionProps> = ({
       <div className="grid grid-cols-2 gap-3">
         <Button
           onClick={onStartQuickWorkout}
-          className="h-20 flex flex-col items-center justify-center bg-card/60 backdrop-blur-lg border border-border/50 hover:bg-card/80"
+          className="h-20 flex flex-col items-center justify-center bg-bg-2/60 backdrop-blur-lg border border-border-1/50 hover:bg-bg-2/80"
           variant="ghost"
         >
           <svg className="w-6 h-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -55,7 +55,7 @@ export const QuickStartSection: FC<QuickStartSectionProps> = ({
         </Button>
         <Link to="/plans" className="block">
           <Button
-            className="w-full h-20 flex flex-col items-center justify-center bg-card/60 backdrop-blur-lg border border-border/50 hover:bg-card/80"
+            className="w-full h-20 flex flex-col items-center justify-center bg-bg-2/60 backdrop-blur-lg border border-border-1/50 hover:bg-bg-2/80"
             variant="ghost"
           >
             <svg className="w-6 h-6 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
