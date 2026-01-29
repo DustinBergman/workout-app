@@ -6,6 +6,7 @@ import { useAppStore } from '../store/useAppStore';
 import { Button, Card, Input } from '../components/ui';
 import { MuscleGroup, Equipment, CardioType } from '../types';
 import { getAllExercises } from '../data/exercises';
+import { FloatingOrbsBackground } from '../components/home/FloatingOrbsBackground';
 import {
   generateWorkoutPlan,
   generateCardioPlan,
@@ -217,12 +218,7 @@ export const AIWorkoutCreator: FC = () => {
 
   return (
     <div className="relative overflow-hidden" style={{ height: 'calc(100vh - 120px)' }}>
-      {/* Floating Orbs Gradient Background */}
-      <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-96 h-96 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full blur-3xl opacity-30 dark:opacity-20 animate-float-1" />
-        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-gradient-to-tr from-purple-400 to-pink-500 rounded-full blur-3xl opacity-30 dark:opacity-20 animate-float-2" />
-        <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-gradient-to-r from-cyan-400 to-blue-500 rounded-full blur-3xl opacity-15 dark:opacity-10 animate-float-3" />
-      </div>
+      <FloatingOrbsBackground />
 
       <div className="relative z-10 flex flex-col h-full p-6">
         {/* Header with back button */}

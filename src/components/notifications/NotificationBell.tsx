@@ -1,6 +1,8 @@
 import { FC, useState } from 'react';
 import { useNotifications } from '../../hooks/useNotifications';
 import { NotificationList } from './NotificationList';
+import { Button } from '../ui';
+import { cn } from '@/lib/utils';
 
 export const NotificationBell: FC = () => {
   const notificationsHook = useNotifications();
@@ -9,14 +11,18 @@ export const NotificationBell: FC = () => {
 
   return (
     <div className="relative">
-      <button
+      <Button
+        variant="ghost"
         onClick={() => setIsOpen(!isOpen)}
-        className="p-2 text-muted-foreground hover:text-foreground transition-colors relative"
+        className={cn(
+          "relative text-fg-1 p-2",
+          isOpen && "bg-bg-subtle"
+        )}
         aria-label="Notifications"
       >
         {/* Bell Icon */}
         <svg
-          className="w-5 h-5"
+          className="w-6 h-6"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -35,7 +41,7 @@ export const NotificationBell: FC = () => {
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
-      </button>
+      </Button>
 
       {/* Notification Dropdown */}
       {isOpen && (

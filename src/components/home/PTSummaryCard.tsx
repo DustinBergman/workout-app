@@ -1,5 +1,5 @@
 import { FC, useState } from 'react';
-import { Sparkles, Target, ChevronDown } from 'lucide-react';
+import { Target, ChevronDown } from 'lucide-react';
 import { Card } from '../ui';
 import { PTSummaryResponse } from '../../services/openai/ptSummary';
 import { PTComponentRenderer } from './pt-components';
@@ -16,11 +16,11 @@ export const PTSummaryCard: FC<PTSummaryCardProps> = ({ summary, loading }) => {
   if (loading) {
     return (
       <section className="mb-6">
-        <Card className="bg-emerald-50 dark:bg-emerald-950/50 border-emerald-200 dark:border-emerald-800">
+        <Card>
           <div className="animate-pulse">
             <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-emerald-200 dark:bg-emerald-700 rounded" />
-              <div className="h-4 w-32 bg-emerald-200 dark:bg-emerald-700 rounded" />
+              <div className="w-4 h-4 bg-fg-3/20 rounded" />
+              <div className="h-4 w-32 bg-fg-3/20 rounded" />
             </div>
           </div>
         </Card>
@@ -36,31 +36,66 @@ export const PTSummaryCard: FC<PTSummaryCardProps> = ({ summary, loading }) => {
 
   return (
     <section className="mb-6">
-      <Card className="bg-emerald-50 dark:bg-emerald-950/50 border-emerald-200 dark:border-emerald-800">
+      <Card
+        padding="sm"
+        className={cn(
+          hasExpandableContent && 'cursor-pointer hover:bg-bg-2 transition-colors'
+        )}
+        onClick={hasExpandableContent ? () => setIsExpanded(!isExpanded) : undefined}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-emerald-900 dark:text-emerald-100 flex items-center">
-            <Sparkles className="w-4 h-4 mr-2 text-emerald-600 dark:text-emerald-400" />
+        <div className="flex items-center justify-between mb-1">
+          <h2 className="text-sm font-semibold text-fg-1 flex items-center">
+            <svg className="w-6 h-6 mr-2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="rainbow-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#ec4899" />
+                  <stop offset="20%" stopColor="#a855f7" />
+                  <stop offset="40%" stopColor="#3b82f6" />
+                  <stop offset="60%" stopColor="#06b6d4" />
+                  <stop offset="80%" stopColor="#10b981" />
+                  <stop offset="100%" stopColor="#eab308" />
+                </linearGradient>
+              </defs>
+              <path
+                d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"
+                stroke="url(#rainbow-gradient)"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"
+                stroke="url(#rainbow-gradient)"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M12 5v13"
+                stroke="url(#rainbow-gradient)"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
             AI Suggestions
           </h2>
           {hasExpandableContent && (
-            <button
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-200 transition-colors"
-            >
-              {isExpanded ? 'Less' : 'More'}
-              <ChevronDown
-                className={cn(
-                  'w-3 h-3 transition-transform duration-200',
-                  isExpanded && 'rotate-180'
-                )}
-              />
-            </button>
+            <ChevronDown
+              className={cn(
+                'w-4 h-4 text-fg-3 transition-transform duration-200',
+                isExpanded && 'rotate-180'
+              )}
+            />
           )}
         </div>
 
         {/* Summary Paragraph - Always visible */}
-        <p className="text-sm text-emerald-800 dark:text-emerald-100 leading-relaxed">
+        <p className={cn(
+          "text-sm text-fg-2",
+          !isExpanded && "line-clamp-2"
+        )}>
           {summary.summary}
         </p>
 
@@ -93,14 +128,14 @@ export const PTSummaryCard: FC<PTSummaryCardProps> = ({ summary, loading }) => {
 
             {/* Next Session Focus */}
             {summary.nextSessionFocus && (
-              <div className="mt-4 pt-3 border-t border-emerald-200 dark:border-emerald-700">
+              <div className="mt-4 pt-3 border-t border-border-1">
                 <div className="flex items-start gap-2">
-                  <Target className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mt-0.5 flex-shrink-0" />
+                  <Target className="w-4 h-4 text-interactive mt-0.5 flex-shrink-0" />
                   <div>
-                    <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300 uppercase tracking-wide">
+                    <span className="text-xs font-medium text-fg-3 uppercase tracking-wide">
                       Next Session Focus
                     </span>
-                    <p className="text-sm text-emerald-800 dark:text-emerald-100 mt-0.5">
+                    <p className="text-sm text-fg-2 mt-0.5">
                       {summary.nextSessionFocus}
                     </p>
                   </div>

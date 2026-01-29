@@ -29,9 +29,10 @@ import { Capacitor } from '@capacitor/core';
 import { App as CapApp } from '@capacitor/app';
 import { StatusBar, Style } from '@capacitor/status-bar';
 
-const HeaderContent: FC = () => {
-  const location = useLocation();
+// Bottom banner for active workout
+const WorkoutInProgressBanner: FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const activeSession = useAppStore((state) => state.activeSession);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
@@ -65,73 +66,124 @@ const HeaderContent: FC = () => {
     return `${minutes}m ${secs}s`;
   };
 
-  if (hasActiveWorkout && !isOnWorkoutPage) {
-    return (
-      <div className="flex items-center justify-between px-4 h-14 bg-gradient-to-r from-yellow-500/20 to-amber-500/20 hover:from-yellow-500/30 hover:to-amber-500/30 border-b border-yellow-500/50 transition-colors">
-        <Button
-          variant="ghost"
-          onClick={() => navigate('/workout')}
-          className="flex-1 h-auto flex items-center gap-3 cursor-pointer justify-start px-0"
-        >
-          <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" />
-          <span className="text-sm font-semibold text-yellow-400">
-            Workout in Progress
-          </span>
-          <span className="text-sm text-yellow-300">
+  if (!hasActiveWorkout || isOnWorkoutPage) {
+    return null;
+  }
+
+  return (
+    <div
+      className="fixed bottom-16 left-0 right-0 z-40 overflow-hidden cursor-pointer group bg-gradient-to-r from-emerald-500 via-cyan-500 to-blue-500 hover:from-emerald-400 hover:via-cyan-400 hover:to-blue-400 transition-all"
+      onClick={() => navigate('/workout')}
+    >
+      {/* Content */}
+      <div className="flex items-center justify-between px-4 py-3">
+        <div className="flex items-center gap-3">
+          {/* Pulsing indicator */}
+          <div className="relative flex items-center justify-center">
+            <div className="absolute w-8 h-8 bg-white/40 rounded-full animate-ping" />
+            <div className="relative w-8 h-8 bg-white/30 rounded-full flex items-center justify-center">
+              <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M8 5v14l11-7z" />
+              </svg>
+            </div>
+          </div>
+
+          <div className="flex flex-col">
+            <span className="text-xs font-medium text-white/90 uppercase tracking-wider">
+              In Progress
+            </span>
+            <span className="text-sm font-bold text-white">
+              {activeSession?.name || 'Workout'}
+            </span>
+          </div>
+        </div>
+
+        {/* Timer pill */}
+        <div className="flex items-center gap-2 bg-white/30 rounded-full px-4 py-1.5">
+          <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+          <span className="text-sm font-bold text-white tabular-nums">
             {formatTime(elapsedSeconds)}
           </span>
-        </Button>
-        <Link
-          to="/settings"
-          className="p-2 text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-            />
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-            />
-          </svg>
-        </Link>
+        </div>
       </div>
-    );
-  }
+    </div>
+  );
+};
+
+const HeaderContent: FC = () => {
+  const location = useLocation();
 
   return (
     <div className="flex items-center justify-between px-4 h-14">
       <div className="flex items-center gap-3">
-        <Link to="/" className="text-xl font-bold text-primary">
-          overload.ai
+        <Link to="/" className="group flex items-center gap-2">
+          {/* Weight plate - top down view, minimal */}
+          <div className="relative w-7 h-7">
+            <svg viewBox="0 0 28 28" className="w-full h-full">
+              {/* Outer ring */}
+              <circle
+                cx="14"
+                cy="14"
+                r="12"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="3"
+                className="text-fg-1"
+              />
+              {/* Inner cutout */}
+              <circle
+                cx="14"
+                cy="14"
+                r="4"
+                fill="currentColor"
+                className="text-fg-1"
+              />
+              {/* Accent arc - like a grip indent */}
+              <path
+                d="M 14 2 A 12 12 0 0 1 26 14"
+                fill="none"
+                stroke="url(#plate-accent)"
+                strokeWidth="3"
+                strokeLinecap="round"
+                className="group-hover:opacity-100 opacity-80 transition-opacity"
+              />
+              <defs>
+                <linearGradient id="plate-accent" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#06b6d4" />
+                  <stop offset="100%" stopColor="#3b82f6" />
+                </linearGradient>
+              </defs>
+            </svg>
+          </div>
+          {/* Text */}
+          <span className="text-xl font-bold text-fg-1 tracking-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+            overload
+          </span>
         </Link>
         <SyncIndicator />
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1">
         <NotificationBell />
-        <Link
-          to="/settings"
-          className="p-2 text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-            />
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-            />
-          </svg>
+        <Link to="/settings">
+          <Button
+            variant="ghost"
+            className={`text-fg-1 p-2 ${location.pathname === '/settings' ? 'bg-bg-subtle' : ''}`}
+          >
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+              />
+            </svg>
+          </Button>
         </Link>
       </div>
     </div>
@@ -208,6 +260,9 @@ const AppContent: FC = () => {
             <Route path="/settings" element={<Settings />} />
           </Routes>
         </main>
+
+        {/* Workout In Progress Banner */}
+        <WorkoutInProgressBanner />
 
         {/* Bottom Navigation */}
         <Navigation />

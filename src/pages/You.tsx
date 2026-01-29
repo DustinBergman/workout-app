@@ -6,6 +6,7 @@ import {
   EmptyStatsState,
   StrengthProgressCard,
   WeightTrackingCard,
+  MuscleBodyMap3D,
   MuscleGroupChart,
   StatsGrid,
   VolumeCard,
@@ -74,7 +75,12 @@ export const You: FC = () => {
               onLogWeight={openWeightModal}
             />
 
-            {/* Only show muscle group chart for non-cardio-primary users */}
+            {/* Body map visualization - shows which muscles have been worked */}
+            {!stats.isCardioPrimary && pieChartData.length > 0 && (
+              <MuscleBodyMap3D muscleData={pieChartData} />
+            )}
+
+            {/* Muscle group pie chart breakdown */}
             {!stats.isCardioPrimary && pieChartData.length > 0 && (
               <MuscleGroupChart pieChartData={pieChartData} />
             )}

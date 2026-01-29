@@ -1,9 +1,11 @@
-import { FC } from 'react';
+import { FC, useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { MoreHorizontal, Play, Pencil, Trash2, RotateCcw, GripVertical } from 'lucide-react';
 import { Button, Card } from '../ui';
 import { WorkoutTemplate, TemplateExercise } from '../../types';
 import { toast } from '../../store/toastStore';
+import { cn } from '@/lib/utils';
 
 interface SortableTemplateCardProps {
   template: WorkoutTemplate;
@@ -19,17 +21,17 @@ const getExerciseDescription = (exercise: TemplateExercise): string => {
   if (exercise.type === 'cardio') {
     const cardio = exercise;
     if ('rounds' in cardio && cardio.rounds) {
-      return `${cardio.rounds} rounds`;
+      return `${cardio.rounds}r`;
     }
     if ('targetDurationMinutes' in cardio && cardio.targetDurationMinutes) {
-      return `${cardio.targetDurationMinutes} min`;
+      return `${cardio.targetDurationMinutes}m`;
     }
     if ('targetLaps' in cardio && cardio.targetLaps) {
-      return `${cardio.targetLaps} laps`;
+      return `${cardio.targetLaps}L`;
     }
-    return 'Cardio';
+    return '';
   }
-  return `${exercise.targetSets}x${exercise.targetReps}`;
+  return `${exercise.targetSets}×${exercise.targetReps}`;
 };
 
 export const SortableTemplateCard: FC<SortableTemplateCardProps> = ({
@@ -41,6 +43,8 @@ export const SortableTemplateCard: FC<SortableTemplateCardProps> = ({
   getExerciseName,
   isNext,
 }) => {
+  const [showMenu, setShowMenu] = useState(false);
+  const [showAllExercises, setShowAllExercises] = useState(false);
   const {
     attributes,
     listeners,
@@ -57,124 +61,164 @@ export const SortableTemplateCard: FC<SortableTemplateCardProps> = ({
   };
 
   const isCardio = template.templateType === 'cardio';
-  const borderColor = isCardio
-    ? 'border-l-4 border-l-green-500'
-    : 'border-l-4 border-l-blue-500';
 
   return (
     <div ref={setNodeRef} style={style}>
-      <Card className={`${borderColor} ${isDragging ? 'ring-2 ring-primary' : ''} ${isNext ? 'ring-2 ring-primary/50' : ''}`}>
-        {/* Drag handle at top */}
-        <div
-          {...attributes}
-          {...listeners}
-          className="flex justify-center pb-2 mb-2 -mt-1 cursor-grab active:cursor-grabbing touch-none border-b border-gray-100 dark:border-gray-700"
-          aria-label="Drag to reorder"
-        >
-          <svg className="w-6 h-4 text-gray-300 dark:text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
-          </svg>
-        </div>
+      <Card
+        padding="none"
+        className={cn(
+          'overflow-hidden',
+          isDragging && 'ring-2 ring-primary',
+          isNext && 'ring-2 ring-interactive/50'
+        )}
+      >
+        {/* Header with gradient accent */}
+        <div className={cn(
+          'px-4 py-3 flex items-center gap-3',
+          isCardio
+            ? 'bg-gradient-to-r from-emerald-500/10 to-transparent'
+            : 'bg-gradient-to-r from-blue-500/10 to-transparent'
+        )}>
+          {/* Drag handle */}
+          <div
+            {...attributes}
+            {...listeners}
+            className="cursor-grab active:cursor-grabbing touch-none text-fg-3 hover:text-fg-2 transition-colors"
+            aria-label="Drag to reorder"
+          >
+            <GripVertical className="w-5 h-5" />
+          </div>
 
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex-1">
+          {/* Title and meta */}
+          <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              {/* Type icon */}
-              {isCardio ? (
-                <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-              ) : (
-                <svg className="w-5 h-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h4v12H4V6zm12 0h4v12h-4V6zm-6 2h4v8h-4V8z" />
-                </svg>
-              )}
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100">
+              <h3 className="font-semibold text-fg-1 truncate">
                 {template.name}
               </h3>
               {isNext && (
-                <span className="text-xs px-2 py-0.5 rounded bg-primary/10 text-primary font-medium">
-                  Next
+                <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-interactive/15 text-interactive font-semibold uppercase tracking-wide">
+                  Up Next
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-2 mt-1">
-              <span className={`text-xs px-2 py-0.5 rounded ${
-                isCardio
-                  ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
-                  : 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-              }`}>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className={cn(
+                'text-xs font-medium',
+                isCardio ? 'text-emerald-500' : 'text-blue-500'
+              )}>
                 {isCardio ? 'Cardio' : 'Strength'}
               </span>
-              <span className="text-sm text-gray-500 dark:text-gray-400">
+              <span className="text-xs text-fg-3">•</span>
+              <span className="text-xs text-fg-3">
                 {template.exercises.length} exercises
               </span>
+              {template.inRotation !== false && (
+                <>
+                  <span className="text-xs text-fg-3">•</span>
+                  <RotateCcw className="w-3 h-3 text-interactive" />
+                </>
+              )}
             </div>
-            {template.copiedFrom && (
-              <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-                <span>
-                  From {template.copiedFrom.username ? `@${template.copiedFrom.username}` :
-                    `${template.copiedFrom.firstName || ''} ${template.copiedFrom.lastName || ''}`.trim() || 'a friend'}
-                </span>
-              </div>
-            )}
           </div>
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => {
-                const willBeInRotation = template.inRotation === false;
-                onToggleRotation();
-                toast.success(
-                  willBeInRotation
-                    ? `${template.name} added to rotation`
-                    : `${template.name} removed from rotation`
-                );
-              }}
-              title={template.inRotation !== false ? 'Remove from rotation' : 'Add to rotation'}
+
+          {/* Menu button */}
+          <div className="relative">
+            <button
+              onClick={() => setShowMenu(!showMenu)}
+              className="p-1.5 rounded-lg text-fg-3 hover:text-fg-1 hover:bg-bg-subtle transition-colors"
             >
-              <svg
-                className={`w-4 h-4 ${template.inRotation !== false ? 'text-primary' : 'text-gray-400'}`}
-                fill={template.inRotation !== false ? 'currentColor' : 'none'}
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-            </Button>
-            <Button size="sm" variant="ghost" onClick={onEdit}>
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
-            </Button>
-            <Button size="sm" variant="ghost" onClick={onDelete}>
-              <svg className="w-4 h-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
-            </Button>
+              <MoreHorizontal className="w-5 h-5" />
+            </button>
+
+            {/* Dropdown menu */}
+            {showMenu && (
+              <>
+                <div
+                  className="fixed inset-0 z-10"
+                  onClick={() => setShowMenu(false)}
+                />
+                <div className="absolute right-0 top-full mt-1 z-20 bg-bg-3 border border-border-1 rounded-lg shadow-lg py-1 min-w-[140px]">
+                  <button
+                    onClick={() => {
+                      const willBeInRotation = template.inRotation === false;
+                      onToggleRotation();
+                      toast.success(
+                        willBeInRotation
+                          ? `Added to rotation`
+                          : `Removed from rotation`
+                      );
+                      setShowMenu(false);
+                    }}
+                    className="w-full px-3 py-2 text-left text-sm text-fg-2 hover:bg-bg-subtle flex items-center gap-2"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    {template.inRotation !== false ? 'Remove from rotation' : 'Add to rotation'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      onEdit();
+                      setShowMenu(false);
+                    }}
+                    className="w-full px-3 py-2 text-left text-sm text-fg-2 hover:bg-bg-subtle flex items-center gap-2"
+                  >
+                    <Pencil className="w-4 h-4" />
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => {
+                      onDelete();
+                      setShowMenu(false);
+                    }}
+                    className="w-full px-3 py-2 text-left text-sm text-error hover:bg-bg-subtle flex items-center gap-2"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Delete
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
-        <div className="space-y-1 mb-4">
-          {template.exercises.slice(0, 4).map((exercise, index) => (
-            <p key={index} className="text-sm text-gray-600 dark:text-gray-400">
-              {getExerciseName(exercise.exerciseId)} - {getExerciseDescription(exercise)}
-            </p>
-          ))}
-          {template.exercises.length > 4 && (
-            <p className="text-sm text-gray-400">
-              +{template.exercises.length - 4} more
-            </p>
+        {/* Exercise chips */}
+        <div className="px-4 py-3">
+          <div className="flex flex-wrap gap-1.5">
+            {(showAllExercises ? template.exercises : template.exercises.slice(0, 5)).map((exercise, index) => (
+              <span
+                key={index}
+                className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-bg-subtle text-fg-2"
+              >
+                <span className="truncate max-w-[120px]">{getExerciseName(exercise.exerciseId)}</span>
+                <span className="text-fg-3 font-medium">{getExerciseDescription(exercise)}</span>
+              </span>
+            ))}
+            {template.exercises.length > 5 && (
+              <button
+                onClick={() => setShowAllExercises(!showAllExercises)}
+                className="inline-flex items-center text-xs px-2 py-1 rounded-md bg-bg-subtle text-interactive hover:bg-interactive/10 transition-colors"
+              >
+                {showAllExercises ? 'Show less' : `+${template.exercises.length - 5}`}
+              </button>
+            )}
+          </div>
+
+          {template.copiedFrom && (
+            <div className="flex items-center gap-1 mt-2 text-xs text-fg-3">
+              <span>
+                Copied from {template.copiedFrom.username ? `@${template.copiedFrom.username}` :
+                  `${template.copiedFrom.firstName || ''} ${template.copiedFrom.lastName || ''}`.trim() || 'a friend'}
+              </span>
+            </div>
           )}
         </div>
 
-        <Button className="w-full" onClick={onStart}>
-          Start Workout
-        </Button>
+        {/* Start button */}
+        <div className="px-4 pb-4">
+          <Button className="w-full gap-2" onClick={onStart}>
+            <Play className="w-4 h-4" fill="currentColor" />
+            Start Workout
+          </Button>
+        </div>
       </Card>
     </div>
   );

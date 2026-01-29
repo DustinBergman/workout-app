@@ -48,7 +48,7 @@ describe('Card', () => {
     const card = screen.getByTestId('card');
     expect(card).toHaveClass('rounded-xl');
     expect(card).toHaveClass('border');
-    expect(card).toHaveClass('bg-card/90');
+    expect(card).toHaveClass('bg-bg-2/90');
     expect(card).toHaveClass('backdrop-blur-lg');
     expect(card).toHaveClass('shadow-sm');
   });
@@ -81,7 +81,7 @@ describe('CardDescription', () => {
 
   it('applies muted styling', () => {
     render(<CardDescription data-testid="desc">Description</CardDescription>);
-    expect(screen.getByTestId('desc')).toHaveClass('text-muted-foreground');
+    expect(screen.getByTestId('desc')).toHaveClass('text-fg-3');
   });
 });
 

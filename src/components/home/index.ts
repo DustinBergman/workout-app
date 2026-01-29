@@ -11,3 +11,4 @@ export { RecentWorkoutsSection } from './RecentWorkoutsSection';
 export { EmptyState } from './EmptyState';
 export { WeekSelectorModal } from './WeekSelectorModal';
 export { LoadingModal } from './LoadingModal';
+export { FriendsLeaderboard } from './FriendsLeaderboard';

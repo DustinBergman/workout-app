@@ -11,25 +11,25 @@ describe('Button', () => {
   it('applies primary variant by default', () => {
     render(<Button>Primary</Button>);
     const button = screen.getByRole('button');
-    expect(button).toHaveClass('bg-primary');
+    expect(button).toHaveClass('bg-interactive');
   });
 
   it('applies secondary variant', () => {
     render(<Button variant="secondary">Secondary</Button>);
     const button = screen.getByRole('button');
-    expect(button).toHaveClass('bg-secondary');
+    expect(button).toHaveClass('bg-bg-subtle');
   });
 
   it('applies danger variant', () => {
     render(<Button variant="danger">Danger</Button>);
     const button = screen.getByRole('button');
-    expect(button).toHaveClass('bg-destructive');
+    expect(button).toHaveClass('bg-error');
   });
 
   it('applies ghost variant', () => {
     render(<Button variant="ghost">Ghost</Button>);
     const button = screen.getByRole('button');
-    expect(button).toHaveClass('hover:bg-accent');
+    expect(button).toHaveClass('hover:bg-bg-subtle');
   });
 
   it('applies sm size', () => {

@@ -10,6 +10,7 @@ import {
 import { Link } from 'react-router-dom';
 import { Button, Card, Modal } from '../components/ui';
 import { TemplateEditor, SortableTemplateCard } from '../components/plans';
+import { FloatingOrbsBackground } from '../components/home/FloatingOrbsBackground';
 import { useWorkoutPlans } from '../hooks/useWorkoutPlans';
 import { useStartWorkout } from '../hooks/useStartWorkout';
 
@@ -121,19 +122,14 @@ export const WorkoutPlans: FC = () => {
 
   return (
     <div className="relative min-h-screen bg-transparent">
-      {/* Floating Orbs Gradient Background */}
-      <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-96 h-96 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full blur-3xl opacity-30 dark:opacity-20 animate-float-1" />
-        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-gradient-to-tr from-purple-400 to-pink-500 rounded-full blur-3xl opacity-30 dark:opacity-20 animate-float-2" />
-        <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-gradient-to-r from-cyan-400 to-blue-500 rounded-full blur-3xl opacity-15 dark:opacity-10 animate-float-3" />
-      </div>
+      <FloatingOrbsBackground />
 
       <div className="relative z-10 p-4 pb-20">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
           Workout Plans
         </h1>
-        <Button onClick={startCreating}>
+        <Button variant="outline" onClick={startCreating}>
           <svg className="w-5 h-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>

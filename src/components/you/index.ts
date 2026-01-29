@@ -5,6 +5,7 @@ export { EmptyStatsState } from './EmptyStatsState';
 export { StrengthProgressCard } from './StrengthProgressCard';
 export { WeightTrackingCard } from './WeightTrackingCard';
 export { MuscleGroupChart } from './MuscleGroupChart';
+export { MuscleBodyMap3D } from './MuscleBodyMap3D';
 export { StatsGrid } from './StatsGrid';
 export { VolumeCard } from './VolumeCard';
 export { CardioStatsCard } from './CardioStatsCard';

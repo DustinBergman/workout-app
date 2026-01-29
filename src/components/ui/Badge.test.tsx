@@ -10,22 +10,22 @@ describe('Badge', () => {
 
   it('applies default variant styling', () => {
     render(<Badge data-testid="badge">Default</Badge>);
-    expect(screen.getByTestId('badge')).toHaveClass('bg-primary');
+    expect(screen.getByTestId('badge')).toHaveClass('bg-interactive');
   });
 
   it('applies secondary variant', () => {
     render(<Badge variant="secondary" data-testid="badge">Secondary</Badge>);
-    expect(screen.getByTestId('badge')).toHaveClass('bg-secondary');
+    expect(screen.getByTestId('badge')).toHaveClass('bg-bg-subtle');
   });
 
   it('applies destructive variant', () => {
     render(<Badge variant="destructive" data-testid="badge">Error</Badge>);
-    expect(screen.getByTestId('badge')).toHaveClass('bg-destructive');
+    expect(screen.getByTestId('badge')).toHaveClass('bg-error');
   });
 
   it('applies outline variant', () => {
     render(<Badge variant="outline" data-testid="badge">Outline</Badge>);
-    expect(screen.getByTestId('badge')).toHaveClass('text-foreground');
+    expect(screen.getByTestId('badge')).toHaveClass('text-fg-1');
   });
 
   it('applies custom className', () => {

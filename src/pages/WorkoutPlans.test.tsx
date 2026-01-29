@@ -50,12 +50,6 @@ const defaultPreferences: UserPreferences = {
   darkMode: false,
 };
 
-// Helper to find button by SVG path
-const findButtonBySvgPath = (container: HTMLElement, pathSubstring: string) => {
-  const buttons = container.querySelectorAll('button');
-  return Array.from(buttons).find(btn => btn.innerHTML.includes(pathSubstring));
-};
-
 describe('WorkoutPlans', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -100,10 +94,12 @@ describe('WorkoutPlans', () => {
         templates: [createMockTemplate()],
       });
       render(<WorkoutPlans />);
-      expect(screen.getByText(/Bench Press - 3x10/)).toBeInTheDocument();
+      // Exercise name and sets×reps are in separate elements
+      expect(screen.getByText('Barbell Bench Press')).toBeInTheDocument();
+      expect(screen.getByText('3×10')).toBeInTheDocument();
     });
 
-    it('shows +N more when template has more than 4 exercises', () => {
+    it('shows +N when template has more than 5 exercises', () => {
       useAppStore.setState({
         templates: [
           createMockTemplate({
@@ -119,7 +115,8 @@ describe('WorkoutPlans', () => {
         ],
       });
       render(<WorkoutPlans />);
-      expect(screen.getByText('+2 more')).toBeInTheDocument();
+      // Shows +1 for 6 exercises (shows first 5, then +1)
+      expect(screen.getByText('+1')).toBeInTheDocument();
     });
 
     it('shows Start Workout button for each template', () => {
@@ -136,45 +133,55 @@ describe('WorkoutPlans', () => {
       expect(screen.getByText('New Plan')).toBeInTheDocument();
     });
 
-    it('clicking edit button enters edit mode with template data', () => {
+    it('clicking edit in menu enters edit mode with template data', async () => {
       useAppStore.setState({
         templates: [createMockTemplate()],
       });
       const { container } = render(<WorkoutPlans />);
 
-      // Find the edit button by SVG path (pencil icon)
-      const editButton = findButtonBySvgPath(container, '11 5H6');
-      fireEvent.click(editButton!);
+      // Open the dropdown menu (the small button with p-1.5 class)
+      const menuButton = container.querySelector('button.p-1\\.5');
+      fireEvent.click(menuButton!);
+
+      // Click Edit in the dropdown
+      fireEvent.click(screen.getByText('Edit'));
 
       expect(screen.getByText('Edit Plan')).toBeInTheDocument();
       expect(screen.getByDisplayValue('Push Day')).toBeInTheDocument();
     });
 
-    it('clicking delete button with confirmation removes template', async () => {
+    it('clicking delete in menu with confirmation removes template', async () => {
       const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
       useAppStore.setState({
         templates: [createMockTemplate()],
       });
       const { container } = render(<WorkoutPlans />);
 
-      // Find the delete button by class (red trash icon)
-      const deleteButton = findButtonBySvgPath(container, 'M19 7l');
-      fireEvent.click(deleteButton!);
+      // Open the dropdown menu
+      const menuButton = container.querySelector('button.p-1\\.5');
+      fireEvent.click(menuButton!);
+
+      // Click Delete in the dropdown
+      fireEvent.click(screen.getByText('Delete'));
 
       expect(confirmSpy).toHaveBeenCalledWith('Delete this template?');
       expect(screen.queryByText('Push Day')).not.toBeInTheDocument();
       confirmSpy.mockRestore();
     });
 
-    it('clicking delete button without confirmation keeps template', () => {
+    it('clicking delete in menu without confirmation keeps template', () => {
       const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
       useAppStore.setState({
         templates: [createMockTemplate()],
       });
       const { container } = render(<WorkoutPlans />);
 
-      const deleteButton = findButtonBySvgPath(container, 'M19 7l');
-      fireEvent.click(deleteButton!);
+      // Open the dropdown menu
+      const menuButton = container.querySelector('button.p-1\\.5');
+      fireEvent.click(menuButton!);
+
+      // Click Delete in the dropdown
+      fireEvent.click(screen.getByText('Delete'));
 
       expect(screen.getByText('Push Day')).toBeInTheDocument();
       confirmSpy.mockRestore();
@@ -562,9 +569,10 @@ describe('WorkoutPlans', () => {
       });
       const { container } = render(<WorkoutPlans />);
 
-      // Click edit
-      const editButton = findButtonBySvgPath(container, '11 5H6');
-      fireEvent.click(editButton!);
+      // Open menu and click edit
+      const menuButton = container.querySelector('button.p-1\\.5');
+      fireEvent.click(menuButton!);
+      fireEvent.click(screen.getByText('Edit'));
 
       // Change name
       fireEvent.change(screen.getByDisplayValue('Push Day'), { target: { value: 'Updated Push Day' } });
@@ -584,8 +592,10 @@ describe('WorkoutPlans', () => {
         templates: [createMockTemplate()],
       });
       const { container } = render(<WorkoutPlans />);
-      const editButton = findButtonBySvgPath(container, '11 5H6');
-      fireEvent.click(editButton!);
+      // Open menu and click edit
+      const menuButton = container.querySelector('button.p-1\\.5');
+      fireEvent.click(menuButton!);
+      fireEvent.click(screen.getByText('Edit'));
     };
 
     it('shows Edit Plan header', () => {
@@ -612,7 +622,7 @@ describe('WorkoutPlans', () => {
   });
 
   describe('Cardio Exercises', () => {
-    it('shows Cardio text for cardio exercises in template list', () => {
+    it('shows cardio exercises in template list', () => {
       useAppStore.setState({
         templates: [
           createMockTemplate({
@@ -624,8 +634,8 @@ describe('WorkoutPlans', () => {
         ],
       });
       render(<WorkoutPlans />);
-      // Cardio exercises show "Cardio" in the exercise list preview
-      expect(screen.getByText(/Outdoor Run - Cardio/)).toBeInTheDocument();
+      // Cardio exercises show the exercise name in the list
+      expect(screen.getByText('Outdoor Run')).toBeInTheDocument();
     });
 
     it('shows bespoke inputs for cardio exercises in edit mode', async () => {

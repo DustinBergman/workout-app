@@ -146,6 +146,12 @@ describe('SignUpForm', () => {
 
     await user.click(screen.getByRole('button', { name: /create account/i }));
 
+    // Accept the disclaimer modal
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /i accept/i })).toBeInTheDocument();
+    });
+    await user.click(screen.getByRole('button', { name: /i accept/i }));
+
     await waitFor(() => {
       expect(mockSignUp).toHaveBeenCalledWith('john@example.com', 'password123', {
         username: 'johnd',
@@ -171,6 +177,12 @@ describe('SignUpForm', () => {
     });
 
     await user.click(screen.getByRole('button', { name: /create account/i }));
+
+    // Accept the disclaimer modal
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /i accept/i })).toBeInTheDocument();
+    });
+    await user.click(screen.getByRole('button', { name: /i accept/i }));
 
     await waitFor(() => {
       expect(screen.getByText('Check Your Email')).toBeInTheDocument();
@@ -198,6 +210,12 @@ describe('SignUpForm', () => {
 
     await user.click(screen.getByRole('button', { name: /create account/i }));
 
+    // Accept the disclaimer modal
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /i accept/i })).toBeInTheDocument();
+    });
+    await user.click(screen.getByRole('button', { name: /i accept/i }));
+
     await waitFor(() => {
       expect(screen.getByText('Email already registered')).toBeInTheDocument();
     });
@@ -221,6 +239,12 @@ describe('SignUpForm', () => {
     });
 
     await user.click(screen.getByRole('button', { name: /create account/i }));
+
+    // Accept the disclaimer modal
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /i accept/i })).toBeInTheDocument();
+    });
+    await user.click(screen.getByRole('button', { name: /i accept/i }));
 
     expect(screen.getByText('Creating Account...')).toBeInTheDocument();
   });
@@ -251,6 +275,12 @@ describe('SignUpForm', () => {
       });
 
       await user.click(screen.getByRole('button', { name: /create account/i }));
+
+      // Accept the disclaimer modal
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /i accept/i })).toBeInTheDocument();
+      });
+      await user.click(screen.getByRole('button', { name: /i accept/i }));
 
       await waitFor(() => {
         expect(screen.getByText('Check Your Email')).toBeInTheDocument();

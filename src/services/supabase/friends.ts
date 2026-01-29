@@ -290,3 +290,93 @@ export const hasPendingRequest = async (
 
   return { hasPending: false, direction: null, requestId: null, error: null };
 };
+
+// Leaderboard types
+export interface LeaderboardEntry {
+  user: FriendProfile & { isCurrentUser?: boolean };
+  workoutCount: number;
+}
+
+/**
+ * Get weekly leaderboard of friends + current user
+ */
+export const getWeeklyLeaderboard = async (): Promise<{
+  leaderboard: LeaderboardEntry[];
+  error: Error | null;
+}> => {
+  const user = await getAuthUser();
+  if (!user) {
+    return { leaderboard: [], error: new Error('Not authenticated') };
+  }
+
+  // Get start of current week (Monday)
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+  const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+  const weekStart = new Date(now);
+  weekStart.setDate(now.getDate() - daysFromMonday);
+  weekStart.setHours(0, 0, 0, 0);
+
+  // Get friends
+  const { friends, error: friendsError } = await getFriends();
+  if (friendsError) {
+    return { leaderboard: [], error: friendsError };
+  }
+
+  if (friends.length === 0) {
+    return { leaderboard: [], error: null };
+  }
+
+  // Get all user IDs (friends + current user)
+  const allUserIds = [...friends.map(f => f.id), user.id];
+
+  // Get workout counts for this week
+  const { data: workouts, error: workoutsError } = await supabase
+    .from('workout_sessions')
+    .select('user_id')
+    .in('user_id', allUserIds)
+    .not('completed_at', 'is', null)
+    .gte('completed_at', weekStart.toISOString());
+
+  if (workoutsError) {
+    return { leaderboard: [], error: workoutsError };
+  }
+
+  // Count workouts per user
+  const workoutCounts = new Map<string, number>();
+  for (const workout of workouts || []) {
+    const count = workoutCounts.get(workout.user_id) || 0;
+    workoutCounts.set(workout.user_id, count + 1);
+  }
+
+  // Get current user profile
+  const { data: currentUserProfile } = await supabase
+    .from('profiles')
+    .select('id, first_name, last_name, username, avatar_url')
+    .eq('id', user.id)
+    .single();
+
+  // Build leaderboard
+  const leaderboard: LeaderboardEntry[] = [];
+
+  // Add current user
+  if (currentUserProfile) {
+    leaderboard.push({
+      user: { ...currentUserProfile, isCurrentUser: true },
+      workoutCount: workoutCounts.get(user.id) || 0,
+    });
+  }
+
+  // Add friends
+  for (const friend of friends) {
+    leaderboard.push({
+      user: friend,
+      workoutCount: workoutCounts.get(friend.id) || 0,
+    });
+  }
+
+  // Sort by workout count (descending)
+  leaderboard.sort((a, b) => b.workoutCount - a.workoutCount);
+
+  return { leaderboard, error: null };
+};

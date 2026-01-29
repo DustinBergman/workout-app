@@ -125,8 +125,8 @@ describe('SyncIndicator', () => {
 
     const { container } = render(<SyncIndicator />);
 
-    // Should have destructive/error color class
-    const errorElement = container.querySelector('.text-destructive');
+    // Should have error color class
+    const errorElement = container.querySelector('.text-error');
     expect(errorElement).toBeInTheDocument();
   });
 

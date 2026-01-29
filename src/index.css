@@ -106,7 +106,7 @@ body {
   --fg-inverted: oklch(0.984 0.003 247.858); /* White text for dark backgrounds */
 
   /* Background hierarchy */
-  --bg-1: oklch(0.984 0.003 247.858);      /* Main background - off-white */
+  --bg-1: oklch(0.997 0.001 247.858);      /* Main background - near white */
   --bg-2: oklch(1 0 0);                     /* Card background - pure white */
   --bg-3: oklch(1 0 0);                     /* Modal background - pure white */
   --bg-subtle: oklch(0.968 0.007 247.896); /* Subtle background - very light gray */
@@ -174,9 +174,9 @@ body {
   --fg-inverted: oklch(0.129 0.042 264.695); /* Dark text for light backgrounds */
 
   /* Background hierarchy */
-  --bg-1: oklch(0.129 0.042 264.695);      /* Main background - very dark */
-  --bg-2: oklch(0.34 0.028 265.755);       /* Card background - lighter */
-  --bg-3: oklch(0.38 0.025 265.755);       /* Modal background - even lighter */
+  --bg-1: oklch(0.22 0.030 264.695);       /* Main background - lighter dark */
+  --bg-2: oklch(0.28 0.028 265.755);       /* Card background - darker */
+  --bg-3: oklch(0.45 0.022 265.755);       /* Modal background - even lighter */
   --bg-subtle: oklch(0.36 0.025 260.031);  /* Subtle background */
 
   /* Border hierarchy */

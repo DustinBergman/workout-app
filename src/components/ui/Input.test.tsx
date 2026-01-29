@@ -21,7 +21,7 @@ describe('Input', () => {
   it('applies error styling when error prop is provided', () => {
     render(<Input error="Error" data-testid="input" />);
     const input = screen.getByTestId('input');
-    expect(input).toHaveClass('border-destructive');
+    expect(input).toHaveClass('border-error');
   });
 
   it('handles value changes', () => {
