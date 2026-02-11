@@ -21,12 +21,18 @@ import {
   ExerciseAnalysis,
   hasEnoughHistoryForPlateauDetection,
 } from './exerciseAnalysis';
+import { filterOutliers } from '../../utils/outlierFilter';
+import { calculateLocalSuggestion } from '../localSuggestions';
 
 // Context shared across all exercise suggestions
 interface SuggestionContext {
   trainingGuidance: string;
   weightContext: string;
   weightUnit: 'lbs' | 'kg';
+  experienceLevel: ExperienceLevel;
+  workoutGoal: WorkoutGoal;
+  currentWeek?: ProgressiveOverloadWeek;
+  currentPhase?: PhaseConfig;
 }
 
 // Data for a single exercise suggestion request
@@ -237,7 +243,9 @@ const getSuggestionForExercise = async (
   apiKey: string,
   context: SuggestionContext,
   exercise: ExerciseSuggestionInput,
-  customExercises: Exercise[]
+  customExercises: Exercise[],
+  analysis?: ExerciseAnalysis,
+  recentSessionSets?: { weight: number; reps: number }[][]
 ): Promise<ExerciseSuggestion> => {
   const prompt = buildExercisePrompt(context, exercise);
 
@@ -258,14 +266,30 @@ For PLATEAU status, also include:
 - "techniqueTip": "<advice to break plateau>"
 - "repRangeChange": { "from": "X-Y", "to": "A-B", "reason": "<why>" }`;
 
-  // Create fallback based on last performance
-  const lastWeight = exercise.recentSets?.[0]?.weight ?? 0;
-  const lastReps = exercise.recentSets?.[0]?.reps ?? exercise.targetReps;
-  const exerciseInfo = getExerciseById(exercise.exerciseId, customExercises);
-  const exerciseName = exerciseInfo?.name || exercise.exerciseName;
+  // Create smart fallback using local suggestion engine when we have analysis data
+  let fallbackSuggestion: ExerciseSuggestion;
 
-  const fallback: { suggestion: ExerciseSuggestion } = {
-    suggestion: {
+  if (analysis && recentSessionSets) {
+    fallbackSuggestion = calculateLocalSuggestion(
+      exercise.exerciseId,
+      analysis,
+      {
+        experienceLevel: context.experienceLevel,
+        workoutGoal: context.workoutGoal,
+        weightUnit: context.weightUnit,
+        currentWeek: context.currentWeek,
+        currentPhase: context.currentPhase,
+      },
+      exercise.targetReps,
+      recentSessionSets
+    );
+  } else {
+    const lastWeight = exercise.recentSets?.[0]?.weight ?? 0;
+    const lastReps = exercise.recentSets?.[0]?.reps ?? exercise.targetReps;
+    const exerciseInfo = getExerciseById(exercise.exerciseId, customExercises);
+    const exerciseName = exerciseInfo?.name || exercise.exerciseName;
+
+    fallbackSuggestion = {
       exerciseId: exercise.exerciseId,
       suggestedWeight: lastWeight,
       suggestedReps: lastReps || exercise.targetReps || 10,
@@ -274,8 +298,10 @@ For PLATEAU status, also include:
         : `Start light and establish your working weight for ${exerciseName}`,
       confidence: lastWeight > 0 ? 'medium' : 'low',
       progressStatus: lastWeight > 0 ? 'improving' : 'new',
-    },
-  };
+    };
+  }
+
+  const fallback = { suggestion: fallbackSuggestion };
 
   const result = await executeLLMWithRetries({
     apiKey,
@@ -330,6 +356,9 @@ const buildExerciseInput = (
   // Sort by date descending
   previousSets.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
+  // Filter outliers by weight before passing to AI
+  const filteredSets = filterOutliers(previousSets, (s) => s.weight);
+
   const input: ExerciseSuggestionInput = {
     exerciseId: templateEx.exerciseId,
     exerciseName: exerciseInfo?.name || templateEx.exerciseId,
@@ -338,8 +367,8 @@ const buildExerciseInput = (
   };
 
   // Only include recent sets if we have data
-  if (previousSets.length > 0) {
-    input.recentSets = previousSets.slice(0, 10);
+  if (filteredSets.length > 0) {
+    input.recentSets = filteredSets.slice(0, 10);
   }
 
   // Only include analysis if we have meaningful data
@@ -398,6 +427,10 @@ export const getPreWorkoutSuggestions = async (
     trainingGuidance: buildTrainingGuidance(workoutGoal, currentWeek, experienceLevel, currentPhase),
     weightContext: buildWeightContext(weightEntries, weightUnit),
     weightUnit,
+    experienceLevel,
+    workoutGoal,
+    currentWeek,
+    currentPhase,
   };
 
   // Build input for each exercise
@@ -410,9 +443,41 @@ export const getPreWorkoutSuggestions = async (
     )
   );
 
+  // Collect recent session sets per exercise for smart fallback
+  const recentSessionSetsMap = new Map<string, { weight: number; reps: number }[][]>();
+  const sortedSessions = [...previousSessions]
+    .filter((s) => s.completedAt)
+    .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
+
+  for (const templateEx of strengthTemplateExercises) {
+    const sessionSets: { weight: number; reps: number }[][] = [];
+    for (const session of sortedSessions.slice(0, 10)) {
+      for (const ex of session.exercises) {
+        if (ex.exerciseId === templateEx.exerciseId) {
+          const sets = ex.sets
+            .filter((s): s is StrengthCompletedSet =>
+              s.type === 'strength' || !('type' in s)
+            )
+            .map((s) => ({ weight: s.weight, reps: s.reps }));
+          if (sets.length > 0) {
+            sessionSets.push(sets);
+          }
+        }
+      }
+    }
+    recentSessionSetsMap.set(templateEx.exerciseId, sessionSets);
+  }
+
   // Call LLM for each exercise in parallel
   const suggestionPromises = exerciseInputs.map((exerciseInput) =>
-    getSuggestionForExercise(apiKey, context, exerciseInput, customExercises as Exercise[])
+    getSuggestionForExercise(
+      apiKey,
+      context,
+      exerciseInput,
+      customExercises as Exercise[],
+      analysisMap.get(exerciseInput.exerciseId),
+      recentSessionSetsMap.get(exerciseInput.exerciseId)
+    )
   );
 
   const suggestions = await Promise.all(suggestionPromises);

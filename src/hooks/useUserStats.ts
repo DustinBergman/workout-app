@@ -4,6 +4,7 @@ import { calculateSessionStats } from './useSessionStats';
 import { getAllExercises } from '../data/exercises';
 import { calculate1RM } from '../utils/personalBestUtils';
 import { estimateCardioCalories } from '../utils/workoutUtils';
+import { filterOutliers } from '../utils/outlierFilter';
 
 export type TimePeriod = '30' | '90' | 'all';
 
@@ -70,10 +71,13 @@ const calculateStrengthProgress = (
       );
       if (strengthSets.length === 0) return;
 
+      // Filter outliers by weight before computing 1RM
+      const filteredSets = filterOutliers(strengthSets, (s) => s.weight);
+
       // Find the best estimated 1RM for this exercise in this session
       // This normalizes different weight/rep combinations to a comparable metric
       let best1RM = 0;
-      for (const set of strengthSets) {
+      for (const set of filteredSets) {
         if ('weight' in set && 'reps' in set && set.weight > 0 && set.reps > 0) {
           const estimated1RM = calculate1RM(set.weight, set.reps);
           best1RM = Math.max(best1RM, estimated1RM);
@@ -304,10 +308,11 @@ const calculateCardioStats = (
     }
   });
 
-  // Calculate average pace
+  // Calculate average pace (filter outliers before averaging)
   let averagePace: number | null = null;
   if (paceData.length > 0) {
-    averagePace = paceData.reduce((sum, p) => sum + p.pace, 0) / paceData.length;
+    const filteredPaceData = filterOutliers(paceData, (p) => p.pace);
+    averagePace = filteredPaceData.reduce((sum, p) => sum + p.pace, 0) / filteredPaceData.length;
   }
 
   // Calculate pace improvement (compare last 2 weeks to prior 2 weeks)

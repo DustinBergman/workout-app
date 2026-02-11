@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
 import { WorkoutSession, WorkoutTemplate } from '../types';
 import { getPreWorkoutSuggestions } from '../services/openai';
+import { getLocalSuggestions } from '../services/localSuggestions';
 
 const generateId = (): string => {
   return crypto.randomUUID();
@@ -91,6 +92,24 @@ export const useStartWorkout = (): UseStartWorkoutReturn => {
         // Continue without suggestions on error (API failure, timeout, out of credits, etc.)
       } finally {
         setIsLoadingSuggestions(false);
+      }
+    } else if (!preferences.openaiApiKey && sessions.length > 0 && currentWeek !== 0) {
+      // No API key — use local suggestion engine (synchronous, no loading state needed)
+      try {
+        const suggestions = getLocalSuggestions(
+          template,
+          sessions,
+          preferences.weightUnit,
+          currentWeek,
+          workoutGoal,
+          preferences.experienceLevel || 'intermediate',
+          currentPhase
+        );
+        if (suggestions.length > 0) {
+          setActiveSession({ ...session, suggestions });
+        }
+      } catch (err) {
+        console.error('Failed to get local suggestions:', err);
       }
     }
 

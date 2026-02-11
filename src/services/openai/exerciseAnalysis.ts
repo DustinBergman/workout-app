@@ -4,6 +4,7 @@ import {
   Exercise,
 } from '../../types';
 import { getExerciseById } from '../../data/exercises';
+import { filterOutliers } from '../../utils/outlierFilter';
 
 // Cache for exercise analysis results
 interface AnalysisCache {
@@ -227,8 +228,9 @@ export const analyzeExercise10Weeks = (
       repsTrend: 0,
       estimated1RMTrend: 0,
       recentSessions: sessionData.slice(0, 5).map((s) => {
-        const maxWeight = Math.max(...s.sets.map((set) => set.weight));
-        const avgReps = s.sets.reduce((sum, set) => sum + set.reps, 0) / s.sets.length;
+        const filtered = filterOutliers(s.sets, (set) => set.weight);
+        const maxWeight = Math.max(...filtered.map((set) => set.weight));
+        const avgReps = filtered.reduce((sum, set) => sum + set.reps, 0) / filtered.length;
         return {
           date: s.date.toISOString(),
           maxWeight,
@@ -257,9 +259,10 @@ export const analyzeExercise10Weeks = (
     if (weekSessions.length === 0) continue;
 
     const allSets = weekSessions.flatMap((s) => s.sets);
-    const avgWeight = allSets.reduce((sum, s) => sum + s.weight, 0) / allSets.length;
-    const avgReps = allSets.reduce((sum, s) => sum + s.reps, 0) / allSets.length;
-    const maxWeight = Math.max(...allSets.map((s) => s.weight));
+    const filteredSets = filterOutliers(allSets, (s) => s.weight);
+    const avgWeight = filteredSets.reduce((sum, s) => sum + s.weight, 0) / filteredSets.length;
+    const avgReps = filteredSets.reduce((sum, s) => sum + s.reps, 0) / filteredSets.length;
+    const maxWeight = Math.max(...filteredSets.map((s) => s.weight));
     const estimated1RM = calculateEpley1RM(maxWeight, Math.round(avgReps));
 
     weeklyPerformance.push({
@@ -311,8 +314,9 @@ export const analyzeExercise10Weeks = (
 
   // Build recent sessions summary
   const recentSessions = sessionData.slice(0, 5).map((s) => {
-    const maxWeight = Math.max(...s.sets.map((set) => set.weight));
-    const avgReps = s.sets.reduce((sum, set) => sum + set.reps, 0) / s.sets.length;
+    const filtered = filterOutliers(s.sets, (set) => set.weight);
+    const maxWeight = Math.max(...filtered.map((set) => set.weight));
+    const avgReps = filtered.reduce((sum, set) => sum + set.reps, 0) / filtered.length;
     return {
       date: s.date.toISOString(),
       maxWeight,
@@ -349,9 +353,10 @@ const detectPlateauSignals = (
   // Signal 1: Same max weight for 4+ sessions (relaxed from 3)
   let sameWeight3Sessions = false;
   if (sessionData.length >= 4) {
-    const maxWeights = sessionData.slice(0, 6).map((s) =>
-      Math.max(...s.sets.map((set) => set.weight))
-    );
+    const maxWeights = sessionData.slice(0, 6).map((s) => {
+      const filtered = filterOutliers(s.sets, (set) => set.weight);
+      return Math.max(...filtered.map((set) => set.weight));
+    });
     const firstWeight = maxWeights[0];
     const tolerance = firstWeight * 0.025; // 2.5% tolerance
     const sameWeightCount = maxWeights.filter((w) =>
@@ -374,8 +379,9 @@ const detectPlateauSignals = (
   let stalled1RM = false;
   if (sessionData.length >= 4) {
     const estimated1RMs = sessionData.slice(0, 6).map((s) => {
-      const maxWeight = Math.max(...s.sets.map((set) => set.weight));
-      const avgReps = s.sets.reduce((sum, set) => sum + set.reps, 0) / s.sets.length;
+      const filtered = filterOutliers(s.sets, (set) => set.weight);
+      const maxWeight = Math.max(...filtered.map((set) => set.weight));
+      const avgReps = filtered.reduce((sum, set) => sum + set.reps, 0) / filtered.length;
       return calculateEpley1RM(maxWeight, Math.round(avgReps));
     });
 

@@ -120,7 +120,10 @@ export const RestTimer: FC<RestTimerProps> = ({ duration, onComplete, onSkip, au
   const isRunning = !timerPaused && !isComplete && timerEndTime !== null;
 
   return (
-    <div className="fixed bottom-16 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 z-50">
+    <div
+      className="fixed left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 z-50"
+      style={{ bottom: 'calc(4rem + env(safe-area-inset-bottom))' }}
+    >
       {/* Progress Bar */}
       <div className="h-1 bg-gray-200 dark:bg-gray-700 w-full">
         <div

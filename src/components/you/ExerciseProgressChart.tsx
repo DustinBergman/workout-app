@@ -10,6 +10,7 @@ import {
 import { Card, Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../ui';
 import { WorkoutSession, Exercise, WeightUnit, StrengthCompletedSet } from '../../types';
 import { getExerciseById } from '../../data/exercises';
+import { filterOutliers } from '../../utils/outlierFilter';
 
 type MetricType = 'avgWeight' | 'estimated1RM';
 
@@ -108,8 +109,9 @@ const getExerciseChartData = (
 
       if (strengthSets.length === 0) return;
 
-      const weights = strengthSets.map((s) => s.weight);
-      const reps = strengthSets.map((s) => s.reps);
+      const filteredSets = filterOutliers(strengthSets, (s) => s.weight);
+      const weights = filteredSets.map((s) => s.weight);
+      const reps = filteredSets.map((s) => s.reps);
       const avgWeight = weights.reduce((a, b) => a + b, 0) / weights.length;
       const avgReps = reps.reduce((a, b) => a + b, 0) / reps.length;
       const maxWeight = Math.max(...weights);
