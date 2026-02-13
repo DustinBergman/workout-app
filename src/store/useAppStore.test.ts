@@ -3,7 +3,7 @@ import { useAppStore, migrateToUUIDs } from './useAppStore';
 import { createMockTemplate } from '../test/fixtures/templates';
 import { createMockSession } from '../test/fixtures/sessions';
 import { createMockExercise } from '../test/fixtures/exercises';
-import { WorkoutSession, StrengthSessionExercise, StrengthCompletedSet } from '../types';
+import { WorkoutSession, StrengthSessionExercise, StrengthCompletedSet, BUILD_5_WEEK_CYCLE } from '../types';
 
 // Helper to reset store between tests
 const resetStore = () => {
@@ -18,8 +18,14 @@ const resetStore = () => {
       darkMode: false,
     },
     customExercises: [],
-    currentWeek: 0,
     workoutGoal: 'build',
+    cycleConfig: BUILD_5_WEEK_CYCLE,
+    cycleState: {
+      cycleConfigId: BUILD_5_WEEK_CYCLE.id,
+      cycleStartDate: new Date().toISOString(),
+      currentPhaseIndex: 0,
+      currentWeekInPhase: 1,
+    },
   });
 };
 
@@ -59,6 +65,13 @@ describe('useAppStore', () => {
     it('should have empty custom exercises', () => {
       const state = useAppStore.getState();
       expect(state.customExercises).toEqual([]);
+    });
+
+    it('should have default cycle config (build-5)', () => {
+      const state = useAppStore.getState();
+      expect(state.cycleConfig.id).toBe('build-5');
+      expect(state.cycleState.currentPhaseIndex).toBe(0);
+      expect(state.cycleState.currentWeekInPhase).toBe(1);
     });
   });
 
@@ -257,50 +270,47 @@ describe('useAppStore', () => {
     });
   });
 
-  describe('Progressive Overload Week Actions', () => {
-    it('should have currentWeek default to 0', () => {
+  describe('Phase/Cycle Actions', () => {
+    it('should set current phase', () => {
+      useAppStore.getState().setCurrentPhase(2);
+
       const state = useAppStore.getState();
-      expect(state.currentWeek).toBe(0);
+      expect(state.cycleState.currentPhaseIndex).toBe(2);
+      expect(state.cycleState.currentWeekInPhase).toBe(1);
     });
 
-    it('should set current week', () => {
-      useAppStore.getState().setCurrentWeek(3);
+    it('should not set phase to invalid index', () => {
+      useAppStore.getState().setCurrentPhase(10);
 
-      expect(useAppStore.getState().currentWeek).toBe(3);
+      const state = useAppStore.getState();
+      expect(state.cycleState.currentPhaseIndex).toBe(0); // unchanged
     });
 
-    it('should set current week to any valid value', () => {
-      useAppStore.getState().setCurrentWeek(0);
-      expect(useAppStore.getState().currentWeek).toBe(0);
+    it('should advance phase within cycle', () => {
+      useAppStore.getState().advancePhase();
 
-      useAppStore.getState().setCurrentWeek(4);
-      expect(useAppStore.getState().currentWeek).toBe(4);
+      const state = useAppStore.getState();
+      expect(state.cycleState.currentPhaseIndex).toBe(1);
+      expect(state.cycleState.currentWeekInPhase).toBe(1);
     });
 
-    it('should advance week from 0 to 1', () => {
-      useAppStore.getState().setCurrentWeek(0);
-      useAppStore.getState().advanceWeek();
+    it('should cycle back to phase 0 after last phase', () => {
+      // Set to last phase (phase 4 = deload in build-5)
+      useAppStore.getState().setCurrentPhase(4);
+      useAppStore.getState().advancePhase();
 
-      expect(useAppStore.getState().currentWeek).toBe(1);
+      const state = useAppStore.getState();
+      expect(state.cycleState.currentPhaseIndex).toBe(0);
+      expect(state.cycleState.currentWeekInPhase).toBe(1);
     });
 
-    it('should advance week from 4 back to 0 (cycle)', () => {
-      useAppStore.getState().setCurrentWeek(4);
-      useAppStore.getState().advanceWeek();
+    it('should reset cycle to phase 0', () => {
+      useAppStore.getState().setCurrentPhase(3);
+      useAppStore.getState().resetCycle();
 
-      expect(useAppStore.getState().currentWeek).toBe(0);
-    });
-
-    it('should cycle through all weeks correctly', () => {
-      useAppStore.getState().setCurrentWeek(0);
-
-      // Cycle through all 5 weeks and back to 0
-      for (let i = 0; i < 5; i++) {
-        expect(useAppStore.getState().currentWeek).toBe(i);
-        useAppStore.getState().advanceWeek();
-      }
-      // After 5 advances, should be back to 0
-      expect(useAppStore.getState().currentWeek).toBe(0);
+      const state = useAppStore.getState();
+      expect(state.cycleState.currentPhaseIndex).toBe(0);
+      expect(state.cycleState.currentWeekInPhase).toBe(1);
     });
   });
 
@@ -310,34 +320,30 @@ describe('useAppStore', () => {
       expect(state.workoutGoal).toBe('build');
     });
 
-    it('should set workout goal to lose', () => {
+    it('should set workout goal to lose and switch to lose-5 cycle', () => {
       useAppStore.getState().setWorkoutGoal('lose');
 
-      expect(useAppStore.getState().workoutGoal).toBe('lose');
+      const state = useAppStore.getState();
+      expect(state.workoutGoal).toBe('lose');
+      expect(state.cycleConfig.id).toBe('lose-5');
+      expect(state.cycleState.currentPhaseIndex).toBe(0);
     });
 
-    it('should set workout goal to maintain', () => {
+    it('should set workout goal to maintain and switch to maintain-5 cycle', () => {
       useAppStore.getState().setWorkoutGoal('maintain');
 
-      expect(useAppStore.getState().workoutGoal).toBe('maintain');
+      const state = useAppStore.getState();
+      expect(state.workoutGoal).toBe('maintain');
+      expect(state.cycleConfig.id).toBe('maintain-5');
     });
 
     it('should set workout goal back to build', () => {
       useAppStore.getState().setWorkoutGoal('lose');
       useAppStore.getState().setWorkoutGoal('build');
 
-      expect(useAppStore.getState().workoutGoal).toBe('build');
-    });
-
-    it('should allow changing between all goal types', () => {
-      useAppStore.getState().setWorkoutGoal('build');
-      expect(useAppStore.getState().workoutGoal).toBe('build');
-
-      useAppStore.getState().setWorkoutGoal('lose');
-      expect(useAppStore.getState().workoutGoal).toBe('lose');
-
-      useAppStore.getState().setWorkoutGoal('maintain');
-      expect(useAppStore.getState().workoutGoal).toBe('maintain');
+      const state = useAppStore.getState();
+      expect(state.workoutGoal).toBe('build');
+      expect(state.cycleConfig.id).toBe('build-5');
     });
   });
 

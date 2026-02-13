@@ -26,6 +26,7 @@ export interface StrengthPhaseConfig {
   repRangeMax: number;
   intensityDescription: string;
   aiGuidance: string;
+  weightAdjustment?: string;
 }
 
 export interface CardioPhaseConfig {
@@ -358,10 +359,218 @@ export const CARDIO_6_WEEK_CYCLE: TrainingCycleConfig = {
 };
 
 // ============================================
+// Goal-Based 5-Week Cycles (replaces legacy week system)
+// ============================================
+
+export const BUILD_5_WEEK_CYCLE: TrainingCycleConfig = {
+  id: 'build-5',
+  name: 'Progressive Overload (5 weeks)',
+  description: '5-week progressive overload cycle for building muscle.',
+  cycleType: 'strength',
+  totalWeeks: 5,
+  recommendedForExperience: ['beginner', 'intermediate', 'advanced'],
+  recommendedForGoals: ['build'],
+  phases: [
+    {
+      type: 'baseline',
+      name: 'Baseline',
+      description: 'Establish your current working weights',
+      durationWeeks: 1,
+      repRangeMin: 8,
+      repRangeMax: 10,
+      intensityDescription: 'Moderate',
+      aiGuidance: 'Use current working weights. Focus on form and establishing baseline. RPE 6-7.',
+      weightAdjustment: 'Based on recent performance',
+    },
+    {
+      type: 'accumulation',
+      name: 'Light Overload',
+      description: 'Small weight increase with lower reps',
+      durationWeeks: 1,
+      repRangeMin: 6,
+      repRangeMax: 8,
+      intensityDescription: 'Moderate to challenging',
+      aiGuidance: 'Increase weight, target 6-8 reps. Progression-based increase. RPE 7-8.',
+      weightAdjustment: 'Progression-based increase',
+    },
+    {
+      type: 'accumulation',
+      name: 'Volume Focus',
+      description: 'Keep heavier weight, build reps',
+      durationWeeks: 1,
+      repRangeMin: 7,
+      repRangeMax: 9,
+      intensityDescription: 'Challenging',
+      aiGuidance: 'KEEP previous weight (do NOT reduce). Build to 7-9 reps. RPE 7-8.',
+      weightAdjustment: 'Keep previous weight',
+    },
+    {
+      type: 'intensification',
+      name: 'Strength Push',
+      description: 'Heavy weights with low reps for strength',
+      durationWeeks: 1,
+      repRangeMin: 5,
+      repRangeMax: 6,
+      intensityDescription: 'Heavy',
+      aiGuidance: 'Push for heavier weights if ready. 5-6 reps. RPE 8-9.',
+      weightAdjustment: 'Push for PR',
+    },
+    {
+      type: 'deload',
+      name: 'Deload',
+      description: 'Recovery week with reduced intensity',
+      durationWeeks: 1,
+      repRangeMin: 8,
+      repRangeMax: 12,
+      intensityDescription: 'Light',
+      aiGuidance: 'Reduce all weights 20-30%. Focus on movement quality and recovery. RPE 5-6.',
+      weightAdjustment: 'Reduce by 20-30%',
+    },
+  ],
+};
+
+export const LOSE_5_WEEK_CYCLE: TrainingCycleConfig = {
+  id: 'lose-5',
+  name: 'Fatigue Management (5 weeks)',
+  description: '5-week fatigue management cycle for losing weight while preserving muscle.',
+  cycleType: 'strength',
+  totalWeeks: 5,
+  recommendedForExperience: ['beginner', 'intermediate', 'advanced'],
+  recommendedForGoals: ['lose'],
+  phases: [
+    {
+      type: 'baseline',
+      name: 'Baseline Strength',
+      description: 'Establish maintenance weights',
+      durationWeeks: 1,
+      repRangeMin: 6,
+      repRangeMax: 10,
+      intensityDescription: 'Moderate',
+      aiGuidance: 'Maintain current weights. Preserve strength during deficit. RPE 6-7.',
+      weightAdjustment: 'Current weights',
+    },
+    {
+      type: 'accumulation',
+      name: 'Volume Reduction',
+      description: 'Same weights, fewer sets to manage fatigue',
+      durationWeeks: 1,
+      repRangeMin: 6,
+      repRangeMax: 8,
+      intensityDescription: 'Moderate',
+      aiGuidance: 'Same weights, reduce volume by 1 set per exercise. Manage fatigue. RPE 7.',
+      weightAdjustment: 'Same weight',
+    },
+    {
+      type: 'intensification',
+      name: 'Intensity Focus',
+      description: 'Heavy weights, minimal volume',
+      durationWeeks: 1,
+      repRangeMin: 4,
+      repRangeMax: 6,
+      intensityDescription: 'Heavy',
+      aiGuidance: 'Heavy weights, low volume. Maintain strength stimulus during deficit. RPE 8.',
+      weightAdjustment: 'Same weight',
+    },
+    {
+      type: 'accumulation',
+      name: 'Moderate Recovery',
+      description: 'Slightly lighter, moderate volume',
+      durationWeeks: 1,
+      repRangeMin: 8,
+      repRangeMax: 10,
+      intensityDescription: 'Moderate',
+      aiGuidance: 'Reduce 10% from baseline. Moderate volume, focus on recovery. RPE 6-7.',
+      weightAdjustment: '-10%',
+    },
+    {
+      type: 'deload',
+      name: 'Full Deload',
+      description: 'Light recovery week',
+      durationWeeks: 1,
+      repRangeMin: 10,
+      repRangeMax: 12,
+      intensityDescription: 'Light',
+      aiGuidance: 'Reduce 30%. Light recovery week. Focus on movement quality. RPE 5.',
+      weightAdjustment: '-30%',
+    },
+  ],
+};
+
+export const MAINTAIN_5_WEEK_CYCLE: TrainingCycleConfig = {
+  id: 'maintain-5',
+  name: 'Intensity Waves (5 weeks)',
+  description: '5-week intensity wave cycle for maintaining fitness.',
+  cycleType: 'strength',
+  totalWeeks: 5,
+  recommendedForExperience: ['beginner', 'intermediate', 'advanced'],
+  recommendedForGoals: ['maintain'],
+  phases: [
+    {
+      type: 'baseline',
+      name: 'Standard',
+      description: 'Baseline moderate training',
+      durationWeeks: 1,
+      repRangeMin: 8,
+      repRangeMax: 12,
+      intensityDescription: 'Moderate',
+      aiGuidance: 'Baseline moderate training. Current weights, 8-12 reps. RPE 6-7.',
+      weightAdjustment: 'Current weights',
+    },
+    {
+      type: 'accumulation',
+      name: 'Light Wave',
+      description: 'Reduced intensity, higher reps',
+      durationWeeks: 1,
+      repRangeMin: 12,
+      repRangeMax: 15,
+      intensityDescription: 'Light',
+      aiGuidance: 'Reduce 10-15%. Higher reps for recovery and endurance. RPE 6.',
+      weightAdjustment: '-10-15%',
+    },
+    {
+      type: 'accumulation',
+      name: 'Moderate Push',
+      description: 'Slightly heavier weights',
+      durationWeeks: 1,
+      repRangeMin: 8,
+      repRangeMax: 10,
+      intensityDescription: 'Moderate to challenging',
+      aiGuidance: 'Increase 5% from baseline. Moderate push, 8-10 reps. RPE 7.',
+      weightAdjustment: '+5%',
+    },
+    {
+      type: 'intensification',
+      name: 'Heavy Wave',
+      description: 'Intensity peak week',
+      durationWeeks: 1,
+      repRangeMin: 6,
+      repRangeMax: 8,
+      intensityDescription: 'Heavy',
+      aiGuidance: 'Increase 10% from baseline. Peak intensity, 6-8 reps. RPE 8.',
+      weightAdjustment: '+10%',
+    },
+    {
+      type: 'deload',
+      name: 'Recovery',
+      description: 'Light deload week',
+      durationWeeks: 1,
+      repRangeMin: 10,
+      repRangeMax: 12,
+      intensityDescription: 'Light',
+      aiGuidance: 'Reduce 20%. Light recovery. Focus on movement quality. RPE 5.',
+      weightAdjustment: '-20%',
+    },
+  ],
+};
+
+// ============================================
 // All Predefined Cycles
 // ============================================
 
 export const PREDEFINED_CYCLES: TrainingCycleConfig[] = [
+  BUILD_5_WEEK_CYCLE,
+  LOSE_5_WEEK_CYCLE,
+  MAINTAIN_5_WEEK_CYCLE,
   BEGINNER_4_WEEK_CYCLE,
   INTERMEDIATE_6_WEEK_CYCLE,
   ADVANCED_8_WEEK_CYCLE,
@@ -384,4 +593,15 @@ export const getDefaultCycleForExperience = (
 
 export const getCycleById = (id: string): TrainingCycleConfig | undefined => {
   return PREDEFINED_CYCLES.find(c => c.id === id);
+};
+
+export const GOAL_DEFAULT_CYCLES: Record<WorkoutGoal, string> = {
+  build: 'build-5',
+  lose: 'lose-5',
+  maintain: 'maintain-5',
+};
+
+export const getDefaultCycleForGoal = (goal: WorkoutGoal): TrainingCycleConfig => {
+  const cycleId = GOAL_DEFAULT_CYCLES[goal];
+  return getCycleById(cycleId) || BUILD_5_WEEK_CYCLE;
 };

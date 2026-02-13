@@ -1,13 +1,16 @@
 import { ChatMessage } from './types';
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
-const DEFAULT_MODEL = 'gpt-4o-mini';
+const DEFAULT_MODEL = 'gpt-5-mini';
+
+export type OpenAIModel = 'gpt-4o-mini' | 'gpt-4o' | 'gpt-4.1-mini' | 'gpt-4.1-nano' | 'gpt-5-mini' | 'gpt-5-nano' | 'gpt-5';
 
 export interface OpenAIRequestOptions {
   apiKey: string;
   messages: ChatMessage[];
   maxTokens?: number;
   temperature?: number;
+  model?: OpenAIModel;
 }
 
 export interface OpenAIResponse {
@@ -18,8 +21,28 @@ export interface OpenAIResponse {
   }>;
 }
 
+// GPT-5 family and o-series are reasoning models
+const isReasoningModel = (model: string): boolean =>
+  model.startsWith('gpt-5') || model.startsWith('o1') || model.startsWith('o3') || model.startsWith('o4');
+
 export const callOpenAI = async (options: OpenAIRequestOptions): Promise<string> => {
-  const { apiKey, messages, maxTokens = 1000, temperature = 0.3 } = options;
+  const { apiKey, messages, maxTokens = 1000, temperature = 0.3, model = DEFAULT_MODEL } = options;
+
+  // Reasoning models use hidden thinking tokens within max_completion_tokens,
+  // so we need a larger budget (roughly 10x) to leave room for actual output.
+  const isReasoning = isReasoningModel(model);
+  const tokenBudget = isReasoning ? Math.max(maxTokens * 10, 4000) : maxTokens;
+
+  const body: Record<string, unknown> = {
+    model,
+    messages,
+    max_completion_tokens: tokenBudget,
+  };
+
+  // Reasoning models don't support custom temperature
+  if (!isReasoning) {
+    body.temperature = temperature;
+  }
 
   const response = await fetch(OPENAI_API_URL, {
     method: 'POST',
@@ -27,12 +50,7 @@ export const callOpenAI = async (options: OpenAIRequestOptions): Promise<string>
       'Content-Type': 'application/json',
       Authorization: `Bearer ${apiKey}`,
     },
-    body: JSON.stringify({
-      model: DEFAULT_MODEL,
-      messages,
-      max_tokens: maxTokens,
-      temperature,
-    }),
+    body: JSON.stringify(body),
   });
 
   if (!response.ok) {

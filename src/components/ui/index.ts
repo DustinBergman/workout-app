@@ -30,6 +30,7 @@ export {
 export { Navigation } from './Navigation';
 
 export { WeekBadge } from './WeekBadge';
+export { PhaseBadge } from './PhaseBadge';
 
 export { SyncIndicator } from './SyncIndicator';
 

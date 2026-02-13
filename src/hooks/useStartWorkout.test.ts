@@ -54,7 +54,6 @@ const resetStore = () => {
       darkMode: false,
     },
     customExercises: [],
-    currentWeek: 0,
   });
   useCurrentWorkoutStore.getState().reset();
 };
@@ -150,10 +149,10 @@ describe('useStartWorkout', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/workout');
   });
 
-  it('should not fetch suggestions when in baseline week (week 0)', async () => {
+  it('should not fetch suggestions when in baseline phase', async () => {
     const { getPreWorkoutSuggestions } = await import('../services/openai');
 
-    // Set up store with API key, sessions, but week 0 (baseline)
+    // Set up store with API key, sessions, but baseline phase
     useAppStore.setState({
       preferences: {
         weightUnit: 'lbs',
@@ -169,7 +168,6 @@ describe('useStartWorkout', () => {
         completedAt: new Date().toISOString(),
         exercises: [],
       }],
-      currentWeek: 0, // Baseline week
     });
 
     const template = createMockTemplate();
@@ -179,16 +177,16 @@ describe('useStartWorkout', () => {
       await result.current.startWorkout(template);
     });
 
-    // Should not call AI suggestions in baseline week
+    // Should not call AI suggestions in baseline phase
     expect(getPreWorkoutSuggestions).not.toHaveBeenCalled();
-    // Suggestions should be undefined when in baseline week
+    // Suggestions should be undefined when in baseline phase
     expect(useAppStore.getState().activeSession?.suggestions).toBeUndefined();
   });
 
-  it('should fetch suggestions when not in baseline week', async () => {
+  it('should fetch suggestions when not in baseline phase', async () => {
     const { getPreWorkoutSuggestions } = await import('../services/openai');
 
-    // Set up store with API key, sessions, and week 1 (not baseline)
+    // Set up store with API key, sessions, and non-baseline phase (phase index 1)
     useAppStore.setState({
       preferences: {
         weightUnit: 'lbs',
@@ -204,7 +202,12 @@ describe('useStartWorkout', () => {
         completedAt: new Date().toISOString(),
         exercises: [],
       }],
-      currentWeek: 1, // Not baseline week
+      cycleState: {
+        cycleConfigId: 'build-5',
+        cycleStartDate: new Date().toISOString(),
+        currentPhaseIndex: 1,
+        currentWeekInPhase: 1,
+      },
       workoutGoal: 'build',
     });
 
@@ -215,7 +218,7 @@ describe('useStartWorkout', () => {
       await result.current.startWorkout(template);
     });
 
-    // Should call AI suggestions when not in baseline week
+    // Should call AI suggestions when not in baseline phase
     expect(getPreWorkoutSuggestions).toHaveBeenCalled();
   });
 
@@ -228,7 +231,7 @@ describe('useStartWorkout', () => {
       () => new Promise(() => {}) // Never resolves
     );
 
-    // Set up store with API key, sessions, and week 1
+    // Set up store with API key, sessions, and non-baseline phase
     useAppStore.setState({
       preferences: {
         weightUnit: 'lbs',
@@ -244,7 +247,12 @@ describe('useStartWorkout', () => {
         completedAt: new Date().toISOString(),
         exercises: [],
       }],
-      currentWeek: 1,
+      cycleState: {
+        cycleConfigId: 'build-5',
+        cycleStartDate: new Date().toISOString(),
+        currentPhaseIndex: 1,
+        currentWeekInPhase: 1,
+      },
       workoutGoal: 'build',
     });
 
@@ -279,7 +287,7 @@ describe('useStartWorkout', () => {
     // Mock API error (e.g., out of credits)
     vi.mocked(getPreWorkoutSuggestions).mockRejectedValue(new Error('Insufficient credits'));
 
-    // Set up store with API key, sessions, and week 1
+    // Set up store with API key, sessions, and non-baseline phase
     useAppStore.setState({
       preferences: {
         weightUnit: 'lbs',
@@ -295,7 +303,12 @@ describe('useStartWorkout', () => {
         completedAt: new Date().toISOString(),
         exercises: [],
       }],
-      currentWeek: 1,
+      cycleState: {
+        cycleConfigId: 'build-5',
+        cycleStartDate: new Date().toISOString(),
+        currentPhaseIndex: 1,
+        currentWeekInPhase: 1,
+      },
       workoutGoal: 'build',
     });
 

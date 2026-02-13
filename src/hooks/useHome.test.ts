@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useHome } from './useHome';
 import { useAppStore } from '../store/useAppStore';
-import { WorkoutTemplate, WorkoutSession, ProgressiveOverloadWeek } from '../types';
+import { WorkoutTemplate, WorkoutSession, BUILD_5_WEEK_CYCLE, LOSE_5_WEEK_CYCLE } from '../types';
 
 // Mock openai service
 vi.mock('../services/openai', () => ({
@@ -55,10 +55,15 @@ const resetStore = () => {
       darkMode: false,
     },
     customExercises: [],
-    currentWeek: 0 as ProgressiveOverloadWeek,
-    weekStartedAt: null,
     workoutGoal: 'build',
     hasCompletedIntro: false,
+    cycleConfig: BUILD_5_WEEK_CYCLE,
+    cycleState: {
+      cycleConfigId: BUILD_5_WEEK_CYCLE.id,
+      cycleStartDate: new Date().toISOString(),
+      currentPhaseIndex: 0,
+      currentWeekInPhase: 1,
+    },
   });
 };
 
@@ -98,7 +103,16 @@ describe('useHome', () => {
     });
 
     it('should return lose goal', () => {
-      useAppStore.setState({ workoutGoal: 'lose' });
+      useAppStore.setState({
+        workoutGoal: 'lose',
+        cycleConfig: LOSE_5_WEEK_CYCLE,
+        cycleState: {
+          cycleConfigId: LOSE_5_WEEK_CYCLE.id,
+          cycleStartDate: new Date().toISOString(),
+          currentPhaseIndex: 0,
+          currentWeekInPhase: 1,
+        },
+      });
       const { result } = renderHook(() => useHome());
       expect(result.current.workoutGoal).toBe('lose');
     });
@@ -213,91 +227,13 @@ describe('useHome', () => {
       const { result } = renderHook(() => useHome());
       expect(result.current.nextWorkout?.id).toBe('template-1');
     });
-
-    it('should return first template when last session has no templateId', () => {
-      const template1 = createMockTemplate({ id: 'template-1', name: 'Push' });
-
-      const session = createMockSession({
-        startedAt: '2024-01-01T10:00:00Z',
-        // No templateId (quick workout)
-      });
-
-      useAppStore.setState({
-        templates: [template1],
-        sessions: [session],
-      });
-
-      const { result } = renderHook(() => useHome());
-      expect(result.current.nextWorkout?.id).toBe('template-1');
-    });
-
-    it('should use most recent session with templateId', () => {
-      const template1 = createMockTemplate({ id: 'template-1', name: 'Push' });
-      const template2 = createMockTemplate({ id: 'template-2', name: 'Pull' });
-      const template3 = createMockTemplate({ id: 'template-3', name: 'Legs' });
-
-      const session1 = createMockSession({
-        templateId: 'template-1',
-        startedAt: '2024-01-01T10:00:00Z',
-      });
-      const session2 = createMockSession({
-        templateId: 'template-2',
-        startedAt: '2024-01-02T10:00:00Z',
-      });
-      const quickSession = createMockSession({
-        // No templateId
-        startedAt: '2024-01-03T10:00:00Z',
-      });
-
-      useAppStore.setState({
-        templates: [template1, template2, template3],
-        sessions: [session1, session2, quickSession],
-      });
-
-      const { result } = renderHook(() => useHome());
-      // Most recent with templateId is session2 (template-2), so next is template-3
-      expect(result.current.nextWorkout?.id).toBe('template-3');
-    });
   });
 
-  describe('auto-advance week', () => {
-    it('should not advance when weekStartedAt is null', () => {
-      const advanceWeekSpy = vi.fn();
-      useAppStore.setState({
-        weekStartedAt: null,
-        advanceWeek: advanceWeekSpy,
-      });
-
-      renderHook(() => useHome());
-      expect(advanceWeekSpy).not.toHaveBeenCalled();
-    });
-
-    it('should not advance when less than 7 days have passed', () => {
-      const advanceWeekSpy = vi.fn();
-      const sixDaysAgo = new Date();
-      sixDaysAgo.setDate(sixDaysAgo.getDate() - 6);
-
-      useAppStore.setState({
-        weekStartedAt: sixDaysAgo.toISOString(),
-        advanceWeek: advanceWeekSpy,
-      });
-
-      renderHook(() => useHome());
-      expect(advanceWeekSpy).not.toHaveBeenCalled();
-    });
-
-    it('should advance when 7 or more days have passed', () => {
-      const advanceWeekSpy = vi.fn();
-      const eightDaysAgo = new Date();
-      eightDaysAgo.setDate(eightDaysAgo.getDate() - 8);
-
-      useAppStore.setState({
-        weekStartedAt: eightDaysAgo.toISOString(),
-        advanceWeek: advanceWeekSpy,
-      });
-
-      renderHook(() => useHome());
-      expect(advanceWeekSpy).toHaveBeenCalledTimes(1);
+  describe('cycle info', () => {
+    it('should return cycle config and state', () => {
+      const { result } = renderHook(() => useHome());
+      expect(result.current.cycleConfig.id).toBe('build-5');
+      expect(result.current.cycleState.currentPhaseIndex).toBe(0);
     });
   });
 
@@ -311,8 +247,14 @@ describe('useHome', () => {
         templates: [template],
         sessions: [session],
         activeSession,
-        currentWeek: 2 as ProgressiveOverloadWeek,
         workoutGoal: 'lose',
+        cycleConfig: LOSE_5_WEEK_CYCLE,
+        cycleState: {
+          cycleConfigId: LOSE_5_WEEK_CYCLE.id,
+          cycleStartDate: new Date().toISOString(),
+          currentPhaseIndex: 2,
+          currentWeekInPhase: 1,
+        },
       });
 
       const { result } = renderHook(() => useHome());
@@ -320,8 +262,8 @@ describe('useHome', () => {
       expect(result.current.templates).toHaveLength(1);
       expect(result.current.sessions).toHaveLength(1);
       expect(result.current.activeSession?.id).toBe('active-session');
-      expect(result.current.currentWeek).toBe(2);
       expect(result.current.workoutGoal).toBe('lose');
+      expect(result.current.cycleState.currentPhaseIndex).toBe(2);
     });
   });
 

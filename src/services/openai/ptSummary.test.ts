@@ -16,8 +16,9 @@ import {
   WeightEntry,
   ExperienceLevel,
   WorkoutGoal,
-  ProgressiveOverloadWeek,
+  PhaseConfig,
 } from '../../types';
+import { BUILD_5_WEEK_CYCLE } from '../../types/cycles';
 
 // Mock fetch globally
 const mockFetch = vi.fn();
@@ -237,7 +238,7 @@ describe('ptSummary', () => {
       firstName: 'John',
       experienceLevel: 'intermediate' as ExperienceLevel,
       workoutGoal: 'build' as WorkoutGoal,
-      currentWeek: 2 as ProgressiveOverloadWeek,
+      currentPhase: BUILD_5_WEEK_CYCLE.phases[2] as PhaseConfig,
     };
 
     it('should return basic activity metrics', () => {
@@ -256,13 +257,14 @@ describe('ptSummary', () => {
         defaultParams.firstName,
         defaultParams.experienceLevel,
         defaultParams.workoutGoal,
-        defaultParams.currentWeek
+        defaultParams.currentPhase
       );
 
       expect(result.firstName).toBe('John');
       expect(result.experienceLevel).toBe('intermediate');
       expect(result.workoutGoal).toBe('build');
-      expect(result.currentWeek).toBe(2);
+      expect(result.currentPhaseName).toBe('Volume Focus');
+      expect(result.currentPhaseType).toBe('accumulation');
       expect(result.totalWorkoutsLast10Weeks).toBe(5);
       expect(result.workoutsPerWeek).toBe(0.5);
     });
@@ -281,7 +283,7 @@ describe('ptSummary', () => {
         undefined,
         'beginner',
         'maintain',
-        0
+        BUILD_5_WEEK_CYCLE.phases[0]
       );
 
       expect(result.totalWorkoutsLast10Weeks).toBe(20);
@@ -303,7 +305,7 @@ describe('ptSummary', () => {
         defaultParams.firstName,
         defaultParams.experienceLevel,
         defaultParams.workoutGoal,
-        defaultParams.currentWeek
+        defaultParams.currentPhase
       );
 
       expect(result.totalWorkoutsLast10Weeks).toBe(2);
@@ -320,7 +322,7 @@ describe('ptSummary', () => {
         defaultParams.firstName,
         defaultParams.experienceLevel,
         defaultParams.workoutGoal,
-        defaultParams.currentWeek
+        defaultParams.currentPhase
       );
 
       expect(result.bodyWeightTrend).toBeDefined();
@@ -339,7 +341,7 @@ describe('ptSummary', () => {
         defaultParams.firstName,
         defaultParams.experienceLevel,
         defaultParams.workoutGoal,
-        defaultParams.currentWeek
+        defaultParams.currentPhase
       );
 
       expect(result.bodyWeightTrend).toBeUndefined();
@@ -361,7 +363,7 @@ describe('ptSummary', () => {
         defaultParams.firstName,
         defaultParams.experienceLevel,
         defaultParams.workoutGoal,
-        defaultParams.currentWeek
+        defaultParams.currentPhase
       );
 
       expect(result.averageMoodLast5Workouts).toBeDefined();
@@ -382,7 +384,7 @@ describe('ptSummary', () => {
         defaultParams.firstName,
         defaultParams.experienceLevel,
         defaultParams.workoutGoal,
-        defaultParams.currentWeek
+        defaultParams.currentPhase
       );
 
       expect(result.averageMoodLast5Workouts).toBeUndefined();
@@ -406,7 +408,7 @@ describe('ptSummary', () => {
         defaultParams.firstName,
         defaultParams.experienceLevel,
         defaultParams.workoutGoal,
-        defaultParams.currentWeek
+        defaultParams.currentPhase
       );
 
       expect(result.recentPRs.length).toBeGreaterThan(0);
@@ -430,7 +432,7 @@ describe('ptSummary', () => {
         defaultParams.firstName,
         defaultParams.experienceLevel,
         defaultParams.workoutGoal,
-        defaultParams.currentWeek
+        defaultParams.currentPhase
       );
 
       expect(result.recentPRs.length).toBe(0);
@@ -459,7 +461,7 @@ describe('ptSummary', () => {
         defaultParams.firstName,
         defaultParams.experienceLevel,
         defaultParams.workoutGoal,
-        defaultParams.currentWeek
+        defaultParams.currentPhase
       );
 
       // Should not throw and should process sessions
@@ -479,7 +481,7 @@ describe('ptSummary', () => {
         defaultParams.firstName,
         defaultParams.experienceLevel,
         defaultParams.workoutGoal,
-        defaultParams.currentWeek
+        defaultParams.currentPhase
       );
 
       expect(result.muscleGroupProgress).toEqual([]);
@@ -515,7 +517,7 @@ describe('ptSummary', () => {
         'John',
         'intermediate',
         'build',
-        2
+        BUILD_5_WEEK_CYCLE.phases[0]
       );
 
       expect(result).toBeNull();
@@ -531,7 +533,7 @@ describe('ptSummary', () => {
         'John',
         'intermediate',
         'build',
-        2
+        BUILD_5_WEEK_CYCLE.phases[0]
       );
 
       expect(result).toBeNull();
@@ -547,7 +549,7 @@ describe('ptSummary', () => {
         'John',
         'intermediate',
         'build',
-        2
+        BUILD_5_WEEK_CYCLE.phases[0]
       );
 
       expect(result).toBeNull();
@@ -570,7 +572,7 @@ describe('ptSummary', () => {
         'John',
         'intermediate',
         'build',
-        2
+        BUILD_5_WEEK_CYCLE.phases[0]
       );
 
       expect(result).not.toBeNull();
@@ -597,7 +599,7 @@ describe('ptSummary', () => {
         'John',
         'intermediate',
         'build',
-        2
+        BUILD_5_WEEK_CYCLE.phases[0]
       );
 
       // Second call with same sessions
@@ -609,7 +611,7 @@ describe('ptSummary', () => {
         'John',
         'intermediate',
         'build',
-        2
+        BUILD_5_WEEK_CYCLE.phases[0]
       );
 
       expect(result1).toEqual(result2);
@@ -645,7 +647,7 @@ describe('ptSummary', () => {
         'John',
         'intermediate',
         'build',
-        2
+        BUILD_5_WEEK_CYCLE.phases[0]
       );
 
       // Clear cache and call with different sessions
@@ -663,7 +665,7 @@ describe('ptSummary', () => {
         'John',
         'intermediate',
         'build',
-        2
+        BUILD_5_WEEK_CYCLE.phases[0]
       );
 
       expect(result1?.summary).toBe('First summary');
@@ -686,7 +688,7 @@ describe('ptSummary', () => {
         'John',
         'intermediate',
         'build',
-        2
+        BUILD_5_WEEK_CYCLE.phases[0]
       );
 
       expect(result).toBeNull();
@@ -709,7 +711,7 @@ describe('ptSummary', () => {
         'John',
         'intermediate',
         'build',
-        2
+        BUILD_5_WEEK_CYCLE.phases[0]
       );
 
       // Should return fallback response
@@ -748,7 +750,7 @@ describe('ptSummary', () => {
         'John',
         'intermediate',
         'build',
-        2
+        BUILD_5_WEEK_CYCLE.phases[0]
       );
 
       expect(result).not.toBeNull();
@@ -788,7 +790,7 @@ describe('ptSummary', () => {
         'John',
         'intermediate',
         'build',
-        2
+        BUILD_5_WEEK_CYCLE.phases[0]
       );
 
       expect(result?.components.length).toBe(4);
@@ -811,7 +813,7 @@ describe('ptSummary', () => {
         'John',
         'advanced',
         'lose',
-        4
+        BUILD_5_WEEK_CYCLE.phases[4]
       );
 
       const requestBody = JSON.parse(mockFetch.mock.calls[0][1].body);
@@ -819,10 +821,10 @@ describe('ptSummary', () => {
 
       expect(userMessage).toContain('John');
       expect(userMessage).toContain('advanced');
-      expect(userMessage).toContain('Week 4');
+      expect(userMessage).toContain('Deload');
     });
 
-    it('should use temperature 0.6 for variety', async () => {
+    it('should omit temperature for reasoning models (gpt-5-mini default)', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () =>
@@ -839,11 +841,12 @@ describe('ptSummary', () => {
         'John',
         'intermediate',
         'build',
-        2
+        BUILD_5_WEEK_CYCLE.phases[0]
       );
 
       const requestBody = JSON.parse(mockFetch.mock.calls[0][1].body);
-      expect(requestBody.temperature).toBe(0.6);
+      // gpt-5-mini is a reasoning model — temperature is not sent
+      expect(requestBody.temperature).toBeUndefined();
     });
   });
 
@@ -916,7 +919,7 @@ describe('ptSummary', () => {
         'John',
         'intermediate',
         'build',
-        2
+        BUILD_5_WEEK_CYCLE.phases[0]
       );
 
       const requestBody = JSON.parse(mockFetch.mock.calls[0][1].body);
@@ -943,7 +946,7 @@ describe('ptSummary', () => {
         'John',
         'intermediate',
         'build',
-        2
+        BUILD_5_WEEK_CYCLE.phases[0]
       );
 
       const requestBody = JSON.parse(mockFetch.mock.calls[0][1].body);
@@ -969,7 +972,7 @@ describe('ptSummary', () => {
         'John',
         'intermediate',
         'build',
-        2
+        BUILD_5_WEEK_CYCLE.phases[0]
       );
 
       const requestBody = JSON.parse(mockFetch.mock.calls[0][1].body);
@@ -993,7 +996,7 @@ describe('ptSummary', () => {
         'John',
         'intermediate',
         'build',
-        2
+        BUILD_5_WEEK_CYCLE.phases[0]
       );
 
       expect(result.totalWorkoutsLast10Weeks).toBe(2);
@@ -1010,7 +1013,7 @@ describe('ptSummary', () => {
         undefined,
         'intermediate',
         'build',
-        2
+        BUILD_5_WEEK_CYCLE.phases[0]
       );
 
       expect(result.firstName).toBeUndefined();
@@ -1028,7 +1031,7 @@ describe('ptSummary', () => {
           'John',
           level,
           'build',
-          2
+          BUILD_5_WEEK_CYCLE.phases[0]
         );
         expect(result.experienceLevel).toBe(level);
       });
@@ -1046,17 +1049,16 @@ describe('ptSummary', () => {
           'John',
           'intermediate',
           goal,
-          2
+          BUILD_5_WEEK_CYCLE.phases[0]
         );
         expect(result.workoutGoal).toBe(goal);
       });
     });
 
-    it('should handle all progressive overload weeks', () => {
+    it('should handle all phases in cycle', () => {
       const sessions = [createMockSessionWithExercises(0), createMockSessionWithExercises(1)];
-      const weeks: ProgressiveOverloadWeek[] = [0, 1, 2, 3, 4];
 
-      weeks.forEach((week) => {
+      BUILD_5_WEEK_CYCLE.phases.forEach((phase) => {
         const result = aggregatePTSummaryData(
           sessions,
           [],
@@ -1064,9 +1066,10 @@ describe('ptSummary', () => {
           'John',
           'intermediate',
           'build',
-          week
+          phase
         );
-        expect(result.currentWeek).toBe(week);
+        expect(result.currentPhaseName).toBe(phase.name);
+        expect(result.currentPhaseType).toBe(phase.type);
       });
     });
 
@@ -1081,7 +1084,7 @@ describe('ptSummary', () => {
         'John',
         'intermediate',
         'build',
-        2
+        BUILD_5_WEEK_CYCLE.phases[0]
       );
 
       expect(result.bodyWeightTrend?.direction).toBe('stable');
@@ -1098,7 +1101,7 @@ describe('ptSummary', () => {
         'John',
         'intermediate',
         'build',
-        2
+        BUILD_5_WEEK_CYCLE.phases[0]
       );
 
       expect(result.bodyWeightTrend?.direction).toBe('up');

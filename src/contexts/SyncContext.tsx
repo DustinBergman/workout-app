@@ -117,12 +117,13 @@ export const SyncProvider: FC<SyncProviderProps> = ({ children }) => {
         const prefs = profileToPreferences(profileResult.profile);
         store.updatePreferences(prefs);
 
-        // Update goal and week
+        // Update goal (cycle will be set by setWorkoutGoal if needed)
         if (profileResult.profile.workout_goal) {
           store.setWorkoutGoal(profileResult.profile.workout_goal);
         }
-        if (profileResult.profile.current_week !== undefined) {
-          store.setCurrentWeek(profileResult.profile.current_week);
+        // Restore cycle state from cloud if available
+        if (profileResult.profile.cycle_state) {
+          useAppStore.setState({ cycleState: profileResult.profile.cycle_state });
         }
         if (profileResult.profile.has_completed_intro) {
           store.setHasCompletedIntro(true);

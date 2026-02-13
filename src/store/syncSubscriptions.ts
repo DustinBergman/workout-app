@@ -2,7 +2,7 @@ import { useAppStore } from './useAppStore';
 import {
   syncPreferences,
   syncWorkoutGoal,
-  syncCurrentWeek,
+  syncCycleState,
   syncHasCompletedIntro,
   syncDeleteTemplate,
   syncReorderTemplates,
@@ -116,12 +116,13 @@ export const setupSyncSubscriptions = () => {
     }
   );
 
-  // Current week sync
+  // Cycle state sync
   useAppStore.subscribe(
-    (state) => ({ week: state.currentWeek, startedAt: state.weekStartedAt }),
-    ({ week, startedAt }) => {
+    (state) => state.cycleState,
+    (cycleState, prevCycleState) => {
       if (!isSyncEnabled()) return;
-      syncCurrentWeek(week, startedAt).catch(console.error);
+      if (JSON.stringify(cycleState) === JSON.stringify(prevCycleState)) return;
+      syncCycleState(cycleState).catch(console.error);
     }
   );
 

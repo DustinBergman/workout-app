@@ -70,7 +70,6 @@ export const useActiveWorkout = (): UseActiveWorkoutReturn => {
   const sessions = useAppStore((state) => state.sessions);
   const templates = useAppStore((state) => state.templates);
   const customExercises = useAppStore((state) => state.customExercises);
-  const currentWeek = useAppStore((state) => state.currentWeek);
   const workoutGoal = useAppStore((state) => state.workoutGoal);
   const weeklyWorkoutGoal = useAppStore((state) => state.preferences.weeklyWorkoutGoal ?? 4);
   const setActiveSession = useAppStore((state) => state.setActiveSession);
@@ -189,7 +188,6 @@ export const useActiveWorkout = (): UseActiveWorkoutReturn => {
       ...session,
       customTitle: customTitle || undefined,
       mood,
-      progressiveOverloadWeek: currentWeek,
       workoutGoal,
       personalBests: personalBests.length > 0 ? personalBests : undefined,
       streakCount,
@@ -289,7 +287,7 @@ export const useActiveWorkout = (): UseActiveWorkoutReturn => {
       // No API key, go directly to history
       navigate('/history');
     }
-  }, [session, sessions, updatePlan, hasDeviated, templates, addSession, setActiveSession, updateTemplate, scoring, navigate, setShowFinishConfirm, customExercises, currentWeek, workoutGoal]);
+  }, [session, sessions, updatePlan, hasDeviated, templates, addSession, setActiveSession, updateTemplate, scoring, navigate, setShowFinishConfirm, customExercises, workoutGoal]);
 
   // Cancel workout
   const cancelWorkout = useCallback(() => {

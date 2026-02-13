@@ -2,13 +2,13 @@ import {
   WorkoutSession,
   ExerciseSuggestion,
   WorkoutTemplate,
-  ProgressiveOverloadWeek,
   WorkoutGoal,
   StrengthCompletedSet,
   StrengthTemplateExercise,
   Exercise,
   ExperienceLevel,
   PhaseConfig,
+  WeightEntry,
 } from '../types';
 import { isStrengthPhase } from '../types/cycles';
 import { getExerciseById } from '../data/exercises';
@@ -19,13 +19,18 @@ import {
   hasEnoughHistoryForPlateauDetection,
 } from './openai/exerciseAnalysis';
 import { filterOutliers } from '../utils/outlierFilter';
+import { calculatePersonalizedProgression } from './weightedProgression';
 
 interface LocalSuggestionContext {
   experienceLevel: ExperienceLevel;
   workoutGoal: WorkoutGoal;
   weightUnit: 'lbs' | 'kg';
-  currentWeek?: ProgressiveOverloadWeek;
   currentPhase?: PhaseConfig;
+  // Optional personalization fields
+  allSessions?: WorkoutSession[];
+  weeklyWorkoutGoal?: number;
+  weightEntries?: WeightEntry[];
+  customExercises?: Exercise[];
 }
 
 /**
@@ -75,20 +80,48 @@ export const calculateLocalSuggestion = (
   targetReps: number,
   recentSessionSets: { weight: number; reps: number }[][]
 ): ExerciseSuggestion => {
-  const customExercises = getCustomExercises();
+  const customExercises = context.customExercises ?? getCustomExercises();
   const exerciseInfo = getExerciseById(exerciseId, customExercises);
   const exerciseName = exerciseInfo?.name || exerciseId;
 
-  // 1. Working weight = median of last 3-5 sessions' max weights (outlier-filtered)
-  const sessionMaxWeights = recentSessionSets
-    .slice(0, 5)
-    .map((sets) => {
-      const filtered = filterOutliers(sets, (s) => s.weight);
-      return filtered.length > 0 ? Math.max(...filtered.map((s) => s.weight)) : 0;
-    })
-    .filter((w) => w > 0);
+  // ── Personalized progression (when allSessions is provided) ──
+  const usePersonalization = context.allSessions && context.allSessions.length > 0;
 
-  let workingWeight = median(sessionMaxWeights);
+  let personalized: ReturnType<typeof calculatePersonalizedProgression> | null = null;
+
+  if (usePersonalization) {
+    personalized = calculatePersonalizedProgression({
+      exerciseId,
+      analysis,
+      recentSessionSets,
+      targetReps,
+      experienceLevel: context.experienceLevel,
+      weightUnit: context.weightUnit,
+      workoutGoal: context.workoutGoal,
+      allSessions: context.allSessions!,
+      weeklyWorkoutGoal: context.weeklyWorkoutGoal,
+      weightEntries: context.weightEntries,
+      customExercises: context.customExercises,
+    });
+  }
+
+  // 1. Working weight baseline
+  let workingWeight: number;
+  if (personalized && personalized.baseline > 0) {
+    // Use recency-weighted baseline
+    workingWeight = personalized.baseline;
+  } else {
+    // Fallback: median of last 3-5 sessions' max weights (outlier-filtered)
+    const sessionMaxWeights = recentSessionSets
+      .slice(0, 5)
+      .map((sets) => {
+        const filtered = filterOutliers(sets, (s) => s.weight);
+        return filtered.length > 0 ? Math.max(...filtered.map((s) => s.weight)) : 0;
+      })
+      .filter((w) => w > 0);
+
+    workingWeight = median(sessionMaxWeights);
+  }
 
   // 2. Working reps = median of recent avg reps
   const sessionAvgReps = recentSessionSets
@@ -105,7 +138,9 @@ export const calculateLocalSuggestion = (
 
   // 3. Progression based on status
   let reasoning = '';
-  const increment = getProgressionIncrement(context.experienceLevel, context.weightUnit);
+  const increment = personalized
+    ? personalized.increment
+    : getProgressionIncrement(context.experienceLevel, context.weightUnit);
 
   if (workingWeight === 0) {
     // No history at all
@@ -126,8 +161,12 @@ export const calculateLocalSuggestion = (
         workingReps = Math.min(workingReps + 1, targetReps + 3);
         reasoning = `Progressing well — adding 1 rep for ${exerciseName}`;
       } else {
-        workingWeight += increment;
-        reasoning = `Progressing well — adding ${increment} ${context.weightUnit} for ${exerciseName}`;
+        // Apply personalized composite multiplier to the increment
+        const adjustedIncrement = personalized
+          ? increment * personalized.compositeMultiplier
+          : increment;
+        workingWeight += adjustedIncrement;
+        reasoning = `Progressing well — adding ${adjustedIncrement.toFixed(1)} ${context.weightUnit} for ${exerciseName}`;
       }
       break;
 
@@ -170,20 +209,6 @@ export const calculateLocalSuggestion = (
         workingReps = Math.max(3, workingReps - 2);
       }
     }
-  } else if (context.currentWeek !== undefined) {
-    // Legacy week system
-    switch (context.currentWeek) {
-      case 4: // Deload
-        workingWeight *= 0.75; // Reduce 25%
-        workingReps = Math.max(targetReps, 10);
-        reasoning = `Deload week — reducing weight for recovery on ${exerciseName}`;
-        break;
-      case 3: // Strength push
-        workingWeight *= 1.05;
-        workingReps = Math.max(5, workingReps - 2);
-        break;
-      // Weeks 0-2 use the base progression logic above
-    }
   }
 
   // 5. Round to nearest increment
@@ -193,7 +218,23 @@ export const calculateLocalSuggestion = (
   workingWeight = Math.max(0, workingWeight);
   workingReps = Math.max(1, workingReps);
 
-  const confidence = analysis.progressStatus === 'insufficient_data' ? 'low' : 'medium';
+  // Confidence: upgrade to 'high' if personalization has high confidence
+  let confidence: 'high' | 'medium' | 'low';
+  if (personalized && personalized.confidence === 'high') {
+    confidence = 'high';
+  } else if (analysis.progressStatus === 'insufficient_data') {
+    confidence = 'low';
+  } else {
+    confidence = 'medium';
+  }
+
+  // Build personalization factor explanations for reasoning
+  if (personalized && personalized.factors.length > 0) {
+    const factorSummary = personalized.factors
+      .map((f) => f.reasoning)
+      .join('; ');
+    reasoning += ` (${factorSummary})`;
+  }
 
   return {
     exerciseId,
@@ -202,6 +243,7 @@ export const calculateLocalSuggestion = (
     reasoning,
     confidence,
     progressStatus: analysis.progressStatus === 'insufficient_data' ? 'new' : analysis.progressStatus,
+    personalizationFactors: personalized?.factors,
   };
 };
 
@@ -213,10 +255,11 @@ export const getLocalSuggestions = (
   template: WorkoutTemplate,
   previousSessions: WorkoutSession[],
   weightUnit: 'lbs' | 'kg',
-  currentWeek?: ProgressiveOverloadWeek,
   workoutGoal: WorkoutGoal = 'build',
   experienceLevel: ExperienceLevel = 'intermediate',
-  currentPhase?: PhaseConfig
+  currentPhase?: PhaseConfig,
+  weightEntries?: WeightEntry[],
+  weeklyWorkoutGoal?: number
 ): ExerciseSuggestion[] => {
   const customExercises = getCustomExercises();
 
@@ -234,8 +277,12 @@ export const getLocalSuggestions = (
     experienceLevel,
     workoutGoal,
     weightUnit,
-    currentWeek,
     currentPhase,
+    // Pass through personalization data when available
+    allSessions: previousSessions,
+    weeklyWorkoutGoal,
+    weightEntries,
+    customExercises: customExercises as Exercise[],
   };
 
   return strengthTemplateExercises.map((templateEx) => {

@@ -5,13 +5,14 @@ import {
   WorkoutSession,
   UserPreferences,
   Exercise,
-  ProgressiveOverloadWeek,
   WorkoutGoal,
   WeightEntry,
   CARDIO_TYPE_TO_CATEGORY,
   CardioExercise,
   TrainingCycleConfig,
   UserCycleState,
+  getDefaultCycleForGoal,
+  BUILD_5_WEEK_CYCLE,
 } from '../types';
 import { getAllExercises } from '../data/exercises';
 
@@ -22,13 +23,11 @@ interface AppState {
   activeSession: WorkoutSession | null;
   preferences: UserPreferences;
   customExercises: Exercise[];
-  currentWeek: ProgressiveOverloadWeek;
-  weekStartedAt: string | null;
   workoutGoal: WorkoutGoal;
   hasCompletedIntro: boolean;
   weightEntries: WeightEntry[];
-  cycleConfig: TrainingCycleConfig | null;
-  cycleState: UserCycleState | null;
+  cycleConfig: TrainingCycleConfig;
+  cycleState: UserCycleState;
 
   // Template actions
   addTemplate: (template: WorkoutTemplate) => void;
@@ -50,10 +49,6 @@ interface AppState {
   addCustomExercise: (exercise: Exercise) => void;
   updateCustomExercise: (exerciseId: string, updates: Partial<Exercise>) => void;
 
-  // Progressive overload week actions
-  setCurrentWeek: (week: ProgressiveOverloadWeek) => void;
-  advanceWeek: () => void;
-
   // Workout goal actions
   setWorkoutGoal: (goal: WorkoutGoal) => void;
 
@@ -66,6 +61,7 @@ interface AppState {
 
   // Cycle actions
   setCycleConfig: (config: TrainingCycleConfig) => void;
+  setCurrentPhase: (phaseIndex: number) => void;
   advancePhase: () => void;
   resetCycle: () => void;
 }
@@ -89,13 +85,16 @@ export const useAppStore = create<AppState>()(
         activeSession: null,
         preferences: defaultPreferences,
         customExercises: [],
-        currentWeek: 0 as ProgressiveOverloadWeek,
-        weekStartedAt: null,
         workoutGoal: 'build' as WorkoutGoal,
         hasCompletedIntro: false,
         weightEntries: [],
-        cycleConfig: null,
-        cycleState: null,
+        cycleConfig: BUILD_5_WEEK_CYCLE,
+        cycleState: {
+          cycleConfigId: BUILD_5_WEEK_CYCLE.id,
+          cycleStartDate: new Date().toISOString(),
+          currentPhaseIndex: 0,
+          currentWeekInPhase: 1,
+        },
 
         // Template actions
         addTemplate: (template) =>
@@ -173,24 +172,21 @@ export const useAppStore = create<AppState>()(
             ),
           })),
 
-        // Progressive overload week actions
-        setCurrentWeek: (week) =>
-          set(() => ({
-            currentWeek: week,
-            weekStartedAt: new Date().toISOString(),
-          })),
-
-        advanceWeek: () =>
-          set((state) => ({
-            currentWeek: ((state.currentWeek + 1) % 5) as ProgressiveOverloadWeek,
-            weekStartedAt: new Date().toISOString(),
-          })),
-
         // Workout goal actions
         setWorkoutGoal: (goal) =>
-          set(() => ({
-            workoutGoal: goal,
-          })),
+          set(() => {
+            const defaultCycle = getDefaultCycleForGoal(goal);
+            return {
+              workoutGoal: goal,
+              cycleConfig: defaultCycle,
+              cycleState: {
+                cycleConfigId: defaultCycle.id,
+                cycleStartDate: new Date().toISOString(),
+                currentPhaseIndex: 0,
+                currentWeekInPhase: 1,
+              },
+            };
+          }),
 
         // Intro actions
         setHasCompletedIntro: (value) =>
@@ -228,10 +224,20 @@ export const useAppStore = create<AppState>()(
             },
           })),
 
+        setCurrentPhase: (phaseIndex) =>
+          set((state) => {
+            if (phaseIndex < 0 || phaseIndex >= state.cycleConfig.phases.length) return state;
+            return {
+              cycleState: {
+                ...state.cycleState,
+                currentPhaseIndex: phaseIndex,
+                currentWeekInPhase: 1,
+              },
+            };
+          }),
+
         advancePhase: () =>
           set((state) => {
-            if (!state.cycleConfig || !state.cycleState) return state;
-
             const { cycleConfig, cycleState } = state;
             const currentPhase = cycleConfig.phases[cycleState.currentPhaseIndex];
 
@@ -272,27 +278,24 @@ export const useAppStore = create<AppState>()(
           }),
 
         resetCycle: () =>
-          set((state) => {
-            if (!state.cycleConfig) return state;
-            return {
-              cycleState: {
-                cycleConfigId: state.cycleConfig.id,
-                cycleStartDate: new Date().toISOString(),
-                currentPhaseIndex: 0,
-                currentWeekInPhase: 1,
-              },
-            };
-          }),
+          set((state) => ({
+            cycleState: {
+              cycleConfigId: state.cycleConfig.id,
+              cycleStartDate: new Date().toISOString(),
+              currentPhaseIndex: 0,
+              currentWeekInPhase: 1,
+            },
+          })),
       }),
       {
         name: 'workout-app-storage',
-        version: 1,
+        version: 2,
         migrate: (persistedState: unknown, version: number) => {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const state = persistedState as any;
+          let state = persistedState as any;
 
           // Migration from version 0 to 1: Add templateType and cardioCategory
-          if (version === 0) {
+          if (version < 1) {
             const allExercises = getAllExercises(state.customExercises || []);
 
             const migratedTemplates = (state.templates || []).map((template: any) => {
@@ -344,10 +347,35 @@ export const useAppStore = create<AppState>()(
               };
             });
 
-            return {
+            state = {
               ...state,
               templates: migratedTemplates,
             };
+          }
+
+          // Migration from version 1 to 2: Convert legacy week system to cycle system
+          if (version < 2) {
+            // Only migrate if user doesn't already have a cycle set up
+            if (!state.cycleConfig || !state.cycleState) {
+              const goal: WorkoutGoal = state.workoutGoal || 'build';
+              const defaultCycle = getDefaultCycleForGoal(goal);
+              const legacyWeek: number = state.currentWeek ?? 0;
+
+              state = {
+                ...state,
+                cycleConfig: defaultCycle,
+                cycleState: {
+                  cycleConfigId: defaultCycle.id,
+                  cycleStartDate: state.weekStartedAt || new Date().toISOString(),
+                  currentPhaseIndex: legacyWeek,
+                  currentWeekInPhase: 1,
+                },
+              };
+            }
+
+            // Clean up legacy fields
+            delete state.currentWeek;
+            delete state.weekStartedAt;
           }
 
           return state;

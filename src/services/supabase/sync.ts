@@ -5,8 +5,8 @@ import type {
   Exercise,
   UserPreferences,
   WorkoutGoal,
-  ProgressiveOverloadWeek,
   WeightEntry,
+  UserCycleState,
 } from '../../types';
 import { preferencesToProfileUpdates } from './profiles';
 
@@ -49,13 +49,12 @@ export const syncWorkoutGoal = async (goal: WorkoutGoal): Promise<void> => {
   await supabase.from('profiles').update({ workout_goal: goal }).eq('id', userId);
 };
 
-export const syncCurrentWeek = async (week: ProgressiveOverloadWeek, weekStartedAt: string | null): Promise<void> => {
+export const syncCycleState = async (cycleState: UserCycleState): Promise<void> => {
   const userId = await getUserId();
   if (!userId) return;
 
   await supabase.from('profiles').update({
-    current_week: week,
-    week_started_at: weekStartedAt,
+    cycle_state: cycleState,
   }).eq('id', userId);
 };
 

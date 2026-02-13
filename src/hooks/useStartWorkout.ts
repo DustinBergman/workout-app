@@ -18,7 +18,6 @@ interface UseStartWorkoutReturn {
 export const useStartWorkout = (): UseStartWorkoutReturn => {
   const sessions = useAppStore((state) => state.sessions);
   const preferences = useAppStore((state) => state.preferences);
-  const currentWeek = useAppStore((state) => state.currentWeek);
   const workoutGoal = useAppStore((state) => state.workoutGoal);
   const weightEntries = useAppStore((state) => state.weightEntries);
   const setActiveSession = useAppStore((state) => state.setActiveSession);
@@ -27,10 +26,8 @@ export const useStartWorkout = (): UseStartWorkoutReturn => {
   const navigate = useNavigate();
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
 
-  // Get current phase if using new cycle system
-  const currentPhase = cycleConfig && cycleState
-    ? cycleConfig.phases[cycleState.currentPhaseIndex]
-    : undefined;
+  const currentPhase = cycleConfig.phases[cycleState.currentPhaseIndex];
+  const isBaseline = currentPhase?.type === 'baseline';
 
   const startWorkout = useCallback(async (template: WorkoutTemplate) => {
     const session: WorkoutSession = {
@@ -61,9 +58,9 @@ export const useStartWorkout = (): UseStartWorkoutReturn => {
     };
     setActiveSession(session);
 
-    // Get AI suggestions if API key exists, there's workout history, and not in baseline week
-    // Week 0 is the baseline week - no AI suggestions needed since we're establishing baseline performance
-    if (preferences.openaiApiKey && sessions.length > 0 && currentWeek !== 0) {
+    // Get AI suggestions if API key exists, there's workout history, and not in baseline phase
+    // Baseline phase = no AI suggestions needed since we're establishing baseline performance
+    if (preferences.openaiApiKey && sessions.length > 0 && !isBaseline) {
       setIsLoadingSuggestions(true);
       try {
         // Add timeout to ensure workout starts even if API is slow/hanging
@@ -77,11 +74,12 @@ export const useStartWorkout = (): UseStartWorkoutReturn => {
             template,
             sessions,
             preferences.weightUnit,
-            currentWeek,
             workoutGoal,
             weightEntries,
             preferences.experienceLevel || 'intermediate',
-            currentPhase
+            currentPhase,
+            preferences.weeklyWorkoutGoal,
+            preferences.openaiModel
           ),
           timeoutPromise,
         ]);
@@ -93,17 +91,18 @@ export const useStartWorkout = (): UseStartWorkoutReturn => {
       } finally {
         setIsLoadingSuggestions(false);
       }
-    } else if (!preferences.openaiApiKey && sessions.length > 0 && currentWeek !== 0) {
+    } else if (!preferences.openaiApiKey && sessions.length > 0 && !isBaseline) {
       // No API key — use local suggestion engine (synchronous, no loading state needed)
       try {
         const suggestions = getLocalSuggestions(
           template,
           sessions,
           preferences.weightUnit,
-          currentWeek,
           workoutGoal,
           preferences.experienceLevel || 'intermediate',
-          currentPhase
+          currentPhase,
+          weightEntries,
+          preferences.weeklyWorkoutGoal
         );
         if (suggestions.length > 0) {
           setActiveSession({ ...session, suggestions });
@@ -114,7 +113,7 @@ export const useStartWorkout = (): UseStartWorkoutReturn => {
     }
 
     navigate('/workout');
-  }, [sessions, preferences, currentWeek, workoutGoal, weightEntries, setActiveSession, navigate, currentPhase]);
+  }, [sessions, preferences, workoutGoal, weightEntries, setActiveSession, navigate, currentPhase, isBaseline]);
 
   const startQuickWorkout = useCallback(() => {
     const session: WorkoutSession = {

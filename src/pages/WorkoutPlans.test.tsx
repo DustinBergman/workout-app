@@ -60,8 +60,6 @@ describe('WorkoutPlans', () => {
       activeSession: null,
       preferences: defaultPreferences,
       customExercises: [],
-      currentWeek: 0,
-      weekStartedAt: null,
       workoutGoal: 'build',
       hasCompletedIntro: false,
       weightEntries: [],

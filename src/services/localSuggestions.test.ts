@@ -44,7 +44,6 @@ const baseContext = {
   experienceLevel: 'intermediate' as const,
   workoutGoal: 'build' as const,
   weightUnit: 'lbs' as const,
-  currentWeek: undefined,
   currentPhase: undefined,
 };
 
@@ -123,20 +122,7 @@ describe('calculateLocalSuggestion', () => {
   });
 
   describe('week/phase modifiers', () => {
-    it('reduces weight for deload week (legacy system)', () => {
-      const result = calculateLocalSuggestion(
-        'bench-press',
-        makeAnalysis({ progressStatus: 'improving' }),
-        { ...baseContext, currentWeek: 4 },
-        10,
-        makeRecentSets([200, 200, 200])
-      );
-      // Improving adds 2.5 -> 202.5, then deload * 0.75 = 151.875, round to 152.5
-      expect(result.suggestedWeight).toBeLessThan(160);
-      expect(result.suggestedWeight).toBeGreaterThan(140);
-    });
-
-    it('reduces weight for deload phase (cycle system)', () => {
+    it('reduces weight for deload phase', () => {
       const result = calculateLocalSuggestion(
         'bench-press',
         makeAnalysis({ progressStatus: 'improving' }),

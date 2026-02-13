@@ -1,5 +1,5 @@
 import { FC, createElement, useCallback } from 'react';
-import { WeekBadge } from '../components/ui';
+import { PhaseBadge } from '../components/ui';
 import { useStartWorkout } from '../hooks/useStartWorkout';
 import { useHome } from '../hooks/useHome';
 import { useModal } from '../contexts/ModalContext';
@@ -7,6 +7,7 @@ import {
   FloatingOrbsBackground,
   ApiKeyBanner,
   DeloadRecommendationBanner,
+  WeekAdvancementBanner,
   PTSummaryCard,
   QuickStartSection,
   ActivitySection,
@@ -27,8 +28,8 @@ export const Home: FC = () => {
     sessions,
     activeSession,
     preferences,
-    currentWeek,
-    workoutGoal,
+    cycleConfig,
+    cycleState,
     hasApiKey,
     nextWorkout,
     memberSince,
@@ -36,6 +37,10 @@ export const Home: FC = () => {
     loadingPTSummary,
     deloadRecommendation,
     dismissDeloadRecommendation,
+    showAdvancementPrompt,
+    advancementInfo,
+    acceptAdvancement,
+    dismissAdvancement,
   } = useHome();
 
   const openWeekSelector = useCallback(() => {
@@ -52,9 +57,9 @@ export const Home: FC = () => {
           <h1 className="text-2xl font-bold text-foreground">
             {preferences.firstName ? `Hello ${preferences.firstName}` : 'Welcome'}
           </h1>
-          <WeekBadge
-            week={currentWeek}
-            workoutGoal={workoutGoal}
+          <PhaseBadge
+            cycleConfig={cycleConfig}
+            cycleState={cycleState}
             onClick={openWeekSelector}
           />
         </div>
@@ -67,6 +72,15 @@ export const Home: FC = () => {
           <DeloadRecommendationBanner
             recommendation={deloadRecommendation}
             onDismiss={dismissDeloadRecommendation}
+          />
+        )}
+
+        {/* Week Advancement Banner */}
+        {showAdvancementPrompt && advancementInfo && (
+          <WeekAdvancementBanner
+            advancementInfo={advancementInfo}
+            onAccept={acceptAdvancement}
+            onDismiss={dismissAdvancement}
           />
         )}
 
@@ -95,7 +109,7 @@ export const Home: FC = () => {
           <ActivitySection sessions={sessions} memberSince={memberSince} />
         )}
 
-        
+
         {/* Empty State */}
         {templates.length === 0 && sessions.length === 0 && <EmptyState />}
 

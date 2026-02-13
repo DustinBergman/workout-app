@@ -54,7 +54,7 @@ describe('OpenAI Client', () => {
       );
     });
 
-    it('should use default maxTokens and temperature', async () => {
+    it('should use default maxTokens with reasoning budget for gpt-5', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () =>
@@ -69,11 +69,13 @@ describe('OpenAI Client', () => {
       });
 
       const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
-      expect(callBody.max_tokens).toBe(1000);
-      expect(callBody.temperature).toBe(0.3);
+      // Default model is gpt-5-mini (reasoning model): 1000 * 10 = 10000
+      expect(callBody.max_completion_tokens).toBe(10000);
+      // Reasoning models don't send temperature
+      expect(callBody.temperature).toBeUndefined();
     });
 
-    it('should use custom maxTokens and temperature', async () => {
+    it('should use custom maxTokens and temperature for non-reasoning models', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () =>
@@ -85,12 +87,13 @@ describe('OpenAI Client', () => {
       await callOpenAI({
         apiKey: 'test-api-key',
         messages: [{ role: 'user', content: 'Test' }],
+        model: 'gpt-4o-mini',
         maxTokens: 500,
         temperature: 0.7,
       });
 
       const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
-      expect(callBody.max_tokens).toBe(500);
+      expect(callBody.max_completion_tokens).toBe(500);
       expect(callBody.temperature).toBe(0.7);
     });
 

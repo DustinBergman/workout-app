@@ -33,7 +33,10 @@
       "Bash(git push:*)",
       "Bash(git pull:*)",
       "Bash(git stash:*)",
-      "Bash(yarn add:*)"
+      "Bash(yarn add:*)",
+      "WebFetch(domain:platform.openai.com)",
+      "WebSearch",
+      "WebFetch(domain:pricepertoken.com)"
     ]
   }
 }

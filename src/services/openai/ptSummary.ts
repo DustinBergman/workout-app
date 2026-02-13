@@ -2,11 +2,11 @@ import {
   WorkoutSession,
   ExperienceLevel,
   WorkoutGoal,
-  ProgressiveOverloadWeek,
   Exercise,
   WeightEntry,
   WORKOUT_GOALS,
   DistanceUnit,
+  PhaseConfig,
 } from '../../types';
 import { callOpenAI, parseJSONResponse } from './client';
 import { analyzeExercise10Weeks, ExerciseAnalysis } from './exerciseAnalysis';
@@ -82,7 +82,8 @@ export interface PTSummaryInputData {
   firstName?: string;
   experienceLevel: ExperienceLevel;
   workoutGoal: WorkoutGoal;
-  currentWeek: ProgressiveOverloadWeek;
+  currentPhaseName: string;
+  currentPhaseType: string;
 
   // Activity metrics
   totalWorkoutsLast10Weeks: number;
@@ -287,7 +288,7 @@ export const aggregatePTSummaryData = (
   firstName: string | undefined,
   experienceLevel: ExperienceLevel,
   workoutGoal: WorkoutGoal,
-  currentWeek: ProgressiveOverloadWeek,
+  currentPhase: PhaseConfig | null,
   weeklyWorkoutGoal: number = 4,
   distanceUnit: DistanceUnit = 'mi'
 ): PTSummaryInputData => {
@@ -512,7 +513,8 @@ export const aggregatePTSummaryData = (
     firstName,
     experienceLevel,
     workoutGoal,
-    currentWeek,
+    currentPhaseName: currentPhase?.name ?? 'Unknown',
+    currentPhaseType: currentPhase?.type ?? 'unknown',
     totalWorkoutsLast10Weeks,
     workoutsPerWeek: Math.round(workoutsPerWeek * 10) / 10,
     currentStreak,
@@ -609,7 +611,7 @@ USER PROFILE:
 - Name: ${data.firstName || 'there'}
 - Experience: ${data.experienceLevel}
 - Goal: ${goalInfo.name}
-- Current training week: Week ${data.currentWeek} of 5-week cycle
+- Current Phase: ${data.currentPhaseName} (${data.currentPhaseType})
 
 RECENT ACTIVITY:
 - Workouts in last 10 weeks: ${data.totalWorkoutsLast10Weeks}
@@ -651,7 +653,7 @@ export const getPTSummary = async (
   firstName: string | undefined,
   experienceLevel: ExperienceLevel,
   workoutGoal: WorkoutGoal,
-  currentWeek: ProgressiveOverloadWeek,
+  currentPhase: PhaseConfig | null,
   weeklyWorkoutGoal: number = 4,
   distanceUnit: DistanceUnit = 'mi'
 ): Promise<PTSummaryResponse | null> => {
@@ -675,7 +677,7 @@ export const getPTSummary = async (
     firstName,
     experienceLevel,
     workoutGoal,
-    currentWeek,
+    currentPhase,
     weeklyWorkoutGoal,
     distanceUnit
   );

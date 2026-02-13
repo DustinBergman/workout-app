@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { getPreWorkoutSuggestions } from './suggestions';
 import { WorkoutSession, WorkoutTemplate } from '../../types';
+import { BUILD_5_WEEK_CYCLE, LOSE_5_WEEK_CYCLE, MAINTAIN_5_WEEK_CYCLE } from '../../types/cycles';
 
 // Mock fetch globally
 const mockFetch = vi.fn();
@@ -125,57 +126,56 @@ describe('getPreWorkoutSuggestions', () => {
     const requestBody = JSON.parse(mockFetch.mock.calls[0][1].body);
     const userMessage = requestBody.messages[1];
 
-    expect(userMessage.content).toContain('Last set: 135lbs x 10 reps');
+    expect(userMessage.content).toContain('Last Working Set: 135lbs x 10 reps');
   });
 
-  it('should include week guidance for build goal', async () => {
+  it('should include phase guidance for build goal', async () => {
     mockFetch.mockResolvedValueOnce(createMockResponse('bench', 140, 8));
 
     const template = createMockTemplate({
       exercises: [{ type: 'strength', exerciseId: 'bench', targetSets: 3, targetReps: 10, restSeconds: 90 }],
     });
 
-    await getPreWorkoutSuggestions('test-key', template, [], 'lbs', 1, 'build');
+    // Pass build goal with Light Overload phase (index 1)
+    await getPreWorkoutSuggestions('test-key', template, [], 'lbs', 'build', [], 'intermediate', BUILD_5_WEEK_CYCLE.phases[1]);
 
     const requestBody = JSON.parse(mockFetch.mock.calls[0][1].body);
     const userMessage = requestBody.messages[1];
 
     expect(userMessage.content).toContain('Build Muscle');
-    expect(userMessage.content).toContain('Week 2');
     expect(userMessage.content).toContain('Light Overload');
   });
 
-  it('should include weight loss guidance for lose goal', async () => {
+  it('should include phase guidance for lose goal', async () => {
     mockFetch.mockResolvedValueOnce(createMockResponse('bench', 135, 8));
 
     const template = createMockTemplate({
       exercises: [{ type: 'strength', exerciseId: 'bench', targetSets: 3, targetReps: 10, restSeconds: 90 }],
     });
 
-    await getPreWorkoutSuggestions('test-key', template, [], 'lbs', 0, 'lose');
+    await getPreWorkoutSuggestions('test-key', template, [], 'lbs', 'lose', [], 'intermediate', LOSE_5_WEEK_CYCLE.phases[0]);
 
     const requestBody = JSON.parse(mockFetch.mock.calls[0][1].body);
     const userMessage = requestBody.messages[1];
 
     expect(userMessage.content).toContain('Lose Weight');
-    expect(userMessage.content).toContain('deficit');
-    expect(userMessage.content).toContain('no increases');
+    expect(userMessage.content).toContain('Baseline Strength');
   });
 
-  it('should include maintenance guidance for maintain goal', async () => {
+  it('should include phase guidance for maintain goal', async () => {
     mockFetch.mockResolvedValueOnce(createMockResponse('bench', 135, 10));
 
     const template = createMockTemplate({
       exercises: [{ type: 'strength', exerciseId: 'bench', targetSets: 3, targetReps: 10, restSeconds: 90 }],
     });
 
-    await getPreWorkoutSuggestions('test-key', template, [], 'lbs', 0, 'maintain');
+    await getPreWorkoutSuggestions('test-key', template, [], 'lbs', 'maintain', [], 'intermediate', MAINTAIN_5_WEEK_CYCLE.phases[0]);
 
     const requestBody = JSON.parse(mockFetch.mock.calls[0][1].body);
     const userMessage = requestBody.messages[1];
 
     expect(userMessage.content).toContain('Maintain');
-    expect(userMessage.content).toContain('intensity waves');
+    expect(userMessage.content).toContain('Standard');
   });
 
   it('should default to build goal', async () => {

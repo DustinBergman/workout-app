@@ -463,12 +463,16 @@ export interface WorkoutSession {
   suggestions?: ExerciseSuggestion[];
 }
 
+// AI Model options
+export type AIModel = 'gpt-4o-mini' | 'gpt-4o' | 'gpt-4.1-mini' | 'gpt-4.1-nano' | 'gpt-5-mini' | 'gpt-5-nano' | 'gpt-5';
+
 // User Preferences
 export interface UserPreferences {
   weightUnit: WeightUnit;
   distanceUnit: DistanceUnit;
   defaultRestSeconds: number;
   openaiApiKey?: string;
+  openaiModel?: AIModel; // AI model for suggestions (default: gpt-5-mini)
   darkMode: boolean;
   emailNotificationsEnabled?: boolean;
   firstName?: string;
@@ -518,6 +522,8 @@ export interface ExerciseSuggestion {
   progressStatus?: ExerciseProgressStatus;
   techniqueTip?: string;  // Only when plateau detected
   repRangeChange?: RepRangeChange;
+  // Personalization transparency
+  personalizationFactors?: Array<{ name: string; value: number; reasoning: string }>;
 }
 
 // Post-workout AI Score

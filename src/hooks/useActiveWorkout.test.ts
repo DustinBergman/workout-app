@@ -116,7 +116,6 @@ const resetStores = (activeSession: WorkoutSession | null = null) => {
       darkMode: false,
     },
     customExercises: [],
-    currentWeek: 0,
   });
   useCurrentWorkoutStore.setState({
     expandedIndex: null,
@@ -246,7 +245,6 @@ describe('useActiveWorkout', () => {
         activeSession: mockSession,
         preferences: { weightUnit: 'lbs', distanceUnit: 'mi', defaultRestSeconds: 90, darkMode: false },
         customExercises: [],
-        currentWeek: 0,
       });
       const { result } = renderHook(() => useActiveWorkout());
       expect(result.current.hasDeviated).toBe(false);

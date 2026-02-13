@@ -19,14 +19,22 @@ import {
   WorkoutGoal,
   WORKOUT_GOALS,
   ExperienceLevel,
-  ProgressiveOverloadWeek,
   PREDEFINED_CYCLES,
   TrainingCycleConfig,
+  GOAL_DEFAULT_CYCLES,
 } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import { getProfile, updateUsername, checkUsernameAvailability } from '../services/supabase/profiles';
 import { getCycleRecommendation, CycleRecommendation } from '../services/openai';
 import { toast } from '../store/toastStore';
+
+type SettingsTab = 'training' | 'preferences' | 'account';
+
+const TABS: { id: SettingsTab; label: string }[] = [
+  { id: 'training', label: 'Training' },
+  { id: 'preferences', label: 'Preferences' },
+  { id: 'account', label: 'Account' },
+];
 
 export const Settings: FC = () => {
   const navigate = useNavigate();
@@ -35,12 +43,13 @@ export const Settings: FC = () => {
   const updatePreferences = useAppStore((state) => state.updatePreferences);
   const workoutGoal = useAppStore((state) => state.workoutGoal);
   const setWorkoutGoal = useAppStore((state) => state.setWorkoutGoal);
-  const setCurrentWeek = useAppStore((state) => state.setCurrentWeek);
   const cycleConfig = useAppStore((state) => state.cycleConfig);
   const cycleState = useAppStore((state) => state.cycleState);
   const setCycleConfig = useAppStore((state) => state.setCycleConfig);
   const sessions = useAppStore((state) => state.sessions);
   const customExercises = useAppStore((state) => state.customExercises);
+
+  const [activeTab, setActiveTab] = useState<SettingsTab>('training');
   const [showApiKey, setShowApiKey] = useState(false);
   const [cycleRecommendation, setCycleRecommendation] = useState<CycleRecommendation | null>(null);
   const [loadingRecommendation, setLoadingRecommendation] = useState(false);
@@ -174,7 +183,6 @@ export const Settings: FC = () => {
   const confirmGoalChange = () => {
     if (pendingGoal) {
       setWorkoutGoal(pendingGoal);
-      setCurrentWeek(0 as ProgressiveOverloadWeek);
     }
     setShowGoalConfirm(false);
     setPendingGoal(null);
@@ -236,567 +244,605 @@ export const Settings: FC = () => {
     }
   };
 
-  // Filter cycles based on type - show strength cycles for strength goals, cardio for cardio
-  const relevantCycles = PREDEFINED_CYCLES.filter(cycle => {
-    // For now, show strength cycles to everyone, cardio cycles only for hybrid/cardio users
-    return cycle.cycleType === 'strength' || cycle.cycleType === 'cardio';
-  });
+  // Filter cycles: show all cycles, but put the default for the current goal first
+  const defaultCycleId = GOAL_DEFAULT_CYCLES[workoutGoal];
+  const relevantCycles = PREDEFINED_CYCLES
+    .filter(cycle => cycle.cycleType === 'strength' || cycle.cycleType === 'cardio')
+    .sort((a, b) => {
+      if (a.id === defaultCycleId) return -1;
+      if (b.id === defaultCycleId) return 1;
+      const aRecommended = a.recommendedForGoals.includes(workoutGoal);
+      const bRecommended = b.recommendedForGoals.includes(workoutGoal);
+      if (aRecommended && !bRecommended) return -1;
+      if (!aRecommended && bRecommended) return 1;
+      return 0;
+    });
 
   return (
     <div className="p-4 pb-20">
-      <h1 className="text-2xl font-bold text-foreground mb-6">
+      <h1 className="text-2xl font-bold text-foreground mb-4">
         Settings
       </h1>
 
-      {/* Account */}
-      <section className="mb-8">
-        <h2 className="text-lg font-semibold text-foreground mb-4">
-          Account
-        </h2>
+      {/* Tab Bar */}
+      <div className="flex gap-1 mb-6 bg-muted/50 p-1 rounded-xl">
+        {TABS.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex-1 py-2 px-3 text-sm font-medium rounded-lg transition-all ${
+              activeTab === tab.id
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
-        <Card className="space-y-4">
-          {isAuthenticated ? (
-            <>
+      {/* ============================================ */}
+      {/* TRAINING TAB */}
+      {/* ============================================ */}
+      {activeTab === 'training' && (
+        <>
+          {/* Goal Toggle */}
+          <section className="mb-6">
+            <h2 className="text-lg font-semibold text-foreground mb-3">
+              Training Goal
+            </h2>
+            <div className="flex gap-2">
+              {(Object.keys(WORKOUT_GOALS) as WorkoutGoal[]).map((goal) => {
+                const goalInfo = WORKOUT_GOALS[goal];
+                const isSelected = goal === workoutGoal;
+                return (
+                  <Button
+                    key={goal}
+                    variant={isSelected ? 'primary' : 'outline'}
+                    onClick={() => handleGoalClick(goal)}
+                    className="flex-1"
+                  >
+                    {goalInfo.name}
+                  </Button>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* Current cycle status */}
+          <section className="mb-6">
+            <h2 className="text-lg font-semibold text-foreground mb-3">
+              Current Cycle
+            </h2>
+            <Card className="bg-primary/5 border-primary/20">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="font-medium text-foreground">{user?.email}</p>
-                  <p className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    Synced to cloud
+                  <p className="text-sm text-muted-foreground">Cycle</p>
+                  <p className="font-semibold text-foreground">{cycleConfig.name}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm text-muted-foreground">Phase</p>
+                  <p className="font-semibold text-primary">
+                    {cycleConfig.phases[cycleState.currentPhaseIndex]?.name ?? 'Unknown'}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Week {cycleState.currentWeekInPhase} of {cycleConfig.phases[cycleState.currentPhaseIndex]?.durationWeeks ?? '?'}
                   </p>
                 </div>
-                <Button
-                  variant="outline"
-                  onClick={handleSignOut}
-                  disabled={isSigningOut}
-                >
-                  {isSigningOut ? 'Signing out...' : 'Sign Out'}
-                </Button>
               </div>
-
-              {/* Nickname/Username */}
-              <div className="pt-4 border-t border-border">
-                <div className="flex items-center justify-between">
-                  <Label className="font-medium text-foreground">Nickname</Label>
-                  <div className="flex items-center gap-2">
-                    <div className="flex flex-col items-end">
-                      <Input
-                        value={usernameInput}
-                        onChange={(e) => setUsernameInput(e.target.value)}
-                        placeholder="Enter nickname"
-                        className="w-40"
-                      />
-                      {usernameError && (
-                        <p className="text-xs text-destructive mt-1">{usernameError}</p>
-                      )}
-                    </div>
-                    <Button
-                      onClick={handleSaveUsername}
-                      disabled={usernameSaving || usernameInput === username}
-                    >
-                      {usernameSaving ? 'Saving...' : usernameSaved ? 'Saved!' : 'Save'}
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-foreground">Not signed in</p>
-                <p className="text-sm text-muted-foreground">
-                  Sign in to sync your data across devices
-                </p>
-              </div>
-              <Button onClick={() => navigate('/auth')}>
-                Sign In
-              </Button>
-            </div>
-          )}
-        </Card>
-      </section>
-
-      {/* Preferences */}
-      <section className="mb-8">
-        <h2 className="text-lg font-semibold text-foreground mb-4">
-          Preferences
-        </h2>
-
-        <Card className="space-y-4">
-          {/* Weight Unit */}
-          <div className="flex items-center justify-between">
-            <div>
-              <Label className="font-medium text-foreground">Weight Unit</Label>
-              <p className="text-sm text-muted-foreground">Choose your preferred unit</p>
-            </div>
-            <Select
-              value={preferences.weightUnit}
-              onValueChange={(value) => updatePreferences({ weightUnit: value as 'lbs' | 'kg' })}
-            >
-              <SelectTrigger className="w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="lbs">Pounds (lbs)</SelectItem>
-                <SelectItem value="kg">Kilograms (kg)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Distance Unit */}
-          <div className="flex items-center justify-between">
-            <div>
-              <Label className="font-medium text-foreground">Distance Unit</Label>
-              <p className="text-sm text-muted-foreground">For cardio tracking</p>
-            </div>
-            <Select
-              value={preferences.distanceUnit}
-              onValueChange={(value) => updatePreferences({ distanceUnit: value as 'mi' | 'km' })}
-            >
-              <SelectTrigger className="w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="mi">Miles (mi)</SelectItem>
-                <SelectItem value="km">Kilometers (km)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Weekly Workout Goal */}
-          <div className="flex items-center justify-between">
-            <div>
-              <Label className="font-medium text-foreground">Weekly Workout Goal</Label>
-              <p className="text-sm text-muted-foreground">Your consistency streak is based on this</p>
-            </div>
-            <Select
-              value={String(preferences.weeklyWorkoutGoal ?? 4)}
-              onValueChange={(value) => updatePreferences({ weeklyWorkoutGoal: parseInt(value) })}
-            >
-              <SelectTrigger className="w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="2">2 days/week</SelectItem>
-                <SelectItem value="3">3 days/week</SelectItem>
-                <SelectItem value="4">4 days/week</SelectItem>
-                <SelectItem value="5">5 days/week</SelectItem>
-                <SelectItem value="6">6 days/week</SelectItem>
-                <SelectItem value="7">7 days/week</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Default Rest Time */}
-          <div className="flex items-center justify-between">
-            <div>
-              <Label className="font-medium text-foreground">Default Rest Time</Label>
-              <p className="text-sm text-muted-foreground">Rest timer duration (seconds)</p>
-            </div>
-            <Select
-              value={String(preferences.defaultRestSeconds)}
-              onValueChange={(value) => updatePreferences({ defaultRestSeconds: parseInt(value) })}
-            >
-              <SelectTrigger className="w-32">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="30">30 sec</SelectItem>
-                <SelectItem value="60">60 sec</SelectItem>
-                <SelectItem value="90">90 sec</SelectItem>
-                <SelectItem value="120">2 min</SelectItem>
-                <SelectItem value="180">3 min</SelectItem>
-                <SelectItem value="300">5 min</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Dark Mode */}
-          <div className="flex items-center justify-between">
-            <div>
-              <Label className="font-medium text-foreground">Dark Mode</Label>
-              <p className="text-sm text-muted-foreground">Toggle dark theme</p>
-            </div>
-            <Switch
-              checked={preferences.darkMode}
-              onCheckedChange={(checked) => updatePreferences({ darkMode: checked })}
-            />
-          </div>
+            </Card>
+          </section>
 
           {/* Experience Level */}
-          <div className="flex items-center justify-between">
-            <div>
-              <Label className="font-medium text-foreground">Experience Level</Label>
-              <p className="text-sm text-muted-foreground">Affects AI progression recommendations</p>
-            </div>
-            <Select
-              value={preferences.experienceLevel || 'intermediate'}
-              onValueChange={(value) => updatePreferences({ experienceLevel: value as ExperienceLevel })}
-            >
-              <SelectTrigger className="w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="beginner">Beginner (&lt;1 year)</SelectItem>
-                <SelectItem value="intermediate">Intermediate (1-2 years)</SelectItem>
-                <SelectItem value="advanced">Advanced (2+ years)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Email Notifications - only show when authenticated */}
-          {isAuthenticated && (
-            <div className="flex items-center justify-between">
-              <div>
-                <Label className="font-medium text-foreground">Email Notifications</Label>
-                <p className="text-sm text-muted-foreground">Get notified about likes, comments & friend requests</p>
-              </div>
-              <Switch
-                checked={preferences.emailNotificationsEnabled ?? true}
-                onCheckedChange={(checked) => updatePreferences({ emailNotificationsEnabled: checked })}
-              />
-            </div>
-          )}
-        </Card>
-      </section>
-
-      {/* Training Goal */}
-      <section className="mb-8">
-        <h2 className="text-lg font-semibold text-foreground mb-4">
-          Training Goal
-        </h2>
-
-        <div className="space-y-3">
-          {(Object.keys(WORKOUT_GOALS) as WorkoutGoal[]).map((goal) => {
-            const goalInfo = WORKOUT_GOALS[goal];
-            const isSelected = goal === workoutGoal;
-            return (
-              <Button
-                key={goal}
-                variant="ghost"
-                onClick={() => handleGoalClick(goal)}
-                className={`w-full h-auto p-4 rounded-xl border text-left justify-start transition-all ${
-                  isSelected
-                    ? 'border-primary bg-primary/10'
-                    : 'border-border bg-card hover:border-primary/50 hover:bg-muted/50'
-                }`}
-              >
-                <div className="w-full">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-semibold text-foreground">
-                      {goalInfo.name}
-                    </span>
-                    {isSelected && (
-                      <svg className="w-5 h-5 text-primary" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                    )}
-                  </div>
-                  <p className="text-sm text-muted-foreground font-normal whitespace-normal">
-                    {goalInfo.description}
-                  </p>
-                  <div className="flex gap-4 mt-2 text-xs text-muted-foreground font-normal">
-                    <span>Rep range: {goalInfo.defaultRepRange}</span>
-                    <span className="text-primary">{goalInfo.cycleName} cycle</span>
-                  </div>
+          <section className="mb-6">
+            <Card>
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="font-medium text-foreground">Experience Level</Label>
+                  <p className="text-sm text-muted-foreground">Affects progression recommendations</p>
                 </div>
-              </Button>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* Training Cycle */}
-      <section className="mb-8">
-        <h2 className="text-lg font-semibold text-foreground mb-4">
-          Training Cycle
-        </h2>
-        <p className="text-sm text-muted-foreground mb-4">
-          Choose a periodization cycle that fits your experience level. This controls how your training phases progress.
-        </p>
-
-        {/* Current cycle status */}
-        {cycleConfig && cycleState && (
-          <Card className="mb-4 bg-primary/5 border-primary/20">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Current cycle</p>
-                <p className="font-semibold text-foreground">{cycleConfig.name}</p>
+                <Select
+                  value={preferences.experienceLevel || 'intermediate'}
+                  onValueChange={(value) => updatePreferences({ experienceLevel: value as ExperienceLevel })}
+                >
+                  <SelectTrigger className="w-40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="beginner">Beginner</SelectItem>
+                    <SelectItem value="intermediate">Intermediate</SelectItem>
+                    <SelectItem value="advanced">Advanced</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              <div className="text-right">
-                <p className="text-sm text-muted-foreground">Current phase</p>
-                <p className="font-semibold text-primary">
-                  {cycleConfig.phases[cycleState.currentPhaseIndex]?.name ?? 'Unknown'}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Week {cycleState.currentWeekInPhase} of {cycleConfig.phases[cycleState.currentPhaseIndex]?.durationWeeks ?? '?'}
-                </p>
-              </div>
-            </div>
-          </Card>
-        )}
+            </Card>
+          </section>
 
-        {/* AI Recommendation */}
-        {preferences.openaiApiKey && (
-          <Card className="mb-4">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <p className="font-medium text-foreground">AI Recommendation</p>
-                <p className="text-xs text-muted-foreground">
-                  Get a personalized cycle recommendation based on your training history
-                </p>
-              </div>
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={getRecommendation}
-                disabled={loadingRecommendation}
-              >
-                {loadingRecommendation ? 'Analyzing...' : 'Get Recommendation'}
-              </Button>
-            </div>
-
-            {cycleRecommendation && (
-              <div className="mt-3 pt-3 border-t border-border">
-                <div className="flex items-start gap-3">
-                  <div className="p-2 rounded-lg bg-primary/10 flex-shrink-0">
-                    <svg className="w-5 h-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                    </svg>
+          {/* AI Recommendation */}
+          {preferences.openaiApiKey && (
+            <section className="mb-6">
+              <Card>
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <p className="font-medium text-foreground">AI Recommendation</p>
+                    <p className="text-xs text-muted-foreground">
+                      Personalized cycle based on your history
+                    </p>
                   </div>
-                  <div className="flex-1">
-                    <p className="font-medium text-foreground">
-                      {PREDEFINED_CYCLES.find(c => c.id === cycleRecommendation.recommendedCycleId)?.name}
-                    </p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {cycleRecommendation.reasoning}
-                    </p>
-                    {cycleRecommendation.alternativeId && (
-                      <p className="text-xs text-muted-foreground mt-2">
-                        Alternative: {PREDEFINED_CYCLES.find(c => c.id === cycleRecommendation.alternativeId)?.name}
-                        {cycleRecommendation.alternativeReason && ` - ${cycleRecommendation.alternativeReason}`}
-                      </p>
-                    )}
-                    <div className="flex gap-2 mt-3">
-                      <Button size="sm" onClick={applyRecommendedCycle}>
-                        Apply This Cycle
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setCycleRecommendation(null)}
-                      >
-                        Dismiss
-                      </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={getRecommendation}
+                    disabled={loadingRecommendation}
+                  >
+                    {loadingRecommendation ? 'Analyzing...' : 'Get Recommendation'}
+                  </Button>
+                </div>
+
+                {cycleRecommendation && (
+                  <div className="mt-3 pt-3 border-t border-border">
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 rounded-lg bg-primary/10 flex-shrink-0">
+                        <svg className="w-5 h-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                        </svg>
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-medium text-foreground">
+                          {PREDEFINED_CYCLES.find(c => c.id === cycleRecommendation.recommendedCycleId)?.name}
+                        </p>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {cycleRecommendation.reasoning}
+                        </p>
+                        {cycleRecommendation.alternativeId && (
+                          <p className="text-xs text-muted-foreground mt-2">
+                            Alternative: {PREDEFINED_CYCLES.find(c => c.id === cycleRecommendation.alternativeId)?.name}
+                            {cycleRecommendation.alternativeReason && ` - ${cycleRecommendation.alternativeReason}`}
+                          </p>
+                        )}
+                        <div className="flex gap-2 mt-3">
+                          <Button size="sm" onClick={applyRecommendedCycle}>
+                            Apply This Cycle
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setCycleRecommendation(null)}
+                          >
+                            Dismiss
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
-            )}
-          </Card>
-        )}
+                )}
+              </Card>
+            </section>
+          )}
 
-        <div className="space-y-3">
-          {relevantCycles.map((cycle) => {
-            const isSelected = cycle.id === cycleConfig?.id;
-            const phaseNames = cycle.phases.map(p => p.name).join(' → ');
-            return (
-              <Button
-                key={cycle.id}
-                variant="ghost"
-                onClick={() => handleCycleClick(cycle)}
-                className={`w-full h-auto p-4 rounded-xl border text-left justify-start transition-all ${
-                  isSelected
-                    ? 'border-primary bg-primary/10'
-                    : 'border-border bg-card hover:border-primary/50 hover:bg-muted/50'
-                }`}
-              >
-                <div className="w-full">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-semibold text-foreground">
-                      {cycle.name}
-                    </span>
-                    {isSelected && (
-                      <svg className="w-5 h-5 text-primary" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+          {/* Cycle Selection */}
+          <section className="mb-6">
+            <h2 className="text-lg font-semibold text-foreground mb-3">
+              Choose Cycle
+            </h2>
+            <div className="space-y-3">
+              {relevantCycles.map((cycle) => {
+                const isSelected = cycle.id === cycleConfig?.id;
+                const isDefault = cycle.id === defaultCycleId;
+                const phaseNames = cycle.phases.map(p => p.name).join(' \u2192 ');
+                return (
+                  <Button
+                    key={cycle.id}
+                    variant="ghost"
+                    onClick={() => handleCycleClick(cycle)}
+                    className={`w-full h-auto p-4 rounded-xl border text-left justify-start transition-all ${
+                      isSelected
+                        ? 'border-primary bg-primary/10'
+                        : 'border-border bg-card hover:border-primary/50 hover:bg-muted/50'
+                    }`}
+                  >
+                    <div className="w-full">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-semibold text-foreground">
+                          {cycle.name}
+                          {isDefault && <span className="text-xs text-muted-foreground font-normal ml-2">(Default)</span>}
+                        </span>
+                        {isSelected && (
+                          <svg className="w-5 h-5 text-primary" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground font-normal whitespace-normal">
+                        {cycle.description}
+                      </p>
+                      <div className="flex gap-4 mt-2 text-xs text-muted-foreground font-normal">
+                        <span>{cycle.totalWeeks} weeks</span>
+                        <span className="text-primary">{cycle.cycleType === 'cardio' ? 'Cardio' : 'Strength'}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1 font-normal whitespace-normal">
+                        {phaseNames}
+                      </p>
+                    </div>
+                  </Button>
+                );
+              })}
+            </div>
+          </section>
+        </>
+      )}
+
+      {/* ============================================ */}
+      {/* PREFERENCES TAB */}
+      {/* ============================================ */}
+      {activeTab === 'preferences' && (
+        <>
+          {/* Units & Workout Settings */}
+          <section className="mb-6">
+            <h2 className="text-lg font-semibold text-foreground mb-3">
+              Units & Workout
+            </h2>
+            <Card className="space-y-4">
+              {/* Weight Unit */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="font-medium text-foreground">Weight Unit</Label>
+                  <p className="text-sm text-muted-foreground">Choose your preferred unit</p>
+                </div>
+                <Select
+                  value={preferences.weightUnit}
+                  onValueChange={(value) => updatePreferences({ weightUnit: value as 'lbs' | 'kg' })}
+                >
+                  <SelectTrigger className="w-40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="lbs">Pounds (lbs)</SelectItem>
+                    <SelectItem value="kg">Kilograms (kg)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Distance Unit */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="font-medium text-foreground">Distance Unit</Label>
+                  <p className="text-sm text-muted-foreground">For cardio tracking</p>
+                </div>
+                <Select
+                  value={preferences.distanceUnit}
+                  onValueChange={(value) => updatePreferences({ distanceUnit: value as 'mi' | 'km' })}
+                >
+                  <SelectTrigger className="w-40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="mi">Miles (mi)</SelectItem>
+                    <SelectItem value="km">Kilometers (km)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Weekly Workout Goal */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="font-medium text-foreground">Weekly Workout Goal</Label>
+                  <p className="text-sm text-muted-foreground">Your consistency streak is based on this</p>
+                </div>
+                <Select
+                  value={String(preferences.weeklyWorkoutGoal ?? 4)}
+                  onValueChange={(value) => updatePreferences({ weeklyWorkoutGoal: parseInt(value) })}
+                >
+                  <SelectTrigger className="w-40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="2">2 days/week</SelectItem>
+                    <SelectItem value="3">3 days/week</SelectItem>
+                    <SelectItem value="4">4 days/week</SelectItem>
+                    <SelectItem value="5">5 days/week</SelectItem>
+                    <SelectItem value="6">6 days/week</SelectItem>
+                    <SelectItem value="7">7 days/week</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Default Rest Time */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="font-medium text-foreground">Default Rest Time</Label>
+                  <p className="text-sm text-muted-foreground">Rest timer duration</p>
+                </div>
+                <Select
+                  value={String(preferences.defaultRestSeconds)}
+                  onValueChange={(value) => updatePreferences({ defaultRestSeconds: parseInt(value) })}
+                >
+                  <SelectTrigger className="w-32">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="30">30 sec</SelectItem>
+                    <SelectItem value="60">60 sec</SelectItem>
+                    <SelectItem value="90">90 sec</SelectItem>
+                    <SelectItem value="120">2 min</SelectItem>
+                    <SelectItem value="180">3 min</SelectItem>
+                    <SelectItem value="300">5 min</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </Card>
+          </section>
+
+          {/* Appearance */}
+          <section className="mb-6">
+            <h2 className="text-lg font-semibold text-foreground mb-3">
+              Appearance
+            </h2>
+            <Card>
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="font-medium text-foreground">Dark Mode</Label>
+                  <p className="text-sm text-muted-foreground">Toggle dark theme</p>
+                </div>
+                <Switch
+                  checked={preferences.darkMode}
+                  onCheckedChange={(checked) => updatePreferences({ darkMode: checked })}
+                />
+              </div>
+            </Card>
+          </section>
+
+          {/* Notifications */}
+          {isAuthenticated && (
+            <section className="mb-6">
+              <h2 className="text-lg font-semibold text-foreground mb-3">
+                Notifications
+              </h2>
+              <Card>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="font-medium text-foreground">Email Notifications</Label>
+                    <p className="text-sm text-muted-foreground">Likes, comments & friend requests</p>
+                  </div>
+                  <Switch
+                    checked={preferences.emailNotificationsEnabled ?? true}
+                    onCheckedChange={(checked) => updatePreferences({ emailNotificationsEnabled: checked })}
+                  />
+                </div>
+              </Card>
+            </section>
+          )}
+
+          {/* AI Assistant */}
+          <section className="mb-6">
+            <h2 className="text-lg font-semibold text-foreground mb-3">
+              AI Assistant
+            </h2>
+            <Card>
+              <Label className="font-medium text-foreground mb-1 block">OpenAI API Key</Label>
+              <p className="text-sm text-muted-foreground mb-2">
+                Required for AI-powered recommendations.
+                Get your key from{' '}
+                <a
+                  href="https://platform.openai.com/api-keys"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary underline"
+                >
+                  OpenAI
+                </a>
+              </p>
+              {preferences.openaiApiKey ? (
+                <p className="text-sm text-green-600 dark:text-green-400 mb-3 flex items-center gap-1">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  API key configured
+                </p>
+              ) : (
+                <p className="text-sm text-orange-500 dark:text-orange-400 mb-3">
+                  No API key configured - AI features disabled
+                </p>
+              )}
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Input
+                    type={showApiKey ? 'text' : 'password'}
+                    value={apiKeyInput}
+                    onChange={(e) => setApiKeyInput(e.target.value)}
+                    placeholder="sk-..."
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setShowApiKey(!showApiKey)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 h-8 w-8"
+                  >
+                    {showApiKey ? (
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                       </svg>
                     )}
-                  </div>
-                  <p className="text-sm text-muted-foreground font-normal whitespace-normal">
-                    {cycle.description}
-                  </p>
-                  <div className="flex gap-4 mt-2 text-xs text-muted-foreground font-normal">
-                    <span>{cycle.totalWeeks} weeks</span>
-                    <span className="text-primary">{cycle.cycleType === 'cardio' ? 'Cardio' : 'Strength'}</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1 font-normal whitespace-normal">
-                    {phaseNames}
-                  </p>
+                  </Button>
                 </div>
-              </Button>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* AI Assistant */}
-      <section className="mb-8">
-        <h2 className="text-lg font-semibold text-foreground mb-4">
-          AI Assistant
-        </h2>
-
-        <Card>
-          <div className="mb-4">
-            <Label className="font-medium text-foreground mb-1 block">OpenAI API Key</Label>
-            <p className="text-sm text-muted-foreground mb-2">
-              Required for AI-powered progressive overload recommendations.
-              Get your key from{' '}
-              <a
-                href="https://platform.openai.com/api-keys"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-primary underline"
-              >
-                OpenAI
-              </a>
-            </p>
-            {preferences.openaiApiKey ? (
-              <p className="text-sm text-green-600 dark:text-green-400 mb-3 flex items-center gap-1">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                API key configured
-              </p>
-            ) : (
-              <p className="text-sm text-orange-500 dark:text-orange-400 mb-3">
-                No API key configured - AI features disabled
-              </p>
-            )}
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Input
-                  type={showApiKey ? 'text' : 'password'}
-                  value={apiKeyInput}
-                  onChange={(e) => setApiKeyInput(e.target.value)}
-                  placeholder="sk-..."
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setShowApiKey(!showApiKey)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 h-8 w-8"
-                >
-                  {showApiKey ? (
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                    </svg>
-                  ) : (
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                    </svg>
-                  )}
+                <Button onClick={saveApiKey}>
+                  {apiKeySaved ? 'Saved!' : 'Save'}
                 </Button>
               </div>
-              <Button onClick={saveApiKey}>
-                {apiKeySaved ? 'Saved!' : 'Save'}
-              </Button>
-            </div>
-          </div>
-        </Card>
-      </section>
+            </Card>
+          </section>
+        </>
+      )}
 
-      {/* Data Management */}
-      <section className="mb-8">
-        <h2 className="text-lg font-semibold text-foreground mb-4">
-          Data Management
-        </h2>
+      {/* ============================================ */}
+      {/* ACCOUNT TAB */}
+      {/* ============================================ */}
+      {activeTab === 'account' && (
+        <>
+          {/* Account */}
+          <section className="mb-6">
+            <h2 className="text-lg font-semibold text-foreground mb-3">
+              Account
+            </h2>
+            <Card className="space-y-4">
+              {isAuthenticated ? (
+                <>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-foreground">{user?.email}</p>
+                      <p className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Synced to cloud
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      onClick={handleSignOut}
+                      disabled={isSigningOut}
+                    >
+                      {isSigningOut ? 'Signing out...' : 'Sign Out'}
+                    </Button>
+                  </div>
 
-        <Card className="space-y-4">
-          {/* Export */}
-          <div className="flex items-center justify-between">
-            <div>
-              <Label className="font-medium text-foreground">Export Data</Label>
-              <p className="text-sm text-muted-foreground">Download all your workout data</p>
-            </div>
-            <Button variant="secondary" onClick={handleExport}>
-              Export
-            </Button>
-          </div>
+                  {/* Nickname/Username */}
+                  <div className="pt-4 border-t border-border">
+                    <div className="flex items-center justify-between">
+                      <Label className="font-medium text-foreground">Nickname</Label>
+                      <div className="flex items-center gap-2">
+                        <div className="flex flex-col items-end">
+                          <Input
+                            value={usernameInput}
+                            onChange={(e) => setUsernameInput(e.target.value)}
+                            placeholder="Enter nickname"
+                            className="w-40"
+                          />
+                          {usernameError && (
+                            <p className="text-xs text-destructive mt-1">{usernameError}</p>
+                          )}
+                        </div>
+                        <Button
+                          onClick={handleSaveUsername}
+                          disabled={usernameSaving || usernameInput === username}
+                        >
+                          {usernameSaving ? 'Saving...' : usernameSaved ? 'Saved!' : 'Save'}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-foreground">Not signed in</p>
+                    <p className="text-sm text-muted-foreground">
+                      Sign in to sync your data across devices
+                    </p>
+                  </div>
+                  <Button onClick={() => navigate('/auth')}>
+                    Sign In
+                  </Button>
+                </div>
+              )}
+            </Card>
+          </section>
 
-          {/* Import */}
-          <div className="flex items-center justify-between">
-            <div>
-              <Label className="font-medium text-foreground">Import Data</Label>
-              <p className="text-sm text-muted-foreground">
-                {importSuccess ? (
-                  <span className="text-green-500">Import successful! Reloading...</span>
-                ) : importError ? (
-                  <span className="text-destructive">{importError}</span>
-                ) : (
-                  'Restore from a backup file'
-                )}
+          {/* Data Management */}
+          <section className="mb-6">
+            <h2 className="text-lg font-semibold text-foreground mb-3">
+              Data Management
+            </h2>
+            <Card className="space-y-4">
+              {/* Export */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="font-medium text-foreground">Export Data</Label>
+                  <p className="text-sm text-muted-foreground">Download all your workout data</p>
+                </div>
+                <Button variant="secondary" onClick={handleExport}>
+                  Export
+                </Button>
+              </div>
+
+              {/* Import */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="font-medium text-foreground">Import Data</Label>
+                  <p className="text-sm text-muted-foreground">
+                    {importSuccess ? (
+                      <span className="text-green-500">Import successful! Reloading...</span>
+                    ) : importError ? (
+                      <span className="text-destructive">{importError}</span>
+                    ) : (
+                      'Restore from a backup file'
+                    )}
+                  </p>
+                </div>
+                <label className="cursor-pointer">
+                  <input
+                    type="file"
+                    accept=".json"
+                    onChange={handleImport}
+                    className="hidden"
+                  />
+                  <Button variant="secondary" asChild>
+                    <span>Import</span>
+                  </Button>
+                </label>
+              </div>
+
+              {/* Clear Data */}
+              <div className="flex items-center justify-between pt-4 border-t border-border">
+                <div>
+                  <Label className="font-medium text-destructive">Clear All Data</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Permanently delete all workout data
+                  </p>
+                </div>
+                <Button variant="danger" onClick={handleClearData}>
+                  Clear
+                </Button>
+              </div>
+            </Card>
+          </section>
+
+          {/* About */}
+          <section>
+            <h2 className="text-lg font-semibold text-foreground mb-3">
+              About
+            </h2>
+            <Card>
+              <p className="text-muted-foreground text-sm">
+                overload.ai v1.0.0
               </p>
-            </div>
-            <label className="cursor-pointer">
-              <input
-                type="file"
-                accept=".json"
-                onChange={handleImport}
-                className="hidden"
-              />
-              <Button variant="secondary" asChild>
-                <span>Import</span>
-              </Button>
-            </label>
-          </div>
-
-          {/* Clear Data */}
-          <div className="flex items-center justify-between pt-4 border-t border-border">
-            <div>
-              <Label className="font-medium text-destructive">Clear All Data</Label>
-              <p className="text-sm text-muted-foreground">
-                Permanently delete all workout data
+              <p className="text-muted-foreground text-sm mt-2">
+                A simple, privacy-focused workout tracking app with AI-powered progressive overload recommendations.
+                {isAuthenticated
+                  ? ' Your data is securely synced to the cloud and available on all your devices.'
+                  : ' All data is stored locally on your device.'}
               </p>
-            </div>
-            <Button variant="danger" onClick={handleClearData}>
-              Clear
-            </Button>
-          </div>
-        </Card>
-      </section>
-
-      {/* About */}
-      <section>
-        <h2 className="text-lg font-semibold text-foreground mb-4">
-          About
-        </h2>
-        <Card>
-          <p className="text-muted-foreground text-sm">
-            overload.ai v1.0.0
-          </p>
-          <p className="text-muted-foreground text-sm mt-2">
-            A simple, privacy-focused workout tracking app with AI-powered progressive overload recommendations.
-            {isAuthenticated
-              ? ' Your data is securely synced to the cloud and available on all your devices.'
-              : ' All data is stored locally on your device.'}
-          </p>
-          <p className="text-muted-foreground text-sm mt-4">
-            Created by{' '}
-            <a
-              href="https://github.com/DustinBergman"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-primary underline"
-            >
-              Dustin Bergman
-            </a>
-          </p>
-        </Card>
-      </section>
+              <p className="text-muted-foreground text-sm mt-4">
+                Created by{' '}
+                <a
+                  href="https://github.com/DustinBergman"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary underline"
+                >
+                  Dustin Bergman
+                </a>
+              </p>
+            </Card>
+          </section>
+        </>
+      )}
 
       {/* Goal Change Confirmation Modal */}
       <Modal
@@ -818,7 +864,7 @@ export const Settings: FC = () => {
           Are you sure you want to change your training goal?
         </p>
         <p className="text-muted-foreground mt-2">
-          You will be set back to Week 1 of your new training cycle.
+          You will start at Phase 1 of the matching default training cycle.
         </p>
         {pendingGoal && (
           <div className="mt-4 p-4 bg-muted rounded-lg">
@@ -857,7 +903,7 @@ export const Settings: FC = () => {
             <p className="font-semibold text-foreground">{pendingCycle.name}</p>
             <p className="text-sm text-primary">{pendingCycle.totalWeeks} weeks total</p>
             <p className="text-xs text-muted-foreground mt-1">
-              {pendingCycle.phases.map(p => p.name).join(' → ')}
+              {pendingCycle.phases.map(p => p.name).join(' \u2192 ')}
             </p>
           </div>
         )}
