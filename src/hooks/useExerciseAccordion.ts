@@ -86,35 +86,39 @@ export const useExerciseAccordion = ({
     return { lastSetWeight, targetReps };
   }, [exercise.sets, exercise.targetReps, suggestion]);
 
-  // Auto-open next incomplete set when exercise accordion is expanded
+  // Pre-fill weight and reps inputs for the next empty set
+  const prefillInputs = useCallback(() => {
+    if (exercise.sets.length > 0) {
+      const lastSet = exercise.sets[exercise.sets.length - 1];
+      if (lastSet.type === 'strength' || !('type' in lastSet)) {
+        setWeightInput(('weight' in lastSet ? lastSet.weight : 0).toString());
+      }
+    } else if (suggestion) {
+      setWeightInput(suggestion.suggestedWeight.toString());
+    } else {
+      setWeightInput('');
+    }
+    const reps =
+      exercise.sets.length === 0 && suggestion
+        ? suggestion.suggestedReps
+        : exercise.targetReps || 10;
+    setRepsInput(reps.toString());
+  }, [exercise.sets, exercise.targetReps, suggestion]);
+
+  // Auto-open next incomplete set and pre-fill inputs when exercise accordion is expanded
   useEffect(() => {
     if (isExpanded) {
       setExpandedSetIndex(exercise.sets.length);
+      prefillInputs();
     }
-  }, [isExpanded]);
+  }, [isExpanded, exercise.sets.length, prefillInputs]);
 
-  // Pre-fill inputs when an empty set is expanded
+  // Pre-fill inputs when an empty set is manually expanded or suggestion arrives late
   useEffect(() => {
     if (expandedSetIndex !== null && expandedSetIndex >= exercise.sets.length) {
-      // Empty set accordion expanded
-      if (exercise.sets.length > 0) {
-        const lastSet = exercise.sets[exercise.sets.length - 1];
-        if (lastSet.type === 'strength' || !('type' in lastSet)) {
-          setWeightInput(('weight' in lastSet ? lastSet.weight : 0).toString());
-        }
-      } else if (suggestion) {
-        setWeightInput(suggestion.suggestedWeight.toString());
-      } else {
-        setWeightInput('');
-      }
-      // Use AI suggested reps when available (no sets completed yet), otherwise use template target
-      const reps =
-        exercise.sets.length === 0 && suggestion
-          ? suggestion.suggestedReps
-          : exercise.targetReps || 10;
-      setRepsInput(reps.toString());
+      prefillInputs();
     }
-  }, [expandedSetIndex, exercise.sets.length, exercise.targetReps, suggestion]);
+  }, [expandedSetIndex, exercise.sets.length, prefillInputs]);
 
   // Handlers
   const handleLogSet = useCallback(() => {
