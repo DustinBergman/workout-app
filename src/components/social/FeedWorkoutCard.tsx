@@ -16,7 +16,8 @@ import { useAuth } from '../../hooks/useAuth';
 import { WORKOUT_MOOD_CONFIG, getWeekConfigForGoal, CardioType, DistanceUnit } from '../../types';
 import { deleteSession } from '../../services/supabase/sessions';
 import { toast } from '../../store/toastStore';
-import { convertFeedWorkoutToTemplate, estimateCardioCalories } from '../../utils/workoutUtils';
+import { convertFeedWorkoutToTemplate, estimateCardioCalories, convertWeight } from '../../utils/workoutUtils';
+import { WeightUnit } from '../../types';
 import { syncAddTemplate, syncAddCustomExercise } from '../../services/supabase/sync';
 
 interface FeedWorkoutCardProps {
@@ -56,6 +57,7 @@ export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
   const menuRef = useRef<HTMLDivElement>(null);
 
   const customExercises = useAppStore((state) => state.customExercises);
+  const preferredWeightUnit = useAppStore((state) => state.preferences?.weightUnit ?? 'lbs');
   const deleteSessionFromStore = useAppStore((state) => state.deleteSession);
   const addTemplate = useAppStore((state) => state.addTemplate);
   const addCustomExercise = useAppStore((state) => state.addCustomExercise);
@@ -340,12 +342,14 @@ export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
             }, 0);
           }, 0);
 
-          // Calculate strength stats
+          // Calculate strength stats (convert to viewer's preferred unit)
           const strengthExercises = workout.session_exercises.filter(ex => ex.type === 'strength');
           const totalVolume = strengthExercises.reduce((sum, ex) => {
             return sum + ex.completed_sets.reduce((setSum, set) => {
               if (set.type === 'strength' && set.weight && set.reps) {
-                return setSum + (set.weight * set.reps);
+                const setUnit = (set.weight_unit || 'lbs') as WeightUnit;
+                const weight = convertWeight(set.weight, setUnit, preferredWeightUnit);
+                return setSum + (weight * set.reps);
               }
               return setSum;
             }, 0);
@@ -412,7 +416,7 @@ export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
               : totalVolume.toLocaleString();
             chips.push(
               <span key="volume" className="px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 text-xs">
-                🏋️ {volumeDisplay} lbs
+                🏋️ {volumeDisplay} {preferredWeightUnit}
               </span>
             );
           }

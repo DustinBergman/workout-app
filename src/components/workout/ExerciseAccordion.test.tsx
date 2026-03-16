@@ -165,7 +165,10 @@ describe('ExerciseAccordion', () => {
       </MockActiveWorkoutProvider>
     );
 
-    expect(screen.getByRole('button', { name: /\+ Add Set/ })).toBeInTheDocument();
+    // Add Set is in the overflow menu
+    const moreButton = screen.getByRole('button', { name: /More options/ });
+    fireEvent.click(moreButton);
+    expect(screen.getByText('Add Set')).toBeInTheDocument();
   });
 
   it('should display read-only target sets information', () => {
@@ -186,7 +189,7 @@ describe('ExerciseAccordion', () => {
       </MockActiveWorkoutProvider>
     );
 
-    expect(screen.getByText('Target: 4 sets')).toBeInTheDocument();
+    expect(screen.getByText('4 sets')).toBeInTheDocument();
   });
 
   it('should show History button', () => {
@@ -306,7 +309,10 @@ describe('ExerciseAccordion', () => {
       </MockActiveWorkoutProvider>
     );
 
-    expect(screen.getByRole('button', { name: /Remove Exercise/ })).toBeInTheDocument();
+    // Remove Exercise is in the overflow menu
+    const moreButton = screen.getByRole('button', { name: /More options/ });
+    fireEvent.click(moreButton);
+    expect(screen.getByText('Remove Exercise')).toBeInTheDocument();
   });
 
   it('should collapse sets when clicking an expanded set header', () => {
@@ -342,7 +348,7 @@ describe('ExerciseAccordion', () => {
     expect(setHeaders.length).toBeGreaterThan(0);
   });
 
-  it('should show quick adjustment buttons for weight', () => {
+  it('should show stepper buttons for weight and reps', () => {
     const exercise = createMockExercise({
       sets: [],
       targetSets: 1,
@@ -363,42 +369,12 @@ describe('ExerciseAccordion', () => {
       </MockActiveWorkoutProvider>
     );
 
-    // Should have weight adjustment buttons: -10, -5, +5, +10
-    expect(screen.getByRole('button', { name: /-10/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /-5/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /\+5/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /\+10/ })).toBeInTheDocument();
-  });
-
-  it('should show quick adjustment buttons for reps', () => {
-    const exercise = createMockExercise({
-      sets: [],
-      targetSets: 1,
-    });
-    const session = createMockSession(exercise);
-
-    render(
-      <MockActiveWorkoutProvider
-        value={{
-          session,
-          expandedIndex: 0,
-        }}
-      >
-        <ExerciseAccordion
-          exercise={exercise}
-          exerciseInfo={mockExerciseInfo}
-        />
-      </MockActiveWorkoutProvider>
-    );
-
-    // Should have reps adjustment buttons: -2, -1, +1, +2
-    // Use getAllByRole since there are also weight adjustment buttons with similar names
+    // Should have +/- stepper buttons (2 for weight, 2 for reps)
     const allButtons = screen.getAllByRole('button');
-    const repButtons = allButtons.filter((btn) => {
-      const text = btn.textContent;
-      return text === '-2' || text === '-1' || text === '+1' || text === '+2';
-    });
-    expect(repButtons.length).toBeGreaterThanOrEqual(4);
+    const minusButtons = allButtons.filter((btn) => btn.textContent === '-');
+    const plusButtons = allButtons.filter((btn) => btn.textContent === '+');
+    expect(minusButtons.length).toBe(2);
+    expect(plusButtons.length).toBe(2);
   });
 
   it('should have "Complete Set" button for empty sets', () => {
@@ -842,7 +818,7 @@ describe('ExerciseAccordion', () => {
         </MockActiveWorkoutProvider>
       );
 
-      expect(screen.getByRole('button', { name: /Remove Set/ })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Remove set/ })).toBeInTheDocument();
     });
 
     it('should call updateTargetSets when Remove Set is clicked', async () => {
@@ -868,7 +844,7 @@ describe('ExerciseAccordion', () => {
         </MockActiveWorkoutProvider>
       );
 
-      const removeSetButton = screen.getByRole('button', { name: /Remove Set/ });
+      const removeSetButton = screen.getByRole('button', { name: /Remove set/ });
       fireEvent.click(removeSetButton);
 
       await waitFor(() => {
@@ -901,7 +877,7 @@ describe('ExerciseAccordion', () => {
         </MockActiveWorkoutProvider>
       );
 
-      const removeSetButton = screen.getByRole('button', { name: /Remove Set/ });
+      const removeSetButton = screen.getByRole('button', { name: /Remove set/ });
       fireEvent.click(removeSetButton);
 
       // Verify that updateTargetSets was called
@@ -934,7 +910,7 @@ describe('ExerciseAccordion', () => {
       );
 
       // Remove Set button should not be rendered when targetSets is 1
-      const removeSetButton = screen.queryByRole('button', { name: /Remove Set/ });
+      const removeSetButton = screen.queryByRole('button', { name: /Remove set/ });
       expect(removeSetButton).not.toBeInTheDocument();
     });
 
@@ -961,7 +937,7 @@ describe('ExerciseAccordion', () => {
         </MockActiveWorkoutProvider>
       );
 
-      const removeSetButton = screen.getByRole('button', { name: /Remove Set/ });
+      const removeSetButton = screen.getByRole('button', { name: /Remove set/ });
       fireEvent.click(removeSetButton);
 
       await waitFor(() => {
@@ -999,7 +975,9 @@ describe('ExerciseAccordion', () => {
       );
 
       // Find and click the "Add Set" button
-      const addSetButton = screen.getByRole('button', { name: /\+ Add Set/ });
+      const moreBtn = screen.getByRole('button', { name: /More options/ });
+      fireEvent.click(moreBtn);
+      const addSetButton = screen.getByText('Add Set');
       fireEvent.click(addSetButton);
 
       // Verify updateTargetSets was called to increase targetSets
@@ -1037,7 +1015,9 @@ describe('ExerciseAccordion', () => {
       );
 
       // Find and click the "Add Set" button
-      const addSetButton = screen.getByRole('button', { name: /\+ Add Set/ });
+      const moreBtn = screen.getByRole('button', { name: /More options/ });
+      fireEvent.click(moreBtn);
+      const addSetButton = screen.getByText('Add Set');
       fireEvent.click(addSetButton);
 
       // Verify updateTargetSets was called to increase targetSets

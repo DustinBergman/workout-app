@@ -424,8 +424,9 @@ export const syncAddSession = async (session: WorkoutSession): Promise<void> => 
               reps: set.type === 'strength' ? set.reps : null,
               weight: set.type === 'strength' ? set.weight : null,
               weight_unit: set.type === 'strength' ? set.unit : null,
-              distance: set.type === 'cardio' ? set.distance : null,
-              distance_unit: set.type === 'cardio' ? set.distanceUnit : null,
+              distance: set.type === 'cardio' ? (set.distance ?? null) : null,
+              distance_unit: set.type === 'cardio' ? (set.distanceUnit ?? null) : null,
+              calories: set.type === 'cardio' ? (set.calories ?? null) : null,
               duration_seconds: set.type === 'cardio' ? set.durationSeconds : null,
               completed_at: set.completedAt,
             }));
@@ -543,8 +544,9 @@ export const syncUpdateSession = async (session: WorkoutSession): Promise<void> 
               reps: set.type === 'strength' ? set.reps : null,
               weight: set.type === 'strength' ? set.weight : null,
               weight_unit: set.type === 'strength' ? set.unit : null,
-              distance: set.type === 'cardio' ? set.distance : null,
-              distance_unit: set.type === 'cardio' ? set.distanceUnit : null,
+              distance: set.type === 'cardio' ? (set.distance ?? null) : null,
+              distance_unit: set.type === 'cardio' ? (set.distanceUnit ?? null) : null,
+              calories: set.type === 'cardio' ? (set.calories ?? null) : null,
               duration_seconds: set.type === 'cardio' ? set.durationSeconds : null,
               completed_at: set.completedAt,
             }));

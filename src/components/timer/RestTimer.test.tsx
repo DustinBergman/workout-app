@@ -57,7 +57,7 @@ describe('RestTimer', () => {
   describe('rendering', () => {
     it('should render timer banner', () => {
       const { container } = render(<RestTimer duration={60} />);
-      expect(container.querySelector('.fixed.bottom-16')).toBeInTheDocument();
+      expect(container.querySelector('.fixed')).toBeInTheDocument();
     });
 
     it('should display formatted time', () => {
