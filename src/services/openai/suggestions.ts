@@ -251,98 +251,101 @@ Respond ONLY with valid JSON:
 }`;
 };
 
-// Validate a suggestion response
-const validateSuggestion = (response: { suggestion?: ExerciseSuggestion }): boolean => {
-  const s = response.suggestion;
-  if (!s) return false;
-  if (typeof s.suggestedWeight !== 'number') return false;
-  if (typeof s.suggestedReps !== 'number' || s.suggestedReps <= 0) return false;
-  if (!s.exerciseId) return false;
+// Validate a batched response with multiple suggestions
+const validateBatchedSuggestions = (
+  response: { suggestions?: ExerciseSuggestion[] },
+  _expectedIds: string[]
+): boolean => {
+  if (!response.suggestions || !Array.isArray(response.suggestions)) return false;
+  // Must have at least one suggestion
+  if (response.suggestions.length === 0) return false;
+  // Each suggestion must be valid
+  for (const s of response.suggestions) {
+    if (typeof s.suggestedWeight !== 'number') return false;
+    if (typeof s.suggestedReps !== 'number' || s.suggestedReps <= 0) return false;
+    if (!s.exerciseId) return false;
+  }
   return true;
 };
 
-// Get suggestion for a single exercise with retries
-const getSuggestionForExercise = async (
-  apiKey: string,
+// Build a system prompt for batched suggestions
+const buildBatchedSystemPrompt = (weightUnit: 'lbs' | 'kg'): string => {
+  return `You are an expert strength coach. Recommend the exact weight and reps for each exercise in the trainee's next session.
+
+## How to Reason
+1. Start from the algorithm recommendation if provided — treat it as a strong anchor.
+2. Look at performance data — recent weights/reps, 1RM trend, progress status.
+3. Apply training context — phase, goal, experience level.
+4. Be conservative — a missed rep is worse than an easy set.
+
+## Rules
+- Weight in ${weightUnit}, rounded to nearest ${weightUnit === 'lbs' ? '2.5 lbs' : '1.25 kg'}
+- Reps > 0
+- For PLATEAU: include techniqueTip and repRangeChange
+- Keep reasoning to 1 sentence per exercise
+
+Respond ONLY with valid JSON:
+{
+  "suggestions": [
+    {
+      "exerciseId": "<id>",
+      "suggestedWeight": <number>,
+      "suggestedReps": <number>,
+      "reasoning": "<1 sentence>",
+      "confidence": "high" | "medium" | "low",
+      "progressStatus": "improving" | "plateau" | "declining" | "new",
+      "techniqueTip": "<only for plateau>",
+      "repRangeChange": { "from": "X-Y", "to": "A-B", "reason": "<why>" }
+    }
+  ]
+}`;
+};
+
+// Build a batched user prompt with all exercises
+const buildBatchedExercisePrompt = (
   context: SuggestionContext,
-  exercise: ExerciseSuggestionInput,
-  customExercises: Exercise[],
-  model: OpenAIModel,
-  analysis?: ExerciseAnalysis,
-  recentSessionSets?: { weight: number; reps: number }[][],
-  allSessions?: WorkoutSession[],
-  weightEntries?: WeightEntry[],
-  weeklyWorkoutGoal?: number
-): Promise<ExerciseSuggestion> => {
-  const prompt = buildExercisePrompt(context, exercise);
-  const systemPrompt = buildSystemPrompt(exercise.exerciseId, context.weightUnit);
+  exercises: ExerciseSuggestionInput[]
+): string => {
+  const parts: string[] = [
+    '## Training Context',
+    context.trainingGuidance,
+  ];
 
-  // Create smart fallback using local suggestion engine when we have analysis data
-  let fallbackSuggestion: ExerciseSuggestion;
-
-  if (analysis && recentSessionSets) {
-    fallbackSuggestion = calculateLocalSuggestion(
-      exercise.exerciseId,
-      analysis,
-      {
-        experienceLevel: context.experienceLevel,
-        workoutGoal: context.workoutGoal,
-        weightUnit: context.weightUnit,
-        currentPhase: context.currentPhase,
-        allSessions,
-        weightEntries,
-        weeklyWorkoutGoal,
-        customExercises,
-      },
-      exercise.targetReps,
-      recentSessionSets
-    );
-  } else {
-    const lastWeight = exercise.recentSets?.[0]?.weight ?? 0;
-    const lastReps = exercise.recentSets?.[0]?.reps ?? exercise.targetReps;
-    const exerciseInfo = getExerciseById(exercise.exerciseId, customExercises);
-    const exerciseName = exerciseInfo?.name || exercise.exerciseName;
-
-    fallbackSuggestion = {
-      exerciseId: exercise.exerciseId,
-      suggestedWeight: lastWeight,
-      suggestedReps: lastReps || exercise.targetReps || 10,
-      reasoning: lastWeight > 0
-        ? `Continue with your previous weight for ${exerciseName}`
-        : `Start light and establish your working weight for ${exerciseName}`,
-      confidence: lastWeight > 0 ? 'medium' : 'low',
-      progressStatus: lastWeight > 0 ? 'improving' : 'new',
-    };
+  if (context.weightContext) {
+    parts.push(context.weightContext);
   }
 
-  const fallback = { suggestion: fallbackSuggestion };
+  parts.push(`\n---\nProvide suggestions for ALL ${exercises.length} exercises below:\n`);
 
-  const result = await executeLLMWithRetries({
-    apiKey,
-    model,
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: prompt },
-    ],
-    maxTokens: 400,
-    temperature: 0.3,
-    validate: validateSuggestion,
-    fallback,
-    maxRetries: 3,
-  });
+  for (const exercise of exercises) {
+    parts.push(`### ${exercise.exerciseName} (ID: ${exercise.exerciseId})`);
+    parts.push(`Target: ${exercise.targetSets}x${exercise.targetReps}`);
 
-  // Ensure reps is valid
-  const suggestion = result.suggestion;
-  if (suggestion.suggestedReps <= 0) {
-    suggestion.suggestedReps = exercise.targetReps || 10;
+    if (exercise.analysis) {
+      const { progressStatus, estimated1RMTrend } = exercise.analysis;
+      let analysisLine = `Status: ${progressStatus}`;
+      if (estimated1RMTrend !== undefined) {
+        analysisLine += ` | 1RM trend: ${estimated1RMTrend > 0 ? '+' : ''}${estimated1RMTrend.toFixed(1)}%`;
+      }
+      parts.push(analysisLine);
+    }
+
+    if (exercise.recentSets && exercise.recentSets.length > 0) {
+      const last = exercise.recentSets[0];
+      parts.push(`Last: ${last.weight}${context.weightUnit} x ${last.reps}`);
+    } else {
+      parts.push('No previous data');
+    }
+
+    if (exercise.personalization) {
+      const p = exercise.personalization;
+      parts.push(`Algo anchor: ${p.baseline.toFixed(1)}${context.weightUnit} + ${p.increment.toFixed(1)} (${p.compositeMultiplier.toFixed(2)}x, ${p.confidence})`);
+    }
+
+    parts.push('');
   }
 
-  // Attach personalization factors from the algorithm for transparency
-  if (exercise.personalization?.factors) {
-    suggestion.personalizationFactors = exercise.personalization.factors;
-  }
-
-  return suggestion;
+  return parts.join('\n');
 };
 
 // Build exercise input data from template and history
@@ -423,7 +426,7 @@ export const getPreWorkoutSuggestions = async (
   aiModel?: AIModel
 ): Promise<ExerciseSuggestion[]> => {
   const customExercises = getCustomExercises();
-  const model: OpenAIModel = (aiModel as OpenAIModel) || 'gpt-5-mini';
+  const model: OpenAIModel = (aiModel as OpenAIModel) || 'gpt-4.1-mini';
 
   // Filter to strength exercises only
   const strengthTemplateExercises = template.exercises.filter(
@@ -520,23 +523,86 @@ export const getPreWorkoutSuggestions = async (
     )
   );
 
-  // Call LLM for each exercise in parallel
-  const suggestionPromises = exerciseInputs.map((exerciseInput) =>
-    getSuggestionForExercise(
-      apiKey,
-      context,
-      exerciseInput,
-      customExercises as Exercise[],
-      model,
-      analysisMap.get(exerciseInput.exerciseId),
-      recentSessionSetsMap.get(exerciseInput.exerciseId),
-      previousSessions,
-      weightEntries,
-      weeklyWorkoutGoal
-    )
-  );
+  // Build local fallbacks for every exercise (used if API fails)
+  const fallbackMap = new Map<string, ExerciseSuggestion>();
+  for (const input of exerciseInputs) {
+    const analysis = analysisMap.get(input.exerciseId);
+    const recentSets = recentSessionSetsMap.get(input.exerciseId);
+    if (analysis && recentSets) {
+      fallbackMap.set(input.exerciseId, calculateLocalSuggestion(
+        input.exerciseId,
+        analysis,
+        {
+          experienceLevel: context.experienceLevel,
+          workoutGoal: context.workoutGoal,
+          weightUnit: context.weightUnit,
+          currentPhase: context.currentPhase,
+          allSessions: previousSessions,
+          weightEntries,
+          weeklyWorkoutGoal,
+          customExercises: customExercises as Exercise[],
+        },
+        input.targetReps,
+        recentSets
+      ));
+    } else {
+      const lastWeight = input.recentSets?.[0]?.weight ?? 0;
+      const lastReps = input.recentSets?.[0]?.reps ?? input.targetReps;
+      fallbackMap.set(input.exerciseId, {
+        exerciseId: input.exerciseId,
+        suggestedWeight: lastWeight,
+        suggestedReps: lastReps || input.targetReps || 10,
+        reasoning: lastWeight > 0
+          ? `Continue with your previous weight for ${input.exerciseName}`
+          : `Start light and establish your working weight for ${input.exerciseName}`,
+        confidence: lastWeight > 0 ? 'medium' : 'low',
+        progressStatus: lastWeight > 0 ? 'improving' : 'new',
+      });
+    }
+  }
 
-  const suggestions = await Promise.all(suggestionPromises);
+  // Single batched API call for all exercises
+  const expectedIds = exerciseInputs.map((e) => e.exerciseId);
+  const systemPrompt = buildBatchedSystemPrompt(context.weightUnit);
+  const userPrompt = buildBatchedExercisePrompt(context, exerciseInputs);
+  const fallbackSuggestions = expectedIds.map((id) => fallbackMap.get(id)!);
+
+  const result = await executeLLMWithRetries({
+    apiKey,
+    model,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+    maxTokens: 250 * exerciseInputs.length,
+    temperature: 0.3,
+    validate: (r: { suggestions?: ExerciseSuggestion[] }) =>
+      validateBatchedSuggestions(r, expectedIds),
+    fallback: { suggestions: fallbackSuggestions },
+    maxRetries: 2,
+  });
+
+  // Map response back, filling gaps with fallbacks
+  const responseMap = new Map<string, ExerciseSuggestion>();
+  for (const s of result.suggestions ?? []) {
+    if (s.exerciseId) {
+      responseMap.set(s.exerciseId, s);
+    }
+  }
+
+  const suggestions = expectedIds.map((id) => {
+    const suggestion = responseMap.get(id) ?? fallbackMap.get(id)!;
+    // Ensure reps is valid
+    if (suggestion.suggestedReps <= 0) {
+      suggestion.suggestedReps = exerciseInputs.find((e) => e.exerciseId === id)?.targetReps || 10;
+    }
+    // Attach personalization factors for transparency
+    const personalization = personalizationMap.get(id);
+    if (personalization?.factors) {
+      suggestion.personalizationFactors = personalization.factors;
+    }
+    return suggestion;
+  });
 
   return suggestions;
 };

@@ -845,8 +845,8 @@ describe('ptSummary', () => {
       );
 
       const requestBody = JSON.parse(mockFetch.mock.calls[0][1].body);
-      // gpt-5-mini is a reasoning model — temperature is not sent
-      expect(requestBody.temperature).toBeUndefined();
+      // gpt-4.1-mini is not a reasoning model — temperature is sent
+      expect(requestBody.temperature).toBe(0.6);
     });
   });
 

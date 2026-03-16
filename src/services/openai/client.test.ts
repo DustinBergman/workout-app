@@ -69,10 +69,10 @@ describe('OpenAI Client', () => {
       });
 
       const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
-      // Default model is gpt-5-mini (reasoning model): 1000 * 10 = 10000
-      expect(callBody.max_completion_tokens).toBe(10000);
-      // Reasoning models don't send temperature
-      expect(callBody.temperature).toBeUndefined();
+      // Default model is gpt-4.1-mini (non-reasoning): uses standard maxTokens
+      expect(callBody.max_completion_tokens).toBe(1000);
+      // Non-reasoning models send temperature
+      expect(callBody.temperature).toBe(0.3);
     });
 
     it('should use custom maxTokens and temperature for non-reasoning models', async () => {

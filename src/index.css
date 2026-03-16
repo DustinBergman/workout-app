@@ -351,6 +351,39 @@ body {
   animation: float-6 11s ease-in-out infinite;
 }
 
+/* AI Loading Animation */
+@keyframes ai-orbit {
+  0% { transform: rotate(0deg) translateX(48px) rotate(0deg); }
+  100% { transform: rotate(360deg) translateX(48px) rotate(-360deg); }
+}
+
+@keyframes ai-orbit-reverse {
+  0% { transform: rotate(0deg) translateX(36px) rotate(0deg); }
+  100% { transform: rotate(-360deg) translateX(36px) rotate(360deg); }
+}
+
+@keyframes ai-pulse-ring {
+  0% { transform: scale(0.8); opacity: 0.6; }
+  50% { transform: scale(1.2); opacity: 0; }
+  100% { transform: scale(0.8); opacity: 0; }
+}
+
+@keyframes ai-core-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.9; }
+  50% { transform: scale(1.15); opacity: 1; }
+}
+
+@keyframes ai-bar {
+  0% { transform: scaleY(0.3); }
+  50% { transform: scaleY(1); }
+  100% { transform: scaleY(0.3); }
+}
+
+@keyframes ai-shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
 /* DND Kit specific fixes - prevent scrolling during drag */
 [data-dnd-dragging] {
   touch-action: none;

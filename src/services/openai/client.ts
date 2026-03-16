@@ -1,7 +1,7 @@
 import { ChatMessage } from './types';
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
-const DEFAULT_MODEL = 'gpt-5-mini';
+const DEFAULT_MODEL = 'gpt-4.1-mini';
 
 export type OpenAIModel = 'gpt-4o-mini' | 'gpt-4o' | 'gpt-4.1-mini' | 'gpt-4.1-nano' | 'gpt-5-mini' | 'gpt-5-nano' | 'gpt-5';
 
@@ -29,9 +29,9 @@ export const callOpenAI = async (options: OpenAIRequestOptions): Promise<string>
   const { apiKey, messages, maxTokens = 1000, temperature = 0.3, model = DEFAULT_MODEL } = options;
 
   // Reasoning models use hidden thinking tokens within max_completion_tokens,
-  // so we need a larger budget (roughly 10x) to leave room for actual output.
+  // so we need extra budget to leave room for actual output.
   const isReasoning = isReasoningModel(model);
-  const tokenBudget = isReasoning ? Math.max(maxTokens * 10, 4000) : maxTokens;
+  const tokenBudget = isReasoning ? maxTokens + 2000 : maxTokens;
 
   const body: Record<string, unknown> = {
     model,

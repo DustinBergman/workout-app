@@ -228,13 +228,8 @@ export const calculateLocalSuggestion = (
     confidence = 'medium';
   }
 
-  // Build personalization factor explanations for reasoning
-  if (personalized && personalized.factors.length > 0) {
-    const factorSummary = personalized.factors
-      .map((f) => f.reasoning)
-      .join('; ');
-    reasoning += ` (${factorSummary})`;
-  }
+  // Personalization factors are attached separately via personalizationFactors field
+  // and displayed by AISuggestionBadge — no need to append them to reasoning text
 
   return {
     exerciseId,
@@ -259,9 +254,10 @@ export const getLocalSuggestions = (
   experienceLevel: ExperienceLevel = 'intermediate',
   currentPhase?: PhaseConfig,
   weightEntries?: WeightEntry[],
-  weeklyWorkoutGoal?: number
+  weeklyWorkoutGoal?: number,
+  storeCustomExercises?: Exercise[]
 ): ExerciseSuggestion[] => {
-  const customExercises = getCustomExercises();
+  const customExercises = storeCustomExercises ?? getCustomExercises();
 
   const strengthTemplateExercises = template.exercises.filter(
     (ex): ex is StrengthTemplateExercise => ex.type === 'strength' || !('type' in ex)

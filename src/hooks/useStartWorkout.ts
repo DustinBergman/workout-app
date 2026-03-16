@@ -20,6 +20,7 @@ export const useStartWorkout = (): UseStartWorkoutReturn => {
   const preferences = useAppStore((state) => state.preferences);
   const workoutGoal = useAppStore((state) => state.workoutGoal);
   const weightEntries = useAppStore((state) => state.weightEntries);
+  const customExercises = useAppStore((state) => state.customExercises);
   const setActiveSession = useAppStore((state) => state.setActiveSession);
   const cycleConfig = useAppStore((state) => state.cycleConfig);
   const cycleState = useAppStore((state) => state.cycleState);
@@ -65,7 +66,7 @@ export const useStartWorkout = (): UseStartWorkoutReturn => {
       try {
         // Add timeout to ensure workout starts even if API is slow/hanging
         const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Suggestions request timed out')), 30000)
+          setTimeout(() => reject(new Error('Suggestions request timed out')), 60000)
         );
 
         const suggestions = await Promise.race([
@@ -87,7 +88,25 @@ export const useStartWorkout = (): UseStartWorkoutReturn => {
         setActiveSession({ ...session, suggestions });
       } catch (err) {
         console.error('Failed to get suggestions:', err);
-        // Continue without suggestions on error (API failure, timeout, out of credits, etc.)
+        // Fall back to local suggestions on error (API failure, timeout, out of credits, etc.)
+        try {
+          const localSuggestions = getLocalSuggestions(
+            template,
+            sessions,
+            preferences.weightUnit,
+            workoutGoal,
+            preferences.experienceLevel || 'intermediate',
+            currentPhase,
+            weightEntries,
+            preferences.weeklyWorkoutGoal,
+            customExercises
+          );
+          if (localSuggestions.length > 0) {
+            setActiveSession({ ...session, suggestions: localSuggestions });
+          }
+        } catch (localErr) {
+          console.error('Failed to get local suggestions:', localErr);
+        }
       } finally {
         setIsLoadingSuggestions(false);
       }
@@ -102,7 +121,8 @@ export const useStartWorkout = (): UseStartWorkoutReturn => {
           preferences.experienceLevel || 'intermediate',
           currentPhase,
           weightEntries,
-          preferences.weeklyWorkoutGoal
+          preferences.weeklyWorkoutGoal,
+          customExercises
         );
         if (suggestions.length > 0) {
           setActiveSession({ ...session, suggestions });
@@ -113,7 +133,7 @@ export const useStartWorkout = (): UseStartWorkoutReturn => {
     }
 
     navigate('/workout');
-  }, [sessions, preferences, workoutGoal, weightEntries, setActiveSession, navigate, currentPhase, isBaseline]);
+  }, [sessions, preferences, workoutGoal, weightEntries, customExercises, setActiveSession, navigate, currentPhase, isBaseline]);
 
   const startQuickWorkout = useCallback(() => {
     const session: WorkoutSession = {

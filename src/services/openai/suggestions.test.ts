@@ -36,8 +36,8 @@ const createMockSession = (overrides: Partial<WorkoutSession> = {}): WorkoutSess
   ...overrides,
 });
 
-// Helper to create a mock fetch response for a single exercise
-const createMockResponse = (exerciseId: string, weight: number, reps: number) => ({
+// Helper to create a mock fetch response for batched exercises
+const createMockBatchedResponse = (...exercises: Array<{ id: string; weight: number; reps: number }>) => ({
   ok: true,
   json: () =>
     Promise.resolve({
@@ -45,14 +45,14 @@ const createMockResponse = (exerciseId: string, weight: number, reps: number) =>
         {
           message: {
             content: JSON.stringify({
-              suggestion: {
-                exerciseId,
-                suggestedWeight: weight,
-                suggestedReps: reps,
+              suggestions: exercises.map((e) => ({
+                exerciseId: e.id,
+                suggestedWeight: e.weight,
+                suggestedReps: e.reps,
                 reasoning: 'Based on your progress',
                 confidence: 'high',
                 progressStatus: 'improving',
-              },
+              })),
             }),
           },
         },
@@ -66,7 +66,7 @@ describe('getPreWorkoutSuggestions', () => {
   });
 
   it('should return suggestions on success', async () => {
-    mockFetch.mockResolvedValueOnce(createMockResponse('bench', 140, 10));
+    mockFetch.mockResolvedValueOnce(createMockBatchedResponse({ id: 'bench', weight: 140, reps: 10 }));
 
     const template = createMockTemplate({
       exercises: [{ type: 'strength', exerciseId: 'bench', targetSets: 3, targetReps: 10, restSeconds: 90 }],
@@ -80,10 +80,11 @@ describe('getPreWorkoutSuggestions', () => {
     expect(result[0].confidence).toBe('high');
   });
 
-  it('should make parallel calls for multiple exercises', async () => {
-    mockFetch
-      .mockResolvedValueOnce(createMockResponse('bench', 140, 10))
-      .mockResolvedValueOnce(createMockResponse('squat', 200, 8));
+  it('should batch all exercises into a single API call', async () => {
+    mockFetch.mockResolvedValueOnce(createMockBatchedResponse(
+      { id: 'bench', weight: 140, reps: 10 },
+      { id: 'squat', weight: 200, reps: 8 }
+    ));
 
     const template = createMockTemplate({
       exercises: [
@@ -95,14 +96,15 @@ describe('getPreWorkoutSuggestions', () => {
     const result = await getPreWorkoutSuggestions('test-key', template, [], 'lbs');
 
     expect(result).toHaveLength(2);
-    expect(mockFetch).toHaveBeenCalledTimes(2);
+    // Single batched call instead of N parallel calls
+    expect(mockFetch).toHaveBeenCalledTimes(1);
     // Results should be in same order as template exercises
     expect(result[0].exerciseId).toBe('bench');
     expect(result[1].exerciseId).toBe('squat');
   });
 
   it('should include previous performance in context', async () => {
-    mockFetch.mockResolvedValueOnce(createMockResponse('bench', 140, 10));
+    mockFetch.mockResolvedValueOnce(createMockBatchedResponse({ id: 'bench', weight: 140, reps: 10 }));
 
     const template = createMockTemplate({
       exercises: [{ type: 'strength', exerciseId: 'bench', targetSets: 3, targetReps: 10, restSeconds: 90 }],
@@ -126,11 +128,11 @@ describe('getPreWorkoutSuggestions', () => {
     const requestBody = JSON.parse(mockFetch.mock.calls[0][1].body);
     const userMessage = requestBody.messages[1];
 
-    expect(userMessage.content).toContain('Last Working Set: 135lbs x 10 reps');
+    expect(userMessage.content).toContain('Last: 135lbs x 10');
   });
 
   it('should include phase guidance for build goal', async () => {
-    mockFetch.mockResolvedValueOnce(createMockResponse('bench', 140, 8));
+    mockFetch.mockResolvedValueOnce(createMockBatchedResponse({ id: 'bench', weight: 140, reps: 8 }));
 
     const template = createMockTemplate({
       exercises: [{ type: 'strength', exerciseId: 'bench', targetSets: 3, targetReps: 10, restSeconds: 90 }],
@@ -147,7 +149,7 @@ describe('getPreWorkoutSuggestions', () => {
   });
 
   it('should include phase guidance for lose goal', async () => {
-    mockFetch.mockResolvedValueOnce(createMockResponse('bench', 135, 8));
+    mockFetch.mockResolvedValueOnce(createMockBatchedResponse({ id: 'bench', weight: 135, reps: 8 }));
 
     const template = createMockTemplate({
       exercises: [{ type: 'strength', exerciseId: 'bench', targetSets: 3, targetReps: 10, restSeconds: 90 }],
@@ -163,7 +165,7 @@ describe('getPreWorkoutSuggestions', () => {
   });
 
   it('should include phase guidance for maintain goal', async () => {
-    mockFetch.mockResolvedValueOnce(createMockResponse('bench', 135, 10));
+    mockFetch.mockResolvedValueOnce(createMockBatchedResponse({ id: 'bench', weight: 135, reps: 10 }));
 
     const template = createMockTemplate({
       exercises: [{ type: 'strength', exerciseId: 'bench', targetSets: 3, targetReps: 10, restSeconds: 90 }],
@@ -179,7 +181,7 @@ describe('getPreWorkoutSuggestions', () => {
   });
 
   it('should default to build goal', async () => {
-    mockFetch.mockResolvedValueOnce(createMockResponse('bench', 140, 10));
+    mockFetch.mockResolvedValueOnce(createMockBatchedResponse({ id: 'bench', weight: 140, reps: 10 }));
 
     const template = createMockTemplate({
       exercises: [{ type: 'strength', exerciseId: 'bench', targetSets: 3, targetReps: 10, restSeconds: 90 }],
@@ -194,7 +196,7 @@ describe('getPreWorkoutSuggestions', () => {
   });
 
   it('should use correct weight unit in system prompt', async () => {
-    mockFetch.mockResolvedValueOnce(createMockResponse('bench', 60, 10));
+    mockFetch.mockResolvedValueOnce(createMockBatchedResponse({ id: 'bench', weight: 60, reps: 10 }));
 
     const template = createMockTemplate({
       exercises: [{ type: 'strength', exerciseId: 'bench', targetSets: 3, targetReps: 10, restSeconds: 90 }],
@@ -263,7 +265,7 @@ describe('getPreWorkoutSuggestions', () => {
 
   it('should validate suggestedReps is greater than 0', async () => {
     // Return response with 0 reps (should be corrected)
-    mockFetch.mockResolvedValueOnce({
+    mockFetch.mockResolvedValue({
       ok: true,
       json: () =>
         Promise.resolve({
@@ -271,14 +273,16 @@ describe('getPreWorkoutSuggestions', () => {
             {
               message: {
                 content: JSON.stringify({
-                  suggestion: {
-                    exerciseId: 'bench',
-                    suggestedWeight: 140,
-                    suggestedReps: 0, // Invalid - should be corrected
-                    reasoning: 'Test',
-                    confidence: 'high',
-                    progressStatus: 'improving',
-                  },
+                  suggestions: [
+                    {
+                      exerciseId: 'bench',
+                      suggestedWeight: 140,
+                      suggestedReps: 0, // Invalid - should be corrected
+                      reasoning: 'Test',
+                      confidence: 'high',
+                      progressStatus: 'improving',
+                    },
+                  ],
                 }),
               },
             },

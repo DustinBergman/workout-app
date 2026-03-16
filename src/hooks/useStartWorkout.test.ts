@@ -265,9 +265,9 @@ describe('useStartWorkout', () => {
       workoutPromise = result.current.startWorkout(template);
     });
 
-    // Fast-forward past the 30 second timeout
+    // Fast-forward past the 60 second timeout
     await act(async () => {
-      vi.advanceTimersByTime(30000);
+      vi.advanceTimersByTime(60000);
     });
 
     // Wait for the workout to complete
