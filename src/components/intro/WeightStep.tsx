@@ -36,6 +36,7 @@ export const WeightStep: FC<WeightStepProps> = ({
           </p>
           <input
             type="number"
+            inputMode="decimal"
             {...register('initialWeight')}
             placeholder={`Enter your weight in ${weightUnit}`}
             className="w-full px-4 py-3 bg-background border border-border/50 rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"

@@ -51,7 +51,10 @@ export const hasSessionDeviatedFromTemplate = (
 
     // For strength exercises, check target sets/reps
     if (ex.type === 'strength' && templateEx.type === 'strength') {
-      return ex.targetSets !== templateEx.targetSets ||
+      // Effective set count saved back to the template is the larger of planned
+      // and actually-performed sets, so deviation must consider both.
+      const effectiveSets = Math.max(ex.sets.length, ex.targetSets);
+      return effectiveSets !== templateEx.targetSets ||
              ex.targetReps !== templateEx.targetReps;
     }
 

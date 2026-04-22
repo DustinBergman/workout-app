@@ -97,6 +97,7 @@ export const EmptySetAccordion: FC<EmptySetAccordionProps> = ({
                 <StepperButton onClick={() => onAdjustWeight(-weightStep)} label="-" />
                 <input
                   type="number"
+                  inputMode="decimal"
                   value={weightInput}
                   onChange={(e) => onWeightChange(e.target.value)}
                   placeholder="0"
@@ -115,6 +116,7 @@ export const EmptySetAccordion: FC<EmptySetAccordionProps> = ({
                 <StepperButton onClick={() => onAdjustReps(-REPS_STEP)} label="-" />
                 <input
                   type="number"
+                  inputMode="numeric"
                   value={repsInput}
                   onChange={(e) => onRepsChange(e.target.value)}
                   placeholder="0"

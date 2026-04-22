@@ -16,6 +16,8 @@ import {
   GeneratedPlan,
   GeneratedCardioPlan,
 } from '../services/openai/planGenerator';
+import { syncAddTemplate } from '../services/supabase/sync';
+import { toast } from '../store/toastStore';
 
 // Workout type options
 const WORKOUT_TYPE_OPTIONS: { value: WorkoutType; label: string; description: string }[] = [
@@ -195,13 +197,19 @@ export const AIWorkoutCreator: FC = () => {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!generatedPlan) return;
 
     const template = isCardioWorkout
       ? createCardioTemplateFromPlan(generatedPlan as GeneratedCardioPlan, planName || generatedPlan.name, customExercises)
       : createTemplateFromPlan(generatedPlan as GeneratedPlan, planName || generatedPlan.name);
     addTemplate(template);
+    try {
+      await syncAddTemplate(template);
+    } catch (err) {
+      console.error('[AIWorkoutCreator] Failed to sync template:', err);
+      toast.error('Failed to save to cloud. Saved locally.');
+    }
     navigate('/plans');
   };
 

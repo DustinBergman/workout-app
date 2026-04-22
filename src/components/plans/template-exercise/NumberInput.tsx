@@ -15,6 +15,7 @@ export const NumberInput: FC<NumberInputProps> = ({ label, value, onChange, min 
     <div className="flex items-center gap-1">
       <input
         type="number"
+        inputMode="numeric"
         min={min}
         step={step}
         value={value ?? ''}

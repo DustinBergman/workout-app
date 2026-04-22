@@ -49,6 +49,7 @@ export const WeightLogModalWrapper: FC = () => {
           </label>
           <input
             type="number"
+            inputMode="decimal"
             value={weight}
             onChange={(e) => setWeight(e.target.value)}
             placeholder={`Enter weight in ${weightUnit}`}

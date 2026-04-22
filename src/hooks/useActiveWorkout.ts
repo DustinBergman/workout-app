@@ -6,7 +6,7 @@ import { getAllExercises, searchExercises } from '../data/exercises';
 import { hasSessionDeviatedFromTemplate } from '../utils/workoutUtils';
 import { detectPersonalBests } from '../utils/personalBestUtils';
 import { calculateStreak } from '../utils/streakUtils';
-import { syncAddSession } from '../services/supabase/sync';
+import { syncAddSession, syncUpdateTemplate } from '../services/supabase/sync';
 import { markSessionAsSynced } from '../store/syncSubscriptions';
 import { clearFeedCache } from './useFeed';
 import { toast } from '../store/toastStore';
@@ -244,13 +244,22 @@ export const useActiveWorkout = (): UseActiveWorkoutReturn => {
             return {
               type: 'strength' as const,
               exerciseId: ex.exerciseId,
-              targetSets: ex.targetSets,
+              // Grow the target if the user completed more sets than planned;
+              // never shrink it silently (a short session shouldn't rewrite the plan).
+              targetSets: Math.max(ex.sets.length, ex.targetSets),
               targetReps: ex.targetReps,
               restSeconds: ex.restSeconds,
             };
           }),
+          updatedAt: completedAt,
         };
         updateTemplate(updatedTemplate);
+        try {
+          await syncUpdateTemplate(updatedTemplate);
+        } catch (err) {
+          console.error('[Workout] Failed to sync template update:', err);
+          toast.error('Failed to sync plan update to cloud.');
+        }
       }
     }
 

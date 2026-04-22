@@ -38,6 +38,14 @@ vi.mock('../services/openai', () => ({
   }),
 }));
 
+// Mock supabase sync (tests don't run against a real backend)
+const mockSyncUpdateTemplate = vi.fn().mockResolvedValue(undefined);
+const mockSyncAddSession = vi.fn().mockResolvedValue(undefined);
+vi.mock('../services/supabase/sync', () => ({
+  syncUpdateTemplate: (...args: unknown[]) => mockSyncUpdateTemplate(...args),
+  syncAddSession: (...args: unknown[]) => mockSyncAddSession(...args),
+}));
+
 // Mock exercises data
 vi.mock('../data/exercises', () => ({
   getAllExercises: vi.fn(() => [
@@ -282,6 +290,136 @@ describe('useActiveWorkout', () => {
         await result.current.finishWorkout(3, null);
       });
       expect(mockNavigate).toHaveBeenCalledWith('/history');
+    });
+  });
+
+  describe('update saved plan', () => {
+    const setupDeviatedSession = (sessionOverrides: Partial<StrengthSessionExercise>) => {
+      const mockTemplate = createMockTemplate();
+      const mockSession = createMockSession({
+        templateId: 'template-1',
+        exercises: [
+          createStrengthSessionExercise('bench-press', {
+            targetSets: 3,
+            targetReps: 10,
+            restSeconds: 90,
+            ...sessionOverrides,
+          }),
+        ],
+      });
+      useAppStore.setState({
+        templates: [mockTemplate],
+        sessions: [],
+        activeSession: mockSession,
+        preferences: { weightUnit: 'lbs', distanceUnit: 'mi', defaultRestSeconds: 90, darkMode: false },
+        customExercises: [],
+      });
+      useCurrentWorkoutStore.setState({ updatePlan: true });
+    };
+
+    it('saves increased targetSets (via Add Set button) back to the template', async () => {
+      setupDeviatedSession({ targetSets: 4 });
+      const { result } = renderHook(() => useActiveWorkout());
+      await act(async () => {
+        await result.current.finishWorkout(3, null);
+      });
+      const updated = useAppStore.getState().templates[0].exercises[0] as StrengthTemplateExercise;
+      expect(updated.targetSets).toBe(4);
+    });
+
+    it('grows targetSets when user completes more sets than planned', async () => {
+      setupDeviatedSession({
+        targetSets: 3,
+        sets: [
+          { type: 'strength', reps: 10, weight: 100, unit: 'lbs', completedAt: '' },
+          { type: 'strength', reps: 10, weight: 100, unit: 'lbs', completedAt: '' },
+          { type: 'strength', reps: 10, weight: 100, unit: 'lbs', completedAt: '' },
+          { type: 'strength', reps: 10, weight: 100, unit: 'lbs', completedAt: '' },
+        ],
+      });
+      const { result } = renderHook(() => useActiveWorkout());
+      await act(async () => {
+        await result.current.finishWorkout(3, null);
+      });
+      const updated = useAppStore.getState().templates[0].exercises[0] as StrengthTemplateExercise;
+      expect(updated.targetSets).toBe(4);
+    });
+
+    it('does not shrink targetSets when the user completes fewer sets than planned', async () => {
+      setupDeviatedSession({
+        targetSets: 3,
+        targetReps: 12, // force hasDeviated=true so update-plan logic runs
+        sets: [
+          { type: 'strength', reps: 12, weight: 100, unit: 'lbs', completedAt: '' },
+        ],
+      });
+      const { result } = renderHook(() => useActiveWorkout());
+      await act(async () => {
+        await result.current.finishWorkout(3, null);
+      });
+      const updated = useAppStore.getState().templates[0].exercises[0] as StrengthTemplateExercise;
+      expect(updated.targetSets).toBe(3);
+    });
+
+    it('syncs the updated template to Supabase', async () => {
+      mockSyncUpdateTemplate.mockClear();
+      setupDeviatedSession({ targetSets: 5 });
+      const { result } = renderHook(() => useActiveWorkout());
+      await act(async () => {
+        await result.current.finishWorkout(3, null);
+      });
+      expect(mockSyncUpdateTemplate).toHaveBeenCalledTimes(1);
+      const synced = mockSyncUpdateTemplate.mock.calls[0][0] as WorkoutTemplate;
+      expect((synced.exercises[0] as StrengthTemplateExercise).targetSets).toBe(5);
+      expect(synced.updatedAt).toBeDefined();
+    });
+
+    it('bumps updatedAt on the saved template', async () => {
+      const originalUpdatedAt = '2020-01-01T00:00:00.000Z';
+      const mockTemplate = createMockTemplate({ updatedAt: originalUpdatedAt });
+      const mockSession = createMockSession({
+        templateId: 'template-1',
+        exercises: [createStrengthSessionExercise('bench-press', { targetSets: 4 })],
+      });
+      useAppStore.setState({
+        templates: [mockTemplate],
+        sessions: [],
+        activeSession: mockSession,
+        preferences: { weightUnit: 'lbs', distanceUnit: 'mi', defaultRestSeconds: 90, darkMode: false },
+        customExercises: [],
+      });
+      useCurrentWorkoutStore.setState({ updatePlan: true });
+
+      const { result } = renderHook(() => useActiveWorkout());
+      await act(async () => {
+        await result.current.finishWorkout(3, null);
+      });
+      expect(useAppStore.getState().templates[0].updatedAt).not.toBe(originalUpdatedAt);
+    });
+
+    it('does not touch the template if the checkbox is unchecked', async () => {
+      mockSyncUpdateTemplate.mockClear();
+      const mockTemplate = createMockTemplate();
+      const mockSession = createMockSession({
+        templateId: 'template-1',
+        exercises: [createStrengthSessionExercise('bench-press', { targetSets: 4 })],
+      });
+      useAppStore.setState({
+        templates: [mockTemplate],
+        sessions: [],
+        activeSession: mockSession,
+        preferences: { weightUnit: 'lbs', distanceUnit: 'mi', defaultRestSeconds: 90, darkMode: false },
+        customExercises: [],
+      });
+      useCurrentWorkoutStore.setState({ updatePlan: false });
+
+      const { result } = renderHook(() => useActiveWorkout());
+      await act(async () => {
+        await result.current.finishWorkout(3, null);
+      });
+      expect(mockSyncUpdateTemplate).not.toHaveBeenCalled();
+      const untouched = useAppStore.getState().templates[0].exercises[0] as StrengthTemplateExercise;
+      expect(untouched.targetSets).toBe(3);
     });
   });
 });

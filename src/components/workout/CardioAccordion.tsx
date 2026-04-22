@@ -342,6 +342,7 @@ export const CardioAccordion: FC<CardioAccordionProps> = ({
                 </label>
                 <input
                   type="number"
+                  inputMode="decimal"
                   step="0.01"
                   value={distanceInput}
                   onChange={(e) => setDistanceInput(e.target.value)}
@@ -373,6 +374,7 @@ export const CardioAccordion: FC<CardioAccordionProps> = ({
                 </label>
                 <input
                   type="number"
+                  inputMode="numeric"
                   value={caloriesOverrideInput}
                   onChange={(e) => setCaloriesOverrideInput(e.target.value)}
                   placeholder={exerciseInfo?.cardioType && distanceInput ?
@@ -413,6 +415,7 @@ export const CardioAccordion: FC<CardioAccordionProps> = ({
                 </label>
                 <input
                   type="number"
+                  inputMode="numeric"
                   value={caloriesInput}
                   onChange={(e) => setCaloriesInput(e.target.value)}
                   placeholder="0"
@@ -442,6 +445,7 @@ export const CardioAccordion: FC<CardioAccordionProps> = ({
                 <div className="flex-1">
                   <input
                     type="number"
+                    inputMode="numeric"
                     value={minutesInput}
                     onChange={(e) => setMinutesInput(e.target.value)}
                     placeholder="0"
@@ -453,6 +457,7 @@ export const CardioAccordion: FC<CardioAccordionProps> = ({
                 <div className="flex-1">
                   <input
                     type="number"
+                    inputMode="numeric"
                     min="0"
                     max="59"
                     value={secondsInput}

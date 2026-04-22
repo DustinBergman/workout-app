@@ -81,6 +81,7 @@ export const CompletedSetAccordion: FC<CompletedSetAccordionProps> = ({
                   </label>
                   <input
                     type="number"
+                    inputMode="decimal"
                     value={editingWeight !== null ? editingWeight : weight}
                     onChange={(e) => onEditingWeightChange(parseFloat(e.target.value) || 0)}
                     className="w-full px-2 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
@@ -93,6 +94,7 @@ export const CompletedSetAccordion: FC<CompletedSetAccordionProps> = ({
                   </label>
                   <input
                     type="number"
+                    inputMode="numeric"
                     value={editingReps !== null ? editingReps : reps}
                     onChange={(e) => onEditingRepsChange(parseInt(e.target.value) || 0)}
                     className="w-full px-2 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
