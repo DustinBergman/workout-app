@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   likeWorkout,
   unlikeWorkout,
@@ -13,7 +13,7 @@ interface UseLikesReturn {
   likeSummary: LikeSummary | null;
   isLiking: boolean;
   error: string | null;
-  toggleLike: () => Promise<void>;
+  toggleLike: () => Promise<LikeSummary | null>;
   refresh: () => Promise<void>;
 }
 
@@ -29,6 +29,12 @@ export const useLikes = (
   const [isLiking, setIsLiking] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (initialSummary) {
+      setLikeSummary(initialSummary);
+    }
+  }, [initialSummary]);
+
   const refresh = useCallback(async () => {
     const { summary, error: fetchError } = await getLikeSummary(workoutId);
     if (fetchError) {
@@ -40,19 +46,20 @@ export const useLikes = (
     setError(null);
   }, [workoutId]);
 
-  const toggleLike = useCallback(async () => {
-    if (isLiking || !likeSummary) return;
+  const toggleLike = useCallback(async (): Promise<LikeSummary | null> => {
+    if (isLiking || !likeSummary) return null;
 
     setIsLiking(true);
     setError(null);
 
     // Optimistic update
     const wasLiked = likeSummary.hasLiked;
-    setLikeSummary({
+    const updatedSummary = {
       ...likeSummary,
       hasLiked: !wasLiked,
       count: wasLiked ? likeSummary.count - 1 : likeSummary.count + 1,
-    });
+    };
+    setLikeSummary(updatedSummary);
 
     try {
       if (wasLiked) {
@@ -72,6 +79,7 @@ export const useLikes = (
           }).catch(() => {}); // Silently ignore errors
         }
       }
+      return updatedSummary;
     } catch (err) {
       // Revert optimistic update on error
       setLikeSummary({
@@ -82,6 +90,7 @@ export const useLikes = (
       const message = err instanceof Error ? err.message : 'Failed to update like';
       setError(message);
       toast.error(message);
+      return null;
     } finally {
       setIsLiking(false);
     }

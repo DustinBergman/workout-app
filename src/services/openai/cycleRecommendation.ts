@@ -91,12 +91,14 @@ export const aggregateCycleRecommendationData = (
   });
   const hasPlateaus = plateauCount > 0;
 
-  // Count recent PRs (sessions with mood of 5 or explicit PR markers)
+  // Count explicit personal-best records from recent sessions.
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-  const recentPRSessions = completedSessions.filter(
-    s => new Date(s.completedAt!) >= thirtyDaysAgo && s.mood === 5
-  );
-  const recentPRCount = recentPRSessions.length;
+  const recentPRCount = completedSessions
+    .filter(s => new Date(s.completedAt!) >= thirtyDaysAgo)
+    .reduce(
+      (count, session) => count + (session.personalBests?.length ?? 0),
+      0
+    );
 
   // Calculate average mood
   const sessionsWithMood = completedSessions.filter(s => s.mood !== undefined);

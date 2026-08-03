@@ -91,12 +91,19 @@ export const TemplateEditor: FC<TemplateEditorProps> = ({
 }) => {
   const navigate = useNavigate();
 
-  const hasIncompleteExercises = templateExercises.some(exercise => {
+  const hasInvalidExercises = templateExercises.some(exercise => {
     if (exercise.type === 'strength') {
-      return exercise.targetSets === undefined || exercise.targetReps === undefined || exercise.restSeconds === undefined;
-    } else {
-      return exercise.restSeconds === undefined;
+      return (
+        exercise.targetSets === undefined ||
+        exercise.targetSets < 1 ||
+        exercise.targetReps === undefined ||
+        exercise.targetReps < 1 ||
+        exercise.restSeconds === undefined ||
+        exercise.restSeconds < 0
+      );
     }
+
+    return exercise.restSeconds === undefined || exercise.restSeconds < 0;
   });
 
   return (
@@ -114,7 +121,7 @@ export const TemplateEditor: FC<TemplateEditorProps> = ({
         </div>
         <Button
           onClick={onSave}
-          disabled={!templateName.trim() || templateExercises.length === 0}
+          disabled={!templateName.trim() || templateExercises.length === 0 || hasInvalidExercises}
         >
           Finish
         </Button>
@@ -224,7 +231,7 @@ export const TemplateEditor: FC<TemplateEditorProps> = ({
           {/* Add Exercise button at the bottom of exercises */}
           <button
             onClick={onOpenPicker}
-            disabled={hasIncompleteExercises}
+            disabled={hasInvalidExercises}
             className="w-full mt-3 py-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl text-gray-500 dark:text-gray-400 hover:border-blue-400 hover:text-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             + Add Exercise

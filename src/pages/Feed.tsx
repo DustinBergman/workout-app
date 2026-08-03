@@ -37,8 +37,8 @@ export const Feed: FC = () => {
     const container = containerRef.current;
     if (!container || isRefreshing) return;
 
-    // Only start pull if at the top of the scroll container
-    if (container.scrollTop <= 0) {
+    // MainLayout uses document scrolling, so check the actual scrolling element.
+    if (window.scrollY <= 0) {
       startY.current = e.touches[0].clientY;
       setIsPulling(true);
     }
@@ -48,7 +48,7 @@ export const Feed: FC = () => {
     if (!isPulling || isRefreshing) return;
 
     const container = containerRef.current;
-    if (!container || container.scrollTop > 0) {
+    if (!container || window.scrollY > 0) {
       setIsPulling(false);
       setPullDistance(0);
       return;
@@ -113,7 +113,8 @@ export const Feed: FC = () => {
   return (
     <div
       ref={containerRef}
-      className="h-full overflow-y-auto"
+      data-testid="feed-scroll-container"
+      className="min-h-full"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}

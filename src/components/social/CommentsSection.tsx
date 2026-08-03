@@ -42,14 +42,18 @@ export const CommentsSection: FC<CommentsSectionProps> = ({
     e.preventDefault();
     if (!newComment.trim() || isSubmitting) return;
 
-    await addComment(newComment);
-    setNewComment('');
-    onCommentCountChange?.(commentCount + 1);
+    const succeeded = await addComment(newComment);
+    if (succeeded) {
+      setNewComment('');
+      onCommentCountChange?.(commentCount + 1);
+    }
   };
 
   const handleDelete = async (commentId: string) => {
-    await deleteComment(commentId);
-    onCommentCountChange?.(Math.max(0, commentCount - 1));
+    const succeeded = await deleteComment(commentId);
+    if (succeeded) {
+      onCommentCountChange?.(Math.max(0, commentCount - 1));
+    }
   };
 
   // Show preview comments when not expanded

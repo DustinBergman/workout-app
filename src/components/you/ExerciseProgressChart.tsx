@@ -11,6 +11,7 @@ import { Card, Select, SelectTrigger, SelectValue, SelectContent, SelectItem } f
 import { WorkoutSession, Exercise, WeightUnit, StrengthCompletedSet } from '../../types';
 import { getExerciseById } from '../../data/exercises';
 import { filterOutliers } from '../../utils/outlierFilter';
+import { convertWeight } from '../../utils/workoutUtils';
 
 type MetricType = 'avgWeight' | 'estimated1RM';
 
@@ -91,7 +92,8 @@ const getEligibleExercises = (
  */
 const getExerciseChartData = (
   exerciseId: string,
-  sessions: WorkoutSession[]
+  sessions: WorkoutSession[],
+  weightUnit: WeightUnit
 ): ExerciseDataPoint[] => {
   const dataPoints: ExerciseDataPoint[] = [];
 
@@ -109,7 +111,11 @@ const getExerciseChartData = (
 
       if (strengthSets.length === 0) return;
 
-      const filteredSets = filterOutliers(strengthSets, (s) => s.weight);
+      const normalizedSets = strengthSets.map((set) => ({
+        ...set,
+        weight: convertWeight(set.weight, set.unit, weightUnit),
+      }));
+      const filteredSets = filterOutliers(normalizedSets, (s) => s.weight);
       const weights = filteredSets.map((s) => s.weight);
       const reps = filteredSets.map((s) => s.reps);
       const avgWeight = weights.reduce((a, b) => a + b, 0) / weights.length;
@@ -160,8 +166,8 @@ export const ExerciseProgressChart: FC<ExerciseProgressChartProps> = ({
 
   // Get chart data for selected exercise
   const chartData = useMemo(
-    () => getExerciseChartData(currentExerciseId, sessions),
-    [currentExerciseId, sessions]
+    () => getExerciseChartData(currentExerciseId, sessions, weightUnit),
+    [currentExerciseId, sessions, weightUnit]
   );
 
   // Calculate progress stats

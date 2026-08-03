@@ -26,7 +26,7 @@ export interface ActiveWorkoutContextValue {
   removeSetForExercise: (exerciseIndex: number, setIndex: number) => void;
   updateSetForExercise: (exerciseIndex: number, setIndex: number, reps: number, weight: number) => void;
   removeExercise: (index: number) => void;
-  updateTargetSets: (exerciseId: string, delta: number) => void;
+  updateTargetSets: (exerciseIndex: number, delta: number) => void;
 
   // Timer operations
   handleStartTimer: (duration: number) => void;

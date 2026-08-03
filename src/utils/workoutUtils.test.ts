@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   convertWeight,
+  convertDistance,
+  calculatePace,
   hasSessionDeviatedFromTemplate,
   extractExerciseHistory,
   formatDuration,
@@ -32,6 +34,22 @@ describe('convertWeight', () => {
   describe('same unit conversion', () => {
     it('should return same value when converting lbs to lbs', () => {
       expect(convertWeight(100, 'lbs', 'lbs')).toBe(100);
+    });
+
+    describe('convertDistance', () => {
+      it('should convert miles to kilometers', () => {
+        expect(convertDistance(1, 'mi', 'km')).toBe(1.61);
+      });
+
+      it('should convert kilometers to miles', () => {
+        expect(convertDistance(5, 'km', 'mi')).toBe(3.11);
+      });
+    });
+
+    describe('calculatePace', () => {
+      it('should carry rounded seconds into the next minute', () => {
+        expect(calculatePace(2.5, 299, 'mi')).toBe('2:00 /mi');
+      });
     });
 
     it('should return same value when converting kg to kg', () => {

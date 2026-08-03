@@ -105,6 +105,24 @@ describe('useStartWorkout', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/workout');
   });
 
+  it('should preserve an existing active workout', async () => {
+    const existingSession = {
+      id: 'active-session',
+      name: 'Existing Workout',
+      startedAt: new Date().toISOString(),
+      exercises: [],
+    };
+    useAppStore.setState({ activeSession: existingSession });
+    const { result } = renderHook(() => useStartWorkout());
+
+    await act(async () => {
+      await result.current.startWorkout(createMockTemplate());
+    });
+
+    expect(useAppStore.getState().activeSession).toEqual(existingSession);
+    expect(mockNavigate).toHaveBeenCalledWith('/workout');
+  });
+
   it('should create session with correct structure from template', async () => {
     const template = createMockTemplate({
       id: 'push-day',

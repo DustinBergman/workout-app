@@ -15,72 +15,108 @@ import { getAuthUser } from './authHelper';
 /**
  * Check if user is authenticated (uses cached auth)
  */
-const getUserId = async (): Promise<string | null> => {
+const getUserId = async (expectedUserId?: string): Promise<string | null> => {
   const user = await getAuthUser();
+  if (expectedUserId && user?.id !== expectedUserId) {
+    throw new Error('Authenticated user changed during synchronization');
+  }
   return user?.id ?? null;
 };
 
 // ============================================
-// Sync Locks - Prevent concurrent syncs of the same resource
+// Per-resource queues - coalesce rapid writes to the newest snapshot
 // ============================================
 
-// Track in-flight template syncs to prevent race conditions
-const templateSyncsInFlight = new Set<string>();
+interface SyncQueueEntry<T> {
+  latest: T | null;
+  promise: Promise<void>;
+}
 
-// Track in-flight session syncs
-const sessionSyncsInFlight = new Set<string>();
+const templateSyncQueues = new Map<string, SyncQueueEntry<WorkoutTemplate>>();
+const sessionSyncQueues = new Map<string, SyncQueueEntry<WorkoutSession>>();
+
+export const waitForQueuedSyncs = async (): Promise<void> => {
+  while (templateSyncQueues.size > 0 || sessionSyncQueues.size > 0) {
+    await Promise.all([
+      ...[...templateSyncQueues.values()].map((entry) => entry.promise),
+      ...[...sessionSyncQueues.values()].map((entry) => entry.promise),
+    ]);
+  }
+};
+
+const enqueueLatest = <T>(
+  queues: Map<string, SyncQueueEntry<T>>,
+  id: string,
+  value: T,
+  sync: (snapshot: T) => Promise<void>
+): Promise<void> => {
+  const existing = queues.get(id);
+  if (existing) {
+    existing.latest = value;
+    return existing.promise;
+  }
+
+  const entry = {} as SyncQueueEntry<T>;
+  entry.latest = value;
+  entry.promise = (async () => {
+    while (entry.latest) {
+      const snapshot = entry.latest;
+      entry.latest = null;
+      await sync(snapshot);
+    }
+  })().finally(() => {
+    queues.delete(id);
+  });
+  queues.set(id, entry);
+  return entry.promise;
+};
 
 // ============================================
 // Profile Sync
 // ============================================
 
-export const syncPreferences = async (prefs: Partial<UserPreferences>): Promise<void> => {
-  const userId = await getUserId();
+export const syncPreferences = async (prefs: Partial<UserPreferences>, expectedUserId?: string): Promise<void> => {
+  const userId = await getUserId(expectedUserId);
   if (!userId) return;
 
   const updates = preferencesToProfileUpdates(prefs);
-  await supabase.from('profiles').update(updates).eq('id', userId);
+  const { error } = await supabase.from('profiles').update(updates).eq('id', userId);
+  if (error) throw error;
 };
 
-export const syncWorkoutGoal = async (goal: WorkoutGoal): Promise<void> => {
-  const userId = await getUserId();
+export const syncWorkoutGoal = async (goal: WorkoutGoal, expectedUserId?: string): Promise<void> => {
+  const userId = await getUserId(expectedUserId);
   if (!userId) return;
 
-  await supabase.from('profiles').update({ workout_goal: goal }).eq('id', userId);
+  const { error } = await supabase.from('profiles').update({ workout_goal: goal }).eq('id', userId);
+  if (error) throw error;
 };
 
-export const syncCycleState = async (cycleState: UserCycleState): Promise<void> => {
-  const userId = await getUserId();
+export const syncCycleState = async (cycleState: UserCycleState, expectedUserId?: string): Promise<void> => {
+  const userId = await getUserId(expectedUserId);
   if (!userId) return;
 
-  await supabase.from('profiles').update({
+  const { error } = await supabase.from('profiles').update({
     cycle_state: cycleState,
   }).eq('id', userId);
+  if (error) throw error;
 };
 
-export const syncHasCompletedIntro = async (value: boolean): Promise<void> => {
-  const userId = await getUserId();
+export const syncHasCompletedIntro = async (value: boolean, expectedUserId?: string): Promise<void> => {
+  const userId = await getUserId(expectedUserId);
   if (!userId) return;
 
-  await supabase.from('profiles').update({ has_completed_intro: value }).eq('id', userId);
+  const { error } = await supabase.from('profiles').update({ has_completed_intro: value }).eq('id', userId);
+  if (error) throw error;
 };
 
 // ============================================
 // Template Sync
 // ============================================
 
-export const syncAddTemplate = async (template: WorkoutTemplate): Promise<void> => {
-  const userId = await getUserId();
+const performAddTemplate = async (template: WorkoutTemplate, expectedUserId?: string): Promise<void> => {
+  const userId = await getUserId(expectedUserId);
   if (!userId) return;
-
-  // Prevent concurrent syncs of the same template
-  if (templateSyncsInFlight.has(template.id)) {
-    console.log('[Sync] Template sync already in flight, skipping:', template.id);
-    return;
-  }
-  templateSyncsInFlight.add(template.id);
-
-  try {
     // Guard against corrupted data - templates should never have more than 50 exercises
     // and should never have more than 3 duplicates of the same exercise
     const exerciseIdCounts = new Map<string, number>();
@@ -99,17 +135,16 @@ export const syncAddTemplate = async (template: WorkoutTemplate): Promise<void> 
     }
 
     // Check if template already exists (prevent duplicate exercise inserts)
-    const { data: existing } = await supabase
+    const { data: existing, error: existingError } = await supabase
       .from('workout_templates')
       .select('id')
       .eq('id', template.id)
       .eq('user_id', userId)
       .maybeSingle();
+    if (existingError) throw existingError;
 
     if (existing) {
-      // Template already exists, use update instead (release lock first since syncUpdateTemplate will acquire it)
-      templateSyncsInFlight.delete(template.id);
-      await syncUpdateTemplate(template);
+      await performUpdateTemplate(template, expectedUserId);
       return;
     }
 
@@ -168,30 +203,20 @@ export const syncAddTemplate = async (template: WorkoutTemplate): Promise<void> 
         };
       });
 
-      await supabase.from('template_exercises').insert(exercisesToInsert);
+      const { error: exerciseError } = await supabase.from('template_exercises').insert(exercisesToInsert);
+      if (exerciseError) throw exerciseError;
     }
-  } finally {
-    templateSyncsInFlight.delete(template.id);
-  }
 };
 
-export const syncUpdateTemplate = async (template: WorkoutTemplate): Promise<void> => {
-  const userId = await getUserId();
+const performUpdateTemplate = async (template: WorkoutTemplate, expectedUserId?: string): Promise<void> => {
+  const userId = await getUserId(expectedUserId);
   if (!userId) return;
-
-  // Prevent concurrent syncs of the same template
-  if (templateSyncsInFlight.has(template.id)) {
-    console.log('[Sync] Template sync already in flight, skipping:', template.id);
-    return;
-  }
-  templateSyncsInFlight.add(template.id);
-
-  try {
     // SAFETY: Fetch current DB state first
-    const { data: existingExercises } = await supabase
+    const { data: existingExercises, error: existingExercisesError } = await supabase
       .from('template_exercises')
       .select('id')
       .eq('template_id', template.id);
+    if (existingExercisesError) throw existingExercisesError;
 
     const dbExerciseCount = existingExercises?.length || 0;
     const localExerciseCount = template.exercises.length;
@@ -224,7 +249,7 @@ export const syncUpdateTemplate = async (template: WorkoutTemplate): Promise<voi
     }
 
     // Update template metadata only (safe operation)
-    await supabase
+    const { error: templateError } = await supabase
       .from('workout_templates')
       .update({
         name: template.name,
@@ -235,6 +260,7 @@ export const syncUpdateTemplate = async (template: WorkoutTemplate): Promise<voi
       })
       .eq('id', template.id)
       .eq('user_id', userId);
+    if (templateError) throw templateError;
 
     // ONLY sync exercises if local has exercises AND count matches or exceeds DB
     // This prevents accidental data loss
@@ -244,10 +270,11 @@ export const syncUpdateTemplate = async (template: WorkoutTemplate): Promise<voi
     }
 
     // Delete and re-insert (only if we passed all safety checks)
-    await supabase
+    const { error: deleteError } = await supabase
       .from('template_exercises')
       .delete()
       .eq('template_id', template.id);
+    if (deleteError) throw deleteError;
 
     const exercisesToInsert = template.exercises.map((ex, idx) => {
       const base = {
@@ -285,28 +312,45 @@ export const syncUpdateTemplate = async (template: WorkoutTemplate): Promise<voi
       console.error('[Sync] Failed to insert template exercises:', insertError.message, insertError.code);
       throw insertError;
     }
-  } finally {
-    templateSyncsInFlight.delete(template.id);
-  }
 };
 
-export const syncDeleteTemplate = async (templateId: string): Promise<void> => {
-  const userId = await getUserId();
+const queueTemplateSync = (
+  template: WorkoutTemplate,
+  expectedUserId?: string
+): Promise<void> => enqueueLatest(
+  templateSyncQueues,
+  template.id,
+  template,
+  (snapshot) => performAddTemplate(snapshot, expectedUserId)
+);
+
+export const syncAddTemplate = async (
+  template: WorkoutTemplate,
+  expectedUserId?: string
+): Promise<void> => queueTemplateSync(template, expectedUserId);
+
+export const syncUpdateTemplate = async (
+  template: WorkoutTemplate,
+  expectedUserId?: string
+): Promise<void> => queueTemplateSync(template, expectedUserId);
+
+export const syncDeleteTemplate = async (templateId: string, expectedUserId?: string): Promise<void> => {
+  const userId = await getUserId(expectedUserId);
   if (!userId) return;
 
-  await supabase
+  const { error } = await supabase
     .from('workout_templates')
     .delete()
     .eq('id', templateId)
     .eq('user_id', userId);
+  if (error) throw error;
 };
 
-export const syncReorderTemplates = async (templateIds: string[]): Promise<void> => {
-  const userId = await getUserId();
+export const syncReorderTemplates = async (templateIds: string[], expectedUserId?: string): Promise<void> => {
+  const userId = await getUserId(expectedUserId);
   if (!userId) return;
 
-  // Update sort_order for each template
-  await Promise.all(
+  const results = await Promise.all(
     templateIds.map((id, index) =>
       supabase
         .from('workout_templates')
@@ -315,18 +359,21 @@ export const syncReorderTemplates = async (templateIds: string[]): Promise<void>
         .eq('user_id', userId)
     )
   );
+  const failed = results.find((result) => result.error);
+  if (failed?.error) throw failed.error;
 };
 
 // ============================================
 // Session Sync
 // ============================================
 
-export const syncAddSession = async (session: WorkoutSession): Promise<void> => {
-  const userId = await getUserId();
+const performAddSession = async (session: WorkoutSession, expectedUserId?: string): Promise<void> => {
+  const userId = await getUserId(expectedUserId);
   if (!userId) return;
 
-  // SAFETY CHECK: Never sync a session with zero exercises - this is likely corrupted state
-  if (session.exercises.length === 0) {
+  // Completed empty sessions are invalid, but an active quick workout may
+  // legitimately exist before the user adds its first exercise.
+  if (session.exercises.length === 0 && session.completedAt) {
     console.warn('[Sync] SAFETY BLOCK: Refusing to add session with zero exercises:', {
       sessionId: session.id,
       sessionName: session.name,
@@ -343,26 +390,17 @@ export const syncAddSession = async (session: WorkoutSession): Promise<void> => 
     return;
   }
 
-  // Prevent concurrent syncs of the same session
-  if (sessionSyncsInFlight.has(session.id)) {
-    console.log('[Sync] Session sync already in flight, skipping:', session.id);
-    return;
-  }
-  sessionSyncsInFlight.add(session.id);
-
-  try {
     // Check if session already exists (prevent duplicate exercise inserts)
-    const { data: existing } = await supabase
+    const { data: existing, error: existingError } = await supabase
       .from('workout_sessions')
       .select('id')
       .eq('id', session.id)
       .eq('user_id', userId)
       .maybeSingle();
+    if (existingError) throw existingError;
 
     if (existing) {
-      // Session already exists, use update instead (release lock first since syncUpdateSession will acquire it)
-      sessionSyncsInFlight.delete(session.id);
-      await syncUpdateSession(session);
+      await performUpdateSession(session, expectedUserId);
       return;
     }
 
@@ -406,10 +444,11 @@ export const syncAddSession = async (session: WorkoutSession): Promise<void> => 
         rest_seconds: ex.restSeconds,
       }));
 
-      const { data: exercisesData } = await supabase
+      const { data: exercisesData, error: exercisesError } = await supabase
         .from('session_exercises')
         .insert(exercisesToInsert)
         .select();
+      if (exercisesError) throw exercisesError;
 
       // Insert completed sets
       if (exercisesData) {
@@ -431,33 +470,23 @@ export const syncAddSession = async (session: WorkoutSession): Promise<void> => 
               completed_at: set.completedAt,
             }));
 
-            await supabase.from('completed_sets').insert(setsToInsert);
+            const { error: setsError } = await supabase.from('completed_sets').insert(setsToInsert);
+            if (setsError) throw setsError;
           }
         }
       }
     }
-  } finally {
-    sessionSyncsInFlight.delete(session.id);
-  }
 };
 
-export const syncUpdateSession = async (session: WorkoutSession): Promise<void> => {
-  const userId = await getUserId();
+const performUpdateSession = async (session: WorkoutSession, expectedUserId?: string): Promise<void> => {
+  const userId = await getUserId(expectedUserId);
   if (!userId) return;
-
-  // Prevent concurrent syncs of the same session
-  if (sessionSyncsInFlight.has(session.id)) {
-    console.log('[Sync] Session sync already in flight, skipping:', session.id);
-    return;
-  }
-  sessionSyncsInFlight.add(session.id);
-
-  try {
     // SAFETY: Fetch current DB state first
-    const { data: existingExercises } = await supabase
+    const { data: existingExercises, error: existingExercisesError } = await supabase
       .from('session_exercises')
       .select('id')
       .eq('session_id', session.id);
+    if (existingExercisesError) throw existingExercisesError;
 
     const dbExerciseCount = existingExercises?.length || 0;
     const localExerciseCount = session.exercises.length;
@@ -513,7 +542,11 @@ export const syncUpdateSession = async (session: WorkoutSession): Promise<void> 
     }
 
     // Delete and re-insert exercises + sets (only if we passed all safety checks)
-    await supabase.from('session_exercises').delete().eq('session_id', session.id);
+    const { error: deleteError } = await supabase
+      .from('session_exercises')
+      .delete()
+      .eq('session_id', session.id);
+    if (deleteError) throw deleteError;
 
     if (session.exercises.length > 0) {
       const exercisesToInsert = session.exercises.map((ex, idx) => ({
@@ -527,10 +560,11 @@ export const syncUpdateSession = async (session: WorkoutSession): Promise<void> 
         rest_seconds: ex.restSeconds,
       }));
 
-      const { data: exercisesData } = await supabase
+      const { data: exercisesData, error: exercisesError } = await supabase
         .from('session_exercises')
         .insert(exercisesToInsert)
         .select();
+      if (exercisesError) throw exercisesError;
 
       if (exercisesData) {
         for (let i = 0; i < session.exercises.length; i++) {
@@ -551,39 +585,79 @@ export const syncUpdateSession = async (session: WorkoutSession): Promise<void> 
               completed_at: set.completedAt,
             }));
 
-            await supabase.from('completed_sets').insert(setsToInsert);
+            const { error: setsError } = await supabase.from('completed_sets').insert(setsToInsert);
+            if (setsError) throw setsError;
           }
         }
       }
     }
-  } finally {
-    sessionSyncsInFlight.delete(session.id);
-  }
 };
 
-export const syncSetActiveSession = async (session: WorkoutSession | null): Promise<void> => {
-  const userId = await getUserId();
+const queueSessionSync = (
+  session: WorkoutSession,
+  expectedUserId?: string
+): Promise<void> => enqueueLatest(
+  sessionSyncQueues,
+  session.id,
+  session,
+  (snapshot) => performAddSession(snapshot, expectedUserId)
+);
+
+export const syncAddSession = async (
+  session: WorkoutSession,
+  expectedUserId?: string
+): Promise<void> => queueSessionSync(session, expectedUserId);
+
+export const syncUpdateSession = async (
+  session: WorkoutSession,
+  expectedUserId?: string
+): Promise<void> => queueSessionSync(session, expectedUserId);
+
+export const syncSetActiveSession = async (
+  session: WorkoutSession | null,
+  expectedUserId?: string
+): Promise<void> => {
+  const userId = await getUserId(expectedUserId);
   if (!userId) return;
 
   if (session === null) {
     // Clear active session - mark all as inactive
-    await supabase
+    const { error } = await supabase
       .from('workout_sessions')
       .update({ is_active: false })
       .eq('user_id', userId)
       .eq('is_active', true);
+    if (error) throw error;
   } else {
-    // Sync the active session
-    await syncUpdateSession(session);
+    // Upsert the parent row before marking it active.
+    await syncAddSession(session, expectedUserId);
   }
+};
+
+export const syncDeleteSession = async (
+  sessionId: string,
+  expectedUserId?: string
+): Promise<void> => {
+  const userId = await getUserId(expectedUserId);
+  if (!userId) return;
+
+  const { error } = await supabase
+    .from('workout_sessions')
+    .delete()
+    .eq('id', sessionId)
+    .eq('user_id', userId);
+  if (error) throw error;
 };
 
 // ============================================
 // Custom Exercise Sync
 // ============================================
 
-export const syncAddCustomExercise = async (exercise: Exercise): Promise<void> => {
-  const userId = await getUserId();
+export const syncAddCustomExercise = async (
+  exercise: Exercise,
+  expectedUserId?: string
+): Promise<void> => {
+  const userId = await getUserId(expectedUserId);
   if (!userId) return;
 
   const insertData = {
@@ -597,19 +671,36 @@ export const syncAddCustomExercise = async (exercise: Exercise): Promise<void> =
     instructions: exercise.instructions ?? null,
   };
 
-  const { error } = await supabase.from('custom_exercises').insert(insertData);
+  const { error } = await supabase
+    .from('custom_exercises')
+    .upsert(insertData, { onConflict: 'id' });
   if (error) {
     console.error('[Sync] Failed to sync custom exercise:', error.message, error.code);
     throw error;
   }
 };
 
+export const syncDeleteCustomExercise = async (
+  exerciseId: string,
+  expectedUserId?: string
+): Promise<void> => {
+  const userId = await getUserId(expectedUserId);
+  if (!userId) return;
+
+  const { error } = await supabase
+    .from('custom_exercises')
+    .delete()
+    .eq('id', exerciseId)
+    .eq('user_id', userId);
+  if (error) throw error;
+};
+
 // ============================================
 // Weight Entry Sync
 // ============================================
 
-export const syncAddWeightEntry = async (entry: WeightEntry): Promise<void> => {
-  const userId = await getUserId();
+export const syncAddWeightEntry = async (entry: WeightEntry, expectedUserId?: string): Promise<void> => {
+  const userId = await getUserId(expectedUserId);
   if (!userId) return;
 
   const { error } = await supabase.from('weight_entries').upsert({
@@ -625,13 +716,14 @@ export const syncAddWeightEntry = async (entry: WeightEntry): Promise<void> => {
   }
 };
 
-export const syncDeleteWeightEntry = async (date: string): Promise<void> => {
-  const userId = await getUserId();
+export const syncDeleteWeightEntry = async (date: string, expectedUserId?: string): Promise<void> => {
+  const userId = await getUserId(expectedUserId);
   if (!userId) return;
 
-  await supabase
+  const { error } = await supabase
     .from('weight_entries')
     .delete()
     .eq('user_id', userId)
     .eq('date', date);
+  if (error) throw error;
 };

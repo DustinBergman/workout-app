@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import {
   checkAdvancementEligibility,
@@ -33,6 +33,8 @@ export const useWeekAdvancement = (): UseWeekAdvancementReturn => {
   const weeklyWorkoutGoal = preferences.weeklyWorkoutGoal ?? 4;
 
   const [dismissed, setDismissed] = useState(false);
+  const cyclePosition = `${cycleState.cycleConfigId}:${cycleState.currentPhaseIndex}:${cycleState.currentWeekInPhase}`;
+  const previousCyclePosition = useRef(cyclePosition);
 
   // Check if dismissed within last 24 hours
   useEffect(() => {
@@ -46,6 +48,14 @@ export const useWeekAdvancement = (): UseWeekAdvancementReturn => {
       }
     }
   }, []);
+
+  useEffect(() => {
+    if (previousCyclePosition.current !== cyclePosition) {
+      previousCyclePosition.current = cyclePosition;
+      setDismissed(false);
+      localStorage.removeItem(DISMISS_KEY);
+    }
+  }, [cyclePosition]);
 
   const eligibility = useMemo<WeekAdvancementEligibility | null>(() => {
     return checkAdvancementEligibility(sessions, cycleConfig, cycleState, weeklyWorkoutGoal);
@@ -87,7 +97,7 @@ export const useWeekAdvancement = (): UseWeekAdvancementReturn => {
 
   const acceptAdvancement = useCallback(() => {
     advancePhase();
-    setDismissed(true);
+    setDismissed(false);
     localStorage.removeItem(DISMISS_KEY);
   }, [advancePhase]);
 

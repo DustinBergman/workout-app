@@ -72,6 +72,8 @@ describe('CommentsSection', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockAddComment.mockResolvedValue(true);
+    mockDeleteComment.mockResolvedValue(true);
     vi.mocked(useComments).mockReturnValue(defaultHookReturn);
   });
 
@@ -195,8 +197,6 @@ describe('CommentsSection', () => {
   });
 
   it('should call onCommentCountChange when comment is added', async () => {
-    mockAddComment.mockResolvedValue(undefined);
-
     renderComponent();
 
     const input = screen.getByPlaceholderText('Add a comment...');
@@ -209,8 +209,6 @@ describe('CommentsSection', () => {
   });
 
   it('should clear input after submitting', async () => {
-    mockAddComment.mockResolvedValue(undefined);
-
     renderComponent();
 
     const input = screen.getByPlaceholderText('Add a comment...') as HTMLInputElement;
@@ -220,5 +218,20 @@ describe('CommentsSection', () => {
     await waitFor(() => {
       expect(input.value).toBe('');
     });
+  });
+
+  it('should preserve count and input when adding a comment fails', async () => {
+    mockAddComment.mockResolvedValue(false);
+    renderComponent();
+
+    const input = screen.getByPlaceholderText('Add a comment...') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'New comment' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Post' }));
+
+    await waitFor(() => {
+      expect(mockAddComment).toHaveBeenCalled();
+    });
+    expect(mockOnCommentCountChange).not.toHaveBeenCalled();
+    expect(input.value).toBe('New comment');
   });
 });

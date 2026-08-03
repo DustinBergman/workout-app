@@ -139,7 +139,7 @@ export const PostWorkoutFlow: FC<PostWorkoutFlowProps> = ({
   const renderFooter = () => {
     if (step === 'summary') {
       return (
-        <>
+        <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-3">
           <Button variant="ghost" onClick={handleKeepGoing}>
             Keep Going
           </Button>
@@ -149,7 +149,7 @@ export const PostWorkoutFlow: FC<PostWorkoutFlowProps> = ({
           <Button onClick={handleSaveAndFinish}>
             Save & Finish
           </Button>
-        </>
+        </div>
       );
     }
     return null;

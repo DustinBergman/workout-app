@@ -18,8 +18,8 @@ interface UseCommentsReturn {
   isLoading: boolean;
   isSubmitting: boolean;
   error: string | null;
-  addComment: (content: string) => Promise<void>;
-  deleteComment: (commentId: string) => Promise<void>;
+  addComment: (content: string) => Promise<boolean>;
+  deleteComment: (commentId: string) => Promise<boolean>;
   toggleCommentLike: (commentId: string) => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -36,6 +36,12 @@ export const useComments = (
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasLoaded, setHasLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!hasLoaded && initialCount !== undefined) {
+      setCommentCount(initialCount);
+    }
+  }, [initialCount, hasLoaded]);
 
   const loadComments = useCallback(async () => {
     if (hasLoaded) return; // Only load once until refresh is called
@@ -96,7 +102,7 @@ export const useComments = (
 
   const addComment = useCallback(
     async (content: string) => {
-      if (!user) return;
+      if (!user) return false;
 
       setIsSubmitting(true);
       setError(null);
@@ -139,11 +145,14 @@ export const useComments = (
               workoutId,
             }).catch(() => {}); // Silently ignore errors
           }
+          return true;
         }
+        return false;
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to add comment';
         setError(message);
         toast.error(message);
+        return false;
       } finally {
         setIsSubmitting(false);
       }
@@ -164,6 +173,7 @@ export const useComments = (
         const { error: deleteError } = await deleteCommentService(commentId);
 
         if (deleteError) throw deleteError;
+        return true;
       } catch (err) {
         // Revert on error
         setComments(previousComments);
@@ -171,6 +181,7 @@ export const useComments = (
         const message = err instanceof Error ? err.message : 'Failed to delete comment';
         setError(message);
         toast.error(message);
+        return false;
       }
     },
     [comments]

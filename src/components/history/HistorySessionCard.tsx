@@ -19,12 +19,20 @@ export const HistorySessionCard: FC<HistorySessionCardProps> = ({
   onClick,
   onDeleteClick,
 }) => {
-  const stats = calculateSessionStats(session);
+  const stats = calculateSessionStats(session, weightUnit, distanceUnit);
 
   return (
     <Card
       className="cursor-pointer hover:border-blue-300 dark:hover:border-blue-700 transition-colors"
       onClick={onClick}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onClick();
+        }
+      }}
+      role="button"
+      tabIndex={0}
     >
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0">

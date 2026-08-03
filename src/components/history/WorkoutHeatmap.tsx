@@ -95,6 +95,9 @@ export const WorkoutHeatmap: FC<WorkoutHeatmapProps> = ({ sessions, onDayClick, 
                   return (
                     <div
                       key={dayIndex}
+                      role={!isFuture && onDayClick ? 'button' : undefined}
+                      tabIndex={!isFuture && onDayClick ? 0 : undefined}
+                      aria-label={isFuture ? undefined : `${day.date.toLocaleDateString()} - ${getWorkoutLabel(day.workoutType, day.sessions.length)}`}
                       title={isFuture ? undefined : `${day.date.toLocaleDateString('en-US', {
                         weekday: 'short',
                         month: 'short',
@@ -103,6 +106,16 @@ export const WorkoutHeatmap: FC<WorkoutHeatmapProps> = ({ sessions, onDayClick, 
                       })} - ${getWorkoutLabel(day.workoutType, day.sessions.length)}`}
                       onClick={() => {
                         if (!isFuture && onDayClick) {
+                          onDayClick(day.date, day.sessions);
+                        }
+                      }}
+                      onKeyDown={(event) => {
+                        if (
+                          !isFuture &&
+                          onDayClick &&
+                          (event.key === 'Enter' || event.key === ' ')
+                        ) {
+                          event.preventDefault();
                           onDayClick(day.date, day.sessions);
                         }
                       }}

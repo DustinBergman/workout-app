@@ -172,9 +172,9 @@ export const calculatePace = (
   unit: DistanceUnit
 ): string => {
   if (distance <= 0 || durationSeconds <= 0) return '--:--';
-  const paceSeconds = durationSeconds / distance;
+  const paceSeconds = Math.round(durationSeconds / distance);
   const minutes = Math.floor(paceSeconds / 60);
-  const seconds = Math.round(paceSeconds % 60);
+  const seconds = paceSeconds % 60;
   return `${minutes}:${seconds.toString().padStart(2, '0')} /${unit}`;
 };
 

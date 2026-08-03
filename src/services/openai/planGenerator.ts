@@ -149,9 +149,19 @@ export const generateWorkoutPlan = async (
   });
 
   // Validate that all exercise IDs exist
-  const validExerciseIds = new Set(allExercises.map(e => e.id));
+  const validExerciseIds = new Set(relevantExercises.map(e => e.id));
   const validatedExercises = parsed.exercises.filter(
-    ex => validExerciseIds.has(ex.exerciseId)
+    ex =>
+      validExerciseIds.has(ex.exerciseId) &&
+      Number.isInteger(ex.targetSets) &&
+      ex.targetSets >= 1 &&
+      ex.targetSets <= 10 &&
+      Number.isInteger(ex.targetReps) &&
+      ex.targetReps >= 1 &&
+      ex.targetReps <= 100 &&
+      Number.isInteger(ex.restSeconds) &&
+      ex.restSeconds >= 0 &&
+      ex.restSeconds <= 600
   );
 
   if (validatedExercises.length === 0) {
@@ -277,10 +287,19 @@ export const generateCardioPlan = async (
   });
 
   // Validate that all exercise IDs exist
-  const validExerciseIds = new Set(allExercises.map(e => e.id));
-  const validatedExercises = parsed.exercises.filter(
-    ex => validExerciseIds.has(ex.exerciseId)
-  );
+  const validExerciseIds = new Set(relevantExercises.map(e => e.id));
+  const validatedExercises = parsed.exercises
+    .map((exercise) => ({
+      ...exercise,
+      restSeconds: exercise.restSeconds ?? 60,
+    }))
+    .filter(
+    ex =>
+      validExerciseIds.has(ex.exerciseId) &&
+      Number.isInteger(ex.restSeconds) &&
+      ex.restSeconds >= 0 &&
+      ex.restSeconds <= 600
+    );
 
   if (validatedExercises.length === 0) {
     throw new Error('AI failed to generate a valid cardio plan. Please try again.');

@@ -14,13 +14,17 @@ vi.mock('recharts', () => ({
   ReferenceLine: () => <div data-testid="reference-line" />,
 }));
 
-const createWeightEntry = (weight: number, daysAgo: number): WeightEntry => {
+const createWeightEntry = (
+  weight: number,
+  daysAgo: number,
+  unit: WeightEntry['unit'] = 'lbs'
+): WeightEntry => {
   const date = new Date();
   date.setDate(date.getDate() - daysAgo);
   return {
     weight,
     date: date.toISOString(),
-    unit: 'lbs',
+    unit,
   };
 };
 
@@ -136,11 +140,11 @@ describe('WeightChart', () => {
       expect(changeElement).toHaveClass('text-foreground');
     });
 
-    it('should use correct weight unit', () => {
-      const entries = [createWeightEntry(80, 0)];
+    it('should convert entries to the selected weight unit', () => {
+      const entries = [createWeightEntry(80, 0, 'kg')];
 
-      render(<WeightChart entries={entries} weightUnit="kg" />);
-      expect(screen.getByText('80.0 kg')).toBeInTheDocument();
+      render(<WeightChart entries={entries} weightUnit="lbs" />);
+      expect(screen.getByText('176.4 lbs')).toBeInTheDocument();
     });
   });
 

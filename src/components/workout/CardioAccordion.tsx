@@ -2,7 +2,12 @@ import { useState, useEffect, FC, DOMAttributes, useMemo } from 'react';
 import { DraggableAttributes } from '@dnd-kit/core';
 import { CardioSessionExercise, CardioExercise } from '../../types';
 import { Card, Button } from '../ui';
-import { formatCardioDuration, calculatePace, estimateCardioCalories } from '../../utils/workoutUtils';
+import {
+  calculatePace,
+  convertDistance,
+  estimateCardioCalories,
+  formatCardioDuration,
+} from '../../utils/workoutUtils';
 import { useActiveWorkoutContext } from '../../contexts/ActiveWorkoutContext';
 import { LogCardioParams } from '../../hooks/useExerciseManagement';
 
@@ -59,12 +64,22 @@ export const CardioAccordion: FC<CardioAccordionProps> = ({
   const [caloriesOverrideInput, setCaloriesOverrideInput] = useState('');
   const [minutesInput, setMinutesInput] = useState('');
   const [secondsInput, setSecondsInput] = useState('');
+  const durationSeconds =
+    Math.max(0, Number.parseInt(minutesInput, 10) || 0) * 60 +
+    Math.min(59, Math.max(0, Number.parseInt(secondsInput, 10) || 0));
+  const hasValidDuration = durationSeconds > 0;
 
   const hasLogs = exercise.sets.length > 0;
 
   // Calculate totals for display
   const totalDistance = exercise.sets.reduce((sum, s) => {
-    if (s.type === 'cardio' && s.distance !== undefined) return sum + s.distance;
+    if (s.type === 'cardio' && s.distance !== undefined) {
+      return sum + convertDistance(
+        s.distance,
+        s.distanceUnit ?? distanceUnit,
+        distanceUnit
+      );
+    }
     return sum;
   }, 0);
   const totalCalories = exercise.sets.reduce((sum, s) => {
@@ -118,11 +133,7 @@ export const CardioAccordion: FC<CardioAccordionProps> = ({
   }, [isExpanded, exercise]);
 
   const handleLogCardio = () => {
-    const minutes = parseInt(minutesInput) || 0;
-    const seconds = parseInt(secondsInput) || 0;
-    const durationSeconds = minutes * 60 + seconds;
-
-    if (durationSeconds <= 0) return;
+    if (!hasValidDuration) return;
 
     if (trackingType === 'distance') {
       const distance = parseFloat(distanceInput) || 0;
@@ -381,7 +392,7 @@ export const CardioAccordion: FC<CardioAccordionProps> = ({
                     `~${estimateCardioCalories(exerciseInfo.cardioType, {
                       distance: parseFloat(distanceInput) || 0,
                       distanceUnit,
-                      durationSeconds: (parseInt(minutesInput) || 0) * 60 + (parseInt(secondsInput) || 0),
+                      durationSeconds,
                     })}` : 'Leave blank for estimate'}
                   className="w-full px-4 py-3 text-lg text-center rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                 />
@@ -394,7 +405,7 @@ export const CardioAccordion: FC<CardioAccordionProps> = ({
                           (exerciseInfo?.cardioType ? estimateCardioCalories(exerciseInfo.cardioType, {
                             distance: parseFloat(distanceInput) || 0,
                             distanceUnit,
-                            durationSeconds: (parseInt(minutesInput) || 0) * 60 + (parseInt(secondsInput) || 0),
+                            durationSeconds,
                           }) : 0);
                         setCaloriesOverrideInput(Math.max(0, current + delta).toString());
                       }}
@@ -485,13 +496,13 @@ export const CardioAccordion: FC<CardioAccordionProps> = ({
             </div>
 
             {/* Pace and calorie preview (only for distance tracking) */}
-            {trackingType === 'distance' && distanceInput && (minutesInput || secondsInput) && (
+            {trackingType === 'distance' && distanceInput && hasValidDuration && (
               <div className="mb-4 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                 <div className="flex justify-center gap-4">
                   <span className="text-sm text-blue-700 dark:text-blue-300">
                     Pace: {calculatePace(
                       parseFloat(distanceInput) || 0,
-                      (parseInt(minutesInput) || 0) * 60 + (parseInt(secondsInput) || 0),
+                      durationSeconds,
                       distanceUnit
                     )}
                   </span>
@@ -502,7 +513,7 @@ export const CardioAccordion: FC<CardioAccordionProps> = ({
                       `~${estimateCardioCalories(exerciseInfo.cardioType, {
                         distance: parseFloat(distanceInput) || 0,
                         distanceUnit,
-                        durationSeconds: (parseInt(minutesInput) || 0) * 60 + (parseInt(secondsInput) || 0),
+                        durationSeconds,
                       })} cal`
                     ) : null}
                   </span>
@@ -511,11 +522,11 @@ export const CardioAccordion: FC<CardioAccordionProps> = ({
             )}
 
             {/* Calories/hour preview (only for calories tracking) */}
-            {trackingType === 'calories' && caloriesInput && (minutesInput || secondsInput) && (
+            {trackingType === 'calories' && caloriesInput && hasValidDuration && (
               <div className="mb-4 p-2 bg-orange-50 dark:bg-orange-900/20 rounded-lg text-center">
                 <span className="text-sm text-orange-700 dark:text-orange-300">
                   {Math.round(
-                    ((parseInt(caloriesInput) || 0) / ((parseInt(minutesInput) || 0) + (parseInt(secondsInput) || 0) / 60)) * 60
+                    ((parseInt(caloriesInput) || 0) / (durationSeconds / 60)) * 60
                   )} cal/hour
                 </span>
               </div>
@@ -526,7 +537,7 @@ export const CardioAccordion: FC<CardioAccordionProps> = ({
               disabled={
                 (trackingType === 'distance' && (!distanceInput || parseFloat(distanceInput) <= 0)) ||
                 (trackingType === 'calories' && (!caloriesInput || parseInt(caloriesInput) <= 0)) ||
-                (!minutesInput && !secondsInput)
+                !hasValidDuration
               }
               className="w-full"
               size="lg"

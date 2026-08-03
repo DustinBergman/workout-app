@@ -327,9 +327,10 @@ describe('useActiveWorkout', () => {
       expect(updated.targetSets).toBe(4);
     });
 
-    it('grows targetSets when user completes more sets than planned', async () => {
+    it('does not infer a plan change from completed-set count alone', async () => {
       setupDeviatedSession({
         targetSets: 3,
+        targetReps: 12,
         sets: [
           { type: 'strength', reps: 10, weight: 100, unit: 'lbs', completedAt: '' },
           { type: 'strength', reps: 10, weight: 100, unit: 'lbs', completedAt: '' },
@@ -342,7 +343,19 @@ describe('useActiveWorkout', () => {
         await result.current.finishWorkout(3, null);
       });
       const updated = useAppStore.getState().templates[0].exercises[0] as StrengthTemplateExercise;
-      expect(updated.targetSets).toBe(4);
+      expect(updated.targetSets).toBe(3);
+    });
+
+    it('saves a reduced targetSets value after Remove Set', async () => {
+      setupDeviatedSession({ targetSets: 2 });
+      const { result } = renderHook(() => useActiveWorkout());
+
+      await act(async () => {
+        await result.current.finishWorkout(3, null);
+      });
+
+      const updated = useAppStore.getState().templates[0].exercises[0] as StrengthTemplateExercise;
+      expect(updated.targetSets).toBe(2);
     });
 
     it('does not shrink targetSets when the user completes fewer sets than planned', async () => {
@@ -587,7 +600,7 @@ describe('useExerciseManagement', () => {
     resetStores(mockSession);
     const { result } = renderHook(() => useExerciseManagement());
     act(() => {
-      result.current.updateTargetSets('bench-press', 1);
+      result.current.updateTargetSets(0, 1);
     });
     const updatedSession = useAppStore.getState().activeSession;
     const exercise = updatedSession?.exercises[0] as StrengthSessionExercise;
@@ -601,11 +614,27 @@ describe('useExerciseManagement', () => {
     resetStores(mockSession);
     const { result } = renderHook(() => useExerciseManagement());
     act(() => {
-      result.current.updateTargetSets('bench-press', -1);
+      result.current.updateTargetSets(0, -1);
     });
     const updatedSession = useAppStore.getState().activeSession;
     const exercise = updatedSession?.exercises[0] as StrengthSessionExercise;
     expect(exercise.targetSets).toBe(1);
+  });
+
+  it('should update only the selected duplicate exercise instance', () => {
+    const first = createStrengthSessionExercise('bench-press');
+    const second = createStrengthSessionExercise('bench-press');
+    const mockSession = createMockSession({ exercises: [first, second] });
+    resetStores(mockSession);
+    const { result } = renderHook(() => useExerciseManagement());
+
+    act(() => {
+      result.current.updateTargetSets(0, 1);
+    });
+
+    const exercises = useAppStore.getState().activeSession?.exercises as StrengthSessionExercise[];
+    expect(exercises[0].targetSets).toBe(4);
+    expect(exercises[1].targetSets).toBe(3);
   });
 });
 

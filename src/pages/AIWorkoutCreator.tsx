@@ -225,10 +225,10 @@ export const AIWorkoutCreator: FC = () => {
   };
 
   return (
-    <div className="relative overflow-hidden" style={{ height: 'calc(100vh - 120px)' }}>
+    <div className="relative overflow-y-auto" style={{ minHeight: 'calc(100vh - 120px)' }}>
       <FloatingOrbsBackground />
 
-      <div className="relative z-10 flex flex-col h-full p-6">
+      <div className="relative z-10 flex flex-col min-h-[calc(100vh-120px)] p-6">
         {/* Header with back button */}
         <div className="flex items-center gap-3 mb-4 flex-shrink-0">
           <Button variant="ghost" size="sm" onClick={() => navigate('/plans')}>
@@ -458,7 +458,7 @@ export const AIWorkoutCreator: FC = () => {
 
         {/* Step 3: Additional Comments */}
         {step === 3 && (
-          <div className="flex-1 flex flex-col max-w-md mx-auto w-full">
+          <div className="flex-1 flex flex-col max-w-md mx-auto w-full min-h-0 pb-4">
             <div className="text-center mb-6">
               <h2 className="text-2xl font-bold text-foreground mb-2">
                 Any special requests?

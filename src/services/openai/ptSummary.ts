@@ -218,7 +218,7 @@ const MUSCLE_GROUP_MAP: Record<string, string> = {
   biceps: 'Arms',
   triceps: 'Arms',
   forearms: 'Arms',
-  quads: 'Legs',
+  quadriceps: 'Legs',
   hamstrings: 'Legs',
   glutes: 'Legs',
   calves: 'Legs',

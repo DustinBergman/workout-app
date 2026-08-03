@@ -1,9 +1,18 @@
 import { useMemo } from 'react';
-import { WorkoutSession, MuscleGroup, Exercise, WeightEntry, StrengthCompletedSet, CardioCompletedSet, DistanceUnit } from '../types';
+import {
+  WorkoutSession,
+  MuscleGroup,
+  Exercise,
+  WeightEntry,
+  StrengthCompletedSet,
+  CardioCompletedSet,
+  DistanceUnit,
+  WeightUnit,
+} from '../types';
 import { calculateSessionStats } from './useSessionStats';
 import { getAllExercises } from '../data/exercises';
 import { calculate1RM } from '../utils/personalBestUtils';
-import { estimateCardioCalories } from '../utils/workoutUtils';
+import { convertWeight, estimateCardioCalories } from '../utils/workoutUtils';
 import { filterOutliers } from '../utils/outlierFilter';
 
 export type TimePeriod = '30' | '90' | 'all';
@@ -55,7 +64,8 @@ const filterByTimePeriod = (
 };
 
 const calculateStrengthProgress = (
-  sessions: WorkoutSession[]
+  sessions: WorkoutSession[],
+  weightUnit: WeightUnit
 ): number => {
   // Group exercise history by exerciseId using estimated 1RM
   // This accounts for both weight AND reps to measure true strength progress
@@ -72,7 +82,11 @@ const calculateStrengthProgress = (
       if (strengthSets.length === 0) return;
 
       // Filter outliers by weight before computing 1RM
-      const filteredSets = filterOutliers(strengthSets, (s) => s.weight);
+      const normalizedSets = strengthSets.map((set) => ({
+        ...set,
+        weight: convertWeight(set.weight, set.unit, weightUnit),
+      }));
+      const filteredSets = filterOutliers(normalizedSets, (s) => s.weight);
 
       // Find the best estimated 1RM for this exercise in this session
       // This normalizes different weight/rep combinations to a comparable metric
@@ -185,17 +199,23 @@ const calculateSessionsPerWeek = (sessions: WorkoutSession[]): number => {
   return sessions.length / weekSpan;
 };
 
-const calculateAverageVolumePerSession = (sessions: WorkoutSession[]): number => {
+const calculateAverageVolumePerSession = (
+  sessions: WorkoutSession[],
+  weightUnit: WeightUnit
+): number => {
   if (sessions.length === 0) return 0;
 
   const totalVolume = sessions.reduce((sum, session) => {
-    return sum + calculateSessionStats(session).totalVolume;
+    return sum + calculateSessionStats(session, weightUnit).totalVolume;
   }, 0);
 
   return totalVolume / sessions.length;
 };
 
-const calculateWeightChangePerWeek = (weightEntries: WeightEntry[]): number => {
+const calculateWeightChangePerWeek = (
+  weightEntries: WeightEntry[],
+  weightUnit: WeightUnit
+): number => {
   if (weightEntries.length < 2) return 0;
 
   // Sort weight entries by date
@@ -203,8 +223,12 @@ const calculateWeightChangePerWeek = (weightEntries: WeightEntry[]): number => {
     (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
   );
 
-  const firstWeight = sorted[0].weight;
-  const lastWeight = sorted[sorted.length - 1].weight;
+  const firstWeight = convertWeight(sorted[0].weight, sorted[0].unit, weightUnit);
+  const lastWeight = convertWeight(
+    sorted[sorted.length - 1].weight,
+    sorted[sorted.length - 1].unit,
+    weightUnit
+  );
 
   if (firstWeight === 0) return 0;
 
@@ -366,6 +390,7 @@ export const useUserStats = (
   timePeriod: TimePeriod,
   customExercises: Exercise[] = [],
   weightEntries: WeightEntry[] = [],
+  weightUnit: WeightUnit = 'lbs',
   distanceUnit: DistanceUnit = 'mi'
 ): UserStats => {
   return useMemo(() => {
@@ -396,15 +421,15 @@ export const useUserStats = (
     }
 
     return {
-      averageStrengthIncrease: calculateStrengthProgress(filteredSessions),
+      averageStrengthIncrease: calculateStrengthProgress(filteredSessions, weightUnit),
       muscleGroupBreakdown: calculateMuscleGroupBreakdown(filteredSessions, customExercises),
       averageSessionDuration: calculateAverageSessionDuration(filteredSessions),
       averageSessionsPerWeek: calculateSessionsPerWeek(filteredSessions),
-      averageVolumePerSession: calculateAverageVolumePerSession(filteredSessions),
-      averageWeightChangePerWeek: calculateWeightChangePerWeek(weightEntries),
+      averageVolumePerSession: calculateAverageVolumePerSession(filteredSessions, weightUnit),
+      averageWeightChangePerWeek: calculateWeightChangePerWeek(weightEntries, weightUnit),
       totalSessions: filteredSessions.length,
       cardio: calculateCardioStats(filteredSessions, customExercises, distanceUnit),
       isCardioPrimary: calculateIsCardioPrimary(filteredSessions),
     };
-  }, [sessions, timePeriod, customExercises, weightEntries, distanceUnit]);
+  }, [sessions, timePeriod, customExercises, weightEntries, weightUnit, distanceUnit]);
 };

@@ -14,11 +14,13 @@ export const SimpleCardioFields: FC<SimpleCardioFieldsProps> = ({ exercise, inde
       label="Duration (min)"
       value={'targetDurationMinutes' in exercise ? exercise.targetDurationMinutes : undefined}
       onChange={(v) => onUpdate(index, { targetDurationMinutes: v })}
+      min={1}
     />
     <NumberInput
       label="Calories"
       value={exercise.targetCalories}
       onChange={(v) => onUpdate(index, { targetCalories: v })}
+      min={1}
     />
     <NumberInput
       label="Rest (s)"

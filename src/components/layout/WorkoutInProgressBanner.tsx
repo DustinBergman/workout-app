@@ -43,10 +43,12 @@ export const WorkoutInProgressBanner: FC = () => {
   }
 
   return (
-    <div
+    <button
+      type="button"
       className="fixed left-0 right-0 z-50 overflow-hidden cursor-pointer group bg-gradient-to-r from-emerald-500 via-cyan-500 to-blue-500 hover:from-emerald-400 hover:via-cyan-400 hover:to-blue-400 transition-all"
       style={{ bottom: 'calc(4rem + env(safe-area-inset-bottom))' }}
       onClick={() => navigate('/workout')}
+      aria-label={`Resume ${activeSession?.name || 'workout'}`}
     >
       {/* Content */}
       <div className="flex items-center justify-between px-4 py-3">
@@ -79,6 +81,6 @@ export const WorkoutInProgressBanner: FC = () => {
           </span>
         </div>
       </div>
-    </div>
+    </button>
   );
 };

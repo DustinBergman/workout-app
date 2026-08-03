@@ -55,6 +55,17 @@ describe('useLikes', () => {
     expect(result.current.likeSummary).toBeNull();
   });
 
+  it('should hydrate when the initial summary arrives later', () => {
+    const { result, rerender } = renderHook(
+      ({ summary }) => useLikes('workout-123', summary),
+      { initialProps: { summary: undefined as typeof mockSummary | undefined } }
+    );
+
+    rerender({ summary: mockSummary });
+
+    expect(result.current.likeSummary).toEqual(mockSummary);
+  });
+
   it('should refresh like summary', async () => {
     vi.mocked(getLikeSummary).mockResolvedValue({
       summary: { ...mockSummary, count: 10 },

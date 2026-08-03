@@ -189,16 +189,18 @@ describe('Comments Service', () => {
     });
 
     it('should count comments per workout', async () => {
-      const mockData = [
-        { workout_id: 'workout-1' },
-        { workout_id: 'workout-1' },
-        { workout_id: 'workout-2' },
-      ];
-
-      // Re-setup the mock with `.in()` method since previous test overwrote it
       vi.mocked(supabase.from).mockReturnValue({
         select: vi.fn().mockReturnValue({
-          in: vi.fn().mockResolvedValue({ data: mockData, error: null }),
+          eq: vi.fn((_field: string, workoutId: string) =>
+            Promise.resolve({
+              count: {
+                'workout-1': 2,
+                'workout-2': 1,
+                'workout-3': 0,
+              }[workoutId],
+              error: null,
+            })
+          ),
         }),
       } as never);
 

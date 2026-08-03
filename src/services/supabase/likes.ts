@@ -185,56 +185,24 @@ export const getBatchLikeSummaries = async (
     return { summaries: {}, error: new Error('Not authenticated') };
   }
 
-  // Get likes for these workouts (limited to reduce data transfer)
-  // Trade-off: counts may be slightly inaccurate for very popular workouts
-  const { data: allLikes, error } = await supabase
-    .from('workout_likes')
-    .select(`
-      id,
-      workout_id,
-      user_id,
-      created_at,
-      user:profiles!workout_likes_user_id_fkey (
-        id,
-        first_name,
-        last_name,
-        username
-      )
-    `)
-    .in('workout_id', workoutIds)
-    .order('created_at', { ascending: false })
-    .limit(workoutIds.length * 10);
-
-  if (error) {
-    return { summaries: {}, error };
+  const summaries: Record<string, LikeSummary> = {};
+  const results = await Promise.all(
+    workoutIds.map(async (workoutId) => ({
+      workoutId,
+      result: await getLikeSummary(workoutId),
+    }))
+  );
+  const failed = results.find(({ result }) => result.error);
+  if (failed?.result.error) {
+    return { summaries: {}, error: failed.result.error };
   }
 
-  // Group likes by workout_id
-  const summaries: Record<string, LikeSummary> = {};
-
-  // Initialize empty summaries for all requested workouts
-  for (const workoutId of workoutIds) {
-    summaries[workoutId] = {
+  for (const { workoutId, result } of results) {
+    summaries[workoutId] = result.summary ?? {
       count: 0,
       hasLiked: false,
       recentLikers: [],
     };
   }
-
-  // Process likes
-  for (const like of allLikes || []) {
-    const summary = summaries[like.workout_id];
-    summary.count++;
-
-    if (like.user_id === user.id) {
-      summary.hasLiked = true;
-    }
-
-    // Keep only 3 recent likers
-    if (summary.recentLikers.length < 3) {
-      summary.recentLikers.push(like.user as unknown as LikeUser);
-    }
-  }
-
   return { summaries, error: null };
 };

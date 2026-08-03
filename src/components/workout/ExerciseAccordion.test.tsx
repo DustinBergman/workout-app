@@ -848,7 +848,7 @@ describe('ExerciseAccordion', () => {
       fireEvent.click(removeSetButton);
 
       await waitFor(() => {
-        expect(updateTargetSets).toHaveBeenCalledWith(exercise.exerciseId, -1);
+        expect(updateTargetSets).toHaveBeenCalledWith(0, -1);
       });
     });
 
@@ -882,7 +882,7 @@ describe('ExerciseAccordion', () => {
 
       // Verify that updateTargetSets was called
       await waitFor(() => {
-        expect(updateTargetSets).toHaveBeenCalledWith(exercise.exerciseId, -1);
+        expect(updateTargetSets).toHaveBeenCalledWith(0, -1);
       });
     });
 
@@ -941,7 +941,7 @@ describe('ExerciseAccordion', () => {
       fireEvent.click(removeSetButton);
 
       await waitFor(() => {
-        expect(updateTargetSets).toHaveBeenCalledWith(exercise.exerciseId, -1);
+        expect(updateTargetSets).toHaveBeenCalledWith(0, -1);
       });
     });
   });
@@ -982,7 +982,7 @@ describe('ExerciseAccordion', () => {
 
       // Verify updateTargetSets was called to increase targetSets
       await waitFor(() => {
-        expect(updateTargetSets).toHaveBeenCalledWith(exercise.exerciseId, 1);
+        expect(updateTargetSets).toHaveBeenCalledWith(0, 1);
       });
     });
 
@@ -1022,7 +1022,7 @@ describe('ExerciseAccordion', () => {
 
       // Verify updateTargetSets was called to increase targetSets
       await waitFor(() => {
-        expect(updateTargetSets).toHaveBeenCalledWith(exercise.exerciseId, 1);
+        expect(updateTargetSets).toHaveBeenCalledWith(0, 1);
       });
     });
   });

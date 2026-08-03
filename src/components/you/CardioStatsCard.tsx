@@ -8,8 +8,9 @@ interface CardioStatsCardProps {
 
 const formatPace = (pace: number | null, distanceUnit: string): string => {
   if (pace === null) return '--:--';
-  const minutes = Math.floor(pace);
-  const seconds = Math.round((pace - minutes) * 60);
+  const totalSeconds = Math.round(pace * 60);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
   return `${minutes}:${seconds.toString().padStart(2, '0')} /${distanceUnit}`;
 };
 

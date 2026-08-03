@@ -77,11 +77,13 @@ export const deleteComment = async (
  * Get all comments for a workout with like counts
  */
 export const getWorkoutComments = async (
-  workoutId: string
+  workoutId: string,
+  limit?: number,
+  ascending = true
 ): Promise<{ comments: WorkoutComment[]; error: Error | null }> => {
   const user = await getAuthUser();
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('workout_comments')
     .select(`
       id,
@@ -102,7 +104,13 @@ export const getWorkoutComments = async (
       )
     `)
     .eq('workout_id', workoutId)
-    .order('created_at', { ascending: true });
+    .order('created_at', { ascending });
+
+  if (limit !== undefined) {
+    query = query.limit(limit);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     return { comments: [], error };
@@ -151,27 +159,19 @@ export const getBatchCommentCounts = async (
     return { counts: {}, error: null };
   }
 
-  // Get all comments for these workouts
-  const { data, error } = await supabase
-    .from('workout_comments')
-    .select('workout_id')
-    .in('workout_id', workoutIds);
-
-  if (error) {
-    return { counts: {}, error };
-  }
-
-  // Count comments per workout
   const counts: Record<string, number> = {};
-
-  // Initialize all requested workouts to 0
-  for (const workoutId of workoutIds) {
-    counts[workoutId] = 0;
+  const results = await Promise.all(
+    workoutIds.map(async (workoutId) => ({
+      workoutId,
+      result: await getCommentCount(workoutId),
+    }))
+  );
+  const failed = results.find(({ result }) => result.error);
+  if (failed?.result.error) {
+    return { counts: {}, error: failed.result.error };
   }
-
-  // Count each comment
-  for (const comment of data || []) {
-    counts[comment.workout_id] = (counts[comment.workout_id] || 0) + 1;
+  for (const { workoutId, result } of results) {
+    counts[workoutId] = result.count;
   }
 
   return { counts, error: null };
@@ -187,64 +187,19 @@ export const getBatchPreviewComments = async (
     return { previews: {}, error: null };
   }
 
-  const user = await getAuthUser();
-
-  // Limit total records to reduce data transfer (we only need 2 per workout)
-  const { data, error } = await supabase
-    .from('workout_comments')
-    .select(`
-      id,
-      workout_id,
-      user_id,
-      content,
-      created_at,
-      user:profiles!workout_comments_user_id_fkey (
-        id,
-        first_name,
-        last_name,
-        username,
-        avatar_url
-      ),
-      comment_likes (
-        id,
-        user_id
-      )
-    `)
-    .in('workout_id', workoutIds)
-    .order('created_at', { ascending: false })
-    .limit(workoutIds.length * 3);
-
-  if (error) {
-    return { previews: {}, error };
-  }
-
-  // Group by workout and take latest 2
   const previews: Record<string, WorkoutComment[]> = {};
-
-  // Initialize all requested workouts to empty array
-  for (const workoutId of workoutIds) {
-    previews[workoutId] = [];
+  const results = await Promise.all(
+    workoutIds.map(async (workoutId) => {
+      const { comments, error } = await getWorkoutComments(workoutId, 2, false);
+      return { workoutId, comments, error };
+    })
+  );
+  const failed = results.find((result) => result.error);
+  if (failed?.error) {
+    return { previews: {}, error: failed.error };
   }
-
-  // Group comments by workout
-  for (const comment of data || []) {
-    if (previews[comment.workout_id].length < 2) {
-      previews[comment.workout_id].push({
-        id: comment.id,
-        workout_id: comment.workout_id,
-        user_id: comment.user_id,
-        content: comment.content,
-        created_at: comment.created_at,
-        user: comment.user as unknown as CommentUser,
-        like_count: (comment.comment_likes || []).length,
-        has_liked: user ? (comment.comment_likes || []).some((like: { user_id: string }) => like.user_id === user.id) : false,
-      });
-    }
-  }
-
-  // Reverse to show oldest first (chronological order)
-  for (const workoutId of workoutIds) {
-    previews[workoutId].reverse();
+  for (const { workoutId, comments } of results) {
+    previews[workoutId] = [...comments].reverse();
   }
 
   return { previews, error: null };

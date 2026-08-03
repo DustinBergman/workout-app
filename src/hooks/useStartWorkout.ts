@@ -4,6 +4,7 @@ import { useAppStore } from '../store/useAppStore';
 import { WorkoutSession, WorkoutTemplate } from '../types';
 import { getPreWorkoutSuggestions } from '../services/openai';
 import { getLocalSuggestions } from '../services/localSuggestions';
+import { toast } from '../store/toastStore';
 
 const generateId = (): string => {
   return crypto.randomUUID();
@@ -21,6 +22,7 @@ export const useStartWorkout = (): UseStartWorkoutReturn => {
   const workoutGoal = useAppStore((state) => state.workoutGoal);
   const weightEntries = useAppStore((state) => state.weightEntries);
   const customExercises = useAppStore((state) => state.customExercises);
+  const activeSession = useAppStore((state) => state.activeSession);
   const setActiveSession = useAppStore((state) => state.setActiveSession);
   const cycleConfig = useAppStore((state) => state.cycleConfig);
   const cycleState = useAppStore((state) => state.cycleState);
@@ -31,6 +33,12 @@ export const useStartWorkout = (): UseStartWorkoutReturn => {
   const isBaseline = currentPhase?.type === 'baseline';
 
   const startWorkout = useCallback(async (template: WorkoutTemplate) => {
+    if (activeSession) {
+      toast.warning('Finish or discard your current workout before starting another.');
+      navigate('/workout');
+      return;
+    }
+
     const session: WorkoutSession = {
       id: generateId(),
       templateId: template.id,
@@ -85,7 +93,9 @@ export const useStartWorkout = (): UseStartWorkoutReturn => {
           timeoutPromise,
         ]);
         // Save suggestions to the session so they persist
-        setActiveSession({ ...session, suggestions });
+        if (useAppStore.getState().activeSession?.id === session.id) {
+          setActiveSession({ ...session, suggestions });
+        }
       } catch (err) {
         console.error('Failed to get suggestions:', err);
         // Fall back to local suggestions on error (API failure, timeout, out of credits, etc.)
@@ -102,7 +112,9 @@ export const useStartWorkout = (): UseStartWorkoutReturn => {
             customExercises
           );
           if (localSuggestions.length > 0) {
-            setActiveSession({ ...session, suggestions: localSuggestions });
+            if (useAppStore.getState().activeSession?.id === session.id) {
+              setActiveSession({ ...session, suggestions: localSuggestions });
+            }
           }
         } catch (localErr) {
           console.error('Failed to get local suggestions:', localErr);
@@ -125,7 +137,9 @@ export const useStartWorkout = (): UseStartWorkoutReturn => {
           customExercises
         );
         if (suggestions.length > 0) {
-          setActiveSession({ ...session, suggestions });
+          if (useAppStore.getState().activeSession?.id === session.id) {
+            setActiveSession({ ...session, suggestions });
+          }
         }
       } catch (err) {
         console.error('Failed to get local suggestions:', err);
@@ -133,9 +147,15 @@ export const useStartWorkout = (): UseStartWorkoutReturn => {
     }
 
     navigate('/workout');
-  }, [sessions, preferences, workoutGoal, weightEntries, customExercises, setActiveSession, navigate, currentPhase, isBaseline]);
+  }, [activeSession, sessions, preferences, workoutGoal, weightEntries, customExercises, setActiveSession, navigate, currentPhase, isBaseline]);
 
   const startQuickWorkout = useCallback(() => {
+    if (activeSession) {
+      toast.warning('Finish or discard your current workout before starting another.');
+      navigate('/workout');
+      return;
+    }
+
     const session: WorkoutSession = {
       id: generateId(),
       name: 'Quick Workout',
@@ -144,7 +164,7 @@ export const useStartWorkout = (): UseStartWorkoutReturn => {
     };
     setActiveSession(session);
     navigate('/workout');
-  }, [setActiveSession, navigate]);
+  }, [activeSession, setActiveSession, navigate]);
 
   return {
     isLoadingSuggestions,

@@ -95,6 +95,7 @@ export const DisclaimerModal: FC<DisclaimerModalProps> = ({
         {/* Footer */}
         <div className="p-6 border-t border-border flex gap-3">
           <Button
+            type="button"
             variant="outline"
             onClick={onDecline}
             className="flex-1"
@@ -102,6 +103,7 @@ export const DisclaimerModal: FC<DisclaimerModalProps> = ({
             Decline
           </Button>
           <Button
+            type="button"
             onClick={onAccept}
             className="flex-1"
           >

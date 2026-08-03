@@ -50,7 +50,7 @@ export const RecentWorkoutsSection: FC<RecentWorkoutsSectionProps> = ({
       </div>
       <div className="space-y-3">
         {sessions.map((session) => {
-          const stats = calculateSessionStats(session);
+          const stats = calculateSessionStats(session, weightUnit, distanceUnit);
           const secondaryMetric = getSecondaryMetric(stats, weightUnit, distanceUnit);
 
           return (

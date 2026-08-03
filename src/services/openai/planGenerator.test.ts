@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   WORKOUT_TYPE_MUSCLES,
+  generateCardioPlan,
   generateWorkoutPlan,
   createTemplateFromPlan,
   GeneratePlanInput,
@@ -121,6 +122,27 @@ describe('planGenerator', () => {
     });
   });
 
+  describe('generateCardioPlan', () => {
+    it('applies the default rest time when the AI omits it', async () => {
+      const response = {
+        name: 'Running Session',
+        exercises: [{ exerciseId: 'outdoor-run' }],
+      };
+      vi.mocked(client.callOpenAI).mockResolvedValue(JSON.stringify(response));
+      vi.mocked(client.parseJSONResponse).mockReturnValue(response);
+
+      const result = await generateCardioPlan('test-api-key', {
+        workoutType: 'cardio',
+        selectedCardioTypes: ['running'],
+        numberOfExercises: 1,
+        availableEquipment: [],
+        additionalComments: '',
+      });
+
+      expect(result.exercises[0].restSeconds).toBe(60);
+    });
+  });
+
   describe('generateWorkoutPlan', () => {
     const mockInput: GeneratePlanInput = {
       workoutType: 'push',
@@ -178,6 +200,36 @@ describe('planGenerator', () => {
 
       expect(result.exercises).toHaveLength(1);
       expect(result.exercises[0].exerciseId).toBe('bench-press');
+    });
+
+    it('should reject valid exercises outside the selected equipment filter', async () => {
+      const responseWithUnavailableEquipment: GeneratedPlan = {
+        name: 'Test',
+        exercises: [
+          { exerciseId: 'push-up', targetSets: 3, targetReps: 10, restSeconds: 60 },
+        ],
+      };
+
+      vi.mocked(client.callOpenAI).mockResolvedValue(JSON.stringify(responseWithUnavailableEquipment));
+      vi.mocked(client.parseJSONResponse).mockReturnValue(responseWithUnavailableEquipment);
+
+      await expect(generateWorkoutPlan('test-api-key', mockInput))
+        .rejects.toThrow('AI failed to generate a valid workout plan');
+    });
+
+    it('should reject invalid numeric targets', async () => {
+      const invalidTargets: GeneratedPlan = {
+        name: 'Test',
+        exercises: [
+          { exerciseId: 'bench-press', targetSets: 0, targetReps: -1, restSeconds: 90 },
+        ],
+      };
+
+      vi.mocked(client.callOpenAI).mockResolvedValue(JSON.stringify(invalidTargets));
+      vi.mocked(client.parseJSONResponse).mockReturnValue(invalidTargets);
+
+      await expect(generateWorkoutPlan('test-api-key', mockInput))
+        .rejects.toThrow('AI failed to generate a valid workout plan');
     });
 
     it('should throw error when no exercises match equipment and muscles', async () => {

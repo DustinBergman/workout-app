@@ -48,12 +48,21 @@ export const RestTimer: FC<RestTimerProps> = ({ duration, onComplete, onSkip, au
         return;
       }
 
-      // Otherwise start a new timer
+      if (timerEndTime) {
+        hasCompletedRef.current = true;
+        setSeconds(0);
+        setIsComplete(true);
+        setTimerEndTime(null);
+        handleComplete();
+        return;
+      }
+
+      // No persisted timer exists, so start a new one.
       const endTime = Date.now() + duration * 1000;
       setTimerEndTime(endTime);
       setSeconds(duration);
     }
-  }, [autoStart, duration, timerEndTime, timerPaused, timerRemainingWhenPaused, setTimerEndTime]);
+  }, [autoStart, duration, timerEndTime, timerPaused, timerRemainingWhenPaused, setTimerEndTime, handleComplete]);
 
   // Update seconds countdown
   useEffect(() => {

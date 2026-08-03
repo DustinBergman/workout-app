@@ -9,6 +9,7 @@ import {
   ReferenceLine,
 } from 'recharts';
 import { WeightEntry, WeightUnit, WorkoutGoal } from '../../types';
+import { convertWeight } from '../../utils/workoutUtils';
 
 interface WeightChartProps {
   entries: WeightEntry[];
@@ -27,10 +28,10 @@ export const WeightChart: FC<WeightChartProps> = ({ entries, weightUnit, workout
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
       .map((entry) => ({
         timestamp: new Date(entry.date).getTime(),
-        weight: entry.weight,
+        weight: convertWeight(entry.weight, entry.unit, weightUnit),
         date: entry.date,
       }));
-  }, [entries]);
+  }, [entries, weightUnit]);
 
   // Calculate time domain for x-axis
   const timeDomain = useMemo(() => {

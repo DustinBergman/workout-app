@@ -8,7 +8,7 @@ class MockIntersectionObserver {
   observe = vi.fn();
   unobserve = vi.fn();
   disconnect = vi.fn();
-  constructor(_callback: IntersectionObserverCallback, _options?: IntersectionObserverInit) {}
+  constructor() {}
 }
 window.IntersectionObserver = MockIntersectionObserver as unknown as typeof IntersectionObserver;
 
@@ -190,16 +190,16 @@ describe('Feed', () => {
     it('should show pull indicator when pulling down', () => {
       renderWithRouter(<Feed />);
 
-      const container = document.querySelector('.overflow-y-auto');
+      const container = screen.getByTestId('feed-scroll-container');
       expect(container).toBeInTheDocument();
 
       // Simulate touch start at the top
-      fireEvent.touchStart(container!, {
+      fireEvent.touchStart(container, {
         touches: [{ clientY: 100 }],
       });
 
       // Simulate pulling down
-      fireEvent.touchMove(container!, {
+      fireEvent.touchMove(container, {
         touches: [{ clientY: 200 }],
       });
 
@@ -210,15 +210,15 @@ describe('Feed', () => {
     it('should show "Release to refresh" when pulled past threshold', () => {
       renderWithRouter(<Feed />);
 
-      const container = document.querySelector('.overflow-y-auto');
+      const container = screen.getByTestId('feed-scroll-container');
 
       // Simulate touch start
-      fireEvent.touchStart(container!, {
+      fireEvent.touchStart(container, {
         touches: [{ clientY: 0 }],
       });
 
       // Simulate pulling down past threshold (80px * 2 for resistance)
-      fireEvent.touchMove(container!, {
+      fireEvent.touchMove(container, {
         touches: [{ clientY: 200 }],
       });
 
@@ -228,20 +228,20 @@ describe('Feed', () => {
     it('should call refresh when released after pulling past threshold', async () => {
       renderWithRouter(<Feed />);
 
-      const container = document.querySelector('.overflow-y-auto');
+      const container = screen.getByTestId('feed-scroll-container');
 
       // Simulate touch start
-      fireEvent.touchStart(container!, {
+      fireEvent.touchStart(container, {
         touches: [{ clientY: 0 }],
       });
 
       // Simulate pulling down past threshold
-      fireEvent.touchMove(container!, {
+      fireEvent.touchMove(container, {
         touches: [{ clientY: 200 }],
       });
 
       // Release
-      fireEvent.touchEnd(container!);
+      fireEvent.touchEnd(container);
 
       await waitFor(() => {
         expect(mockRefresh).toHaveBeenCalled();
@@ -251,20 +251,20 @@ describe('Feed', () => {
     it('should not call refresh when released before threshold', async () => {
       renderWithRouter(<Feed />);
 
-      const container = document.querySelector('.overflow-y-auto');
+      const container = screen.getByTestId('feed-scroll-container');
 
       // Simulate touch start
-      fireEvent.touchStart(container!, {
+      fireEvent.touchStart(container, {
         touches: [{ clientY: 100 }],
       });
 
       // Simulate pulling down but not past threshold
-      fireEvent.touchMove(container!, {
+      fireEvent.touchMove(container, {
         touches: [{ clientY: 130 }],
       });
 
       // Release
-      fireEvent.touchEnd(container!);
+      fireEvent.touchEnd(container);
 
       // Small delay to ensure async operations complete
       await new Promise((resolve) => setTimeout(resolve, 50));

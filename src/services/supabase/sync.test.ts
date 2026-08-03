@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { WorkoutTemplate } from '../../types';
+import type { WorkoutSession, WorkoutTemplate } from '../../types';
 
 // Mock supabase
 vi.mock('../../lib/supabase', () => ({
@@ -35,12 +35,18 @@ vi.mock('./authHelper', () => ({
 }));
 
 // Import after mocks
-import { syncAddTemplate, syncUpdateTemplate } from './sync';
+import {
+  syncAddTemplate,
+  syncSetActiveSession,
+  syncUpdateTemplate,
+} from './sync';
 import { supabase } from '../../lib/supabase';
+import { getAuthUser } from './authHelper';
 
 describe('sync', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(getAuthUser).mockResolvedValue({ id: 'test-user-id' } as never);
   });
 
   describe('syncAddTemplate - corruption guard', () => {
@@ -191,8 +197,8 @@ describe('sync', () => {
       await syncUpdateTemplate(template);
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        '[Sync] BLOCKED: Template has too many exercises:',
-        51
+        '[Sync] Detected corrupted template data, skipping sync:',
+        expect.objectContaining({ exerciseCount: 51 })
       );
 
       consoleSpy.mockRestore();
@@ -205,8 +211,8 @@ describe('sync', () => {
       await syncUpdateTemplate(template);
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        '[Sync] BLOCKED: Template has too many duplicate exercises:',
-        5
+        '[Sync] Detected corrupted template data, skipping sync:',
+        expect.objectContaining({ maxDuplicates: 5 })
       );
 
       consoleSpy.mockRestore();
@@ -221,8 +227,8 @@ describe('sync', () => {
 
       // Should first hit the "too many exercises" check
       expect(consoleSpy).toHaveBeenCalledWith(
-        '[Sync] BLOCKED: Template has too many exercises:',
-        126
+        '[Sync] Detected corrupted template data, skipping sync:',
+        expect.objectContaining({ exerciseCount: 126 })
       );
       // Should NOT call update on the database
       expect(supabase.from).not.toHaveBeenCalledWith('workout_templates');
@@ -299,6 +305,82 @@ describe('sync', () => {
       );
 
       consoleSpy.mockRestore();
+    });
+
+    describe('write serialization', () => {
+      it('coalesces a later template snapshot instead of dropping it', async () => {
+        let releaseAuth: ((user: { id: string }) => void) | undefined;
+        vi.mocked(getAuthUser)
+          .mockImplementationOnce(() => new Promise((resolve) => {
+            releaseAuth = resolve;
+          }) as never)
+          .mockResolvedValue({ id: 'test-user-id' } as never);
+        const original: WorkoutTemplate = {
+          id: 'queued-template',
+          name: 'Original',
+          templateType: 'strength',
+          exercises: [],
+          inRotation: true,
+          createdAt: '2026-01-01T00:00:00.000Z',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+        };
+        const newest = { ...original, name: 'Newest' };
+
+        const first = syncUpdateTemplate(original);
+        const second = syncUpdateTemplate(newest);
+        releaseAuth?.({ id: 'test-user-id' });
+        await Promise.all([first, second]);
+
+        const templateBuilders = vi.mocked(supabase.from).mock.results
+          .filter((_, index) => vi.mocked(supabase.from).mock.calls[index][0] === 'workout_templates')
+          .map((result) => result.value as { insert: ReturnType<typeof vi.fn> });
+        const insertedNames = templateBuilders.flatMap((builder) =>
+          builder.insert.mock.calls.map((call) => (call[0] as { name: string }).name)
+        );
+        expect(insertedNames).toContain('Newest');
+      });
+
+      it('upserts a new active session parent row', async () => {
+        const session: WorkoutSession = {
+          id: 'active-session',
+          name: 'Active workout',
+          startedAt: '2026-01-01T00:00:00.000Z',
+          exercises: [{
+            id: 'session-exercise',
+            exerciseId: 'bench-press',
+            type: 'strength',
+            targetSets: 3,
+            targetReps: 8,
+            restSeconds: 90,
+            sets: [],
+          }],
+        };
+
+        await syncSetActiveSession(session);
+
+        const workoutBuilders = vi.mocked(supabase.from).mock.results
+          .filter((_, index) => vi.mocked(supabase.from).mock.calls[index][0] === 'workout_sessions')
+          .map((result) => result.value as { insert: ReturnType<typeof vi.fn> });
+        expect(workoutBuilders.some((builder) => builder.insert.mock.calls.some(
+          (call) => {
+            const inserted = call[0] as { id?: string; is_active?: boolean };
+            return inserted.id === 'active-session' && inserted.is_active === true;
+          }
+        ))).toBe(true);
+      });
+
+      it('creates an empty active quick-workout parent row', async () => {
+        const session: WorkoutSession = {
+          id: 'quick-session',
+          name: 'Quick Workout',
+          startedAt: '2026-01-01T00:00:00.000Z',
+          exercises: [],
+        };
+
+        await syncSetActiveSession(session);
+
+        expect(supabase.from).toHaveBeenCalledWith('workout_sessions');
+      });
     });
   });
 });

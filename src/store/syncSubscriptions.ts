@@ -1,3 +1,12 @@
+import type {
+  Exercise,
+  UserCycleState,
+  UserPreferences,
+  WeightEntry,
+  WorkoutGoal,
+  WorkoutSession,
+  WorkoutTemplate,
+} from '../types';
 import { useAppStore } from './useAppStore';
 import {
   syncPreferences,
@@ -6,258 +15,523 @@ import {
   syncHasCompletedIntro,
   syncDeleteTemplate,
   syncReorderTemplates,
+  syncAddTemplate,
   syncAddSession,
-  syncUpdateSession,
+  syncDeleteSession,
   syncSetActiveSession,
   syncAddCustomExercise,
+  syncDeleteCustomExercise,
   syncAddWeightEntry,
   syncDeleteWeightEntry,
 } from '../services/supabase/sync';
 import { clearFeedCache } from '../hooks/useFeed';
 
-// Track if sync is enabled (user is authenticated)
+type PendingUpsert<T> = { kind: 'upsert'; value: T };
+type PendingDelete = { kind: 'delete' };
+type PendingRecord<T> = PendingUpsert<T> | PendingDelete;
+
+export interface PendingSyncState {
+  preferences?: Partial<UserPreferences>;
+  workoutGoal?: WorkoutGoal;
+  cycleState?: UserCycleState;
+  hasCompletedIntro?: boolean;
+  templates: Record<string, PendingRecord<WorkoutTemplate>>;
+  templateOrder?: string[];
+  sessions: Record<string, PendingRecord<WorkoutSession>>;
+  activeSessionSet?: boolean;
+  activeSession?: WorkoutSession | null;
+  customExercises: Record<string, PendingRecord<Exercise>>;
+  weights: Record<string, PendingRecord<WeightEntry>>;
+}
+
+export interface PendingSyncSeed {
+  preferences: UserPreferences;
+  workoutGoal: WorkoutGoal;
+  cycleState: UserCycleState;
+  hasCompletedIntro: boolean;
+  templates: WorkoutTemplate[];
+  sessions: WorkoutSession[];
+  activeSession: WorkoutSession | null;
+  customExercises: Exercise[];
+  weightEntries: WeightEntry[];
+}
+
+export interface SyncPauseState {
+  enabled: boolean;
+  identity: string | null;
+  syncingFromCloud: boolean;
+}
+
+const PENDING_KEY_PREFIX = 'workout-app-pending-sync-v2:';
+const emptyPendingState = (): PendingSyncState => ({
+  templates: {},
+  sessions: {},
+  customExercises: {},
+  weights: {},
+});
+
 let syncEnabled = false;
-// Flag to suppress sync during initial cloud load (prevents duplicate syncs)
+let syncIdentity: string | null = null;
 let isSyncingFromCloud = false;
 let previousSessionIds: string[] = [];
-let previousExerciseIds: string[] = [];
-let previousWeightDates: string[] = [];
+const flushesInFlight = new Map<string, Promise<void>>();
 
-/**
- * Enable/disable sync based on auth state
- */
-export const setSyncEnabled = (enabled: boolean) => {
-  syncEnabled = enabled;
+const pendingKey = (userId: string): string => `${PENDING_KEY_PREFIX}${userId}`;
+const valuesEqual = (left: unknown, right: unknown): boolean =>
+  JSON.stringify(left) === JSON.stringify(right);
 
-  if (enabled) {
-    // Capture current state for change detection
-    const state = useAppStore.getState();
-    previousSessionIds = state.sessions.map((s) => s.id);
-    previousExerciseIds = state.customExercises.map((e) => e.id);
-    previousWeightDates = state.weightEntries.map((e) => e.date);
+export const getPendingSyncState = (userId: string): PendingSyncState => {
+  const serialized = localStorage.getItem(pendingKey(userId));
+  if (!serialized) return emptyPendingState();
+
+  try {
+    return { ...emptyPendingState(), ...JSON.parse(serialized) as PendingSyncState };
+  } catch (error) {
+    console.error('[SyncSubscriptions] Invalid pending synchronization state:', error);
+    return emptyPendingState();
   }
 };
 
-/**
- * Mark a session as already synced so the subscription won't try to sync it again
- */
-export const markSessionAsSynced = (sessionId: string) => {
+const hasPendingOperations = (pending: PendingSyncState): boolean =>
+  Boolean(
+    pending.preferences ||
+    pending.workoutGoal !== undefined ||
+    pending.cycleState ||
+    pending.hasCompletedIntro !== undefined ||
+    Object.keys(pending.templates).length ||
+    pending.templateOrder ||
+    Object.keys(pending.sessions).length ||
+    pending.activeSessionSet ||
+    Object.keys(pending.customExercises).length ||
+    Object.keys(pending.weights).length
+  );
+
+const savePending = (userId: string, pending: PendingSyncState): void => {
+  if (hasPendingOperations(pending)) {
+    localStorage.setItem(pendingKey(userId), JSON.stringify(pending));
+  } else {
+    localStorage.removeItem(pendingKey(userId));
+  }
+};
+
+export const clearPendingSyncState = (userId: string): void => {
+  localStorage.removeItem(pendingKey(userId));
+};
+
+export const seedPendingSyncState = (
+  userId: string,
+  state: PendingSyncSeed
+): void => {
+  const pending = emptyPendingState();
+  pending.preferences = state.preferences;
+  pending.workoutGoal = state.workoutGoal;
+  pending.cycleState = state.cycleState;
+  pending.hasCompletedIntro = state.hasCompletedIntro;
+  pending.templateOrder = state.templates.map((template) => template.id);
+  for (const template of state.templates) {
+    pending.templates[template.id] = { kind: 'upsert', value: template };
+  }
+  for (const session of state.sessions) {
+    pending.sessions[session.id] = { kind: 'upsert', value: session };
+  }
+  pending.activeSessionSet = true;
+  pending.activeSession = state.activeSession;
+  for (const exercise of state.customExercises) {
+    pending.customExercises[exercise.id] = { kind: 'upsert', value: exercise };
+  }
+  for (const entry of state.weightEntries) {
+    pending.weights[entry.date] = { kind: 'upsert', value: entry };
+  }
+  savePending(userId, pending);
+};
+
+const updatePending = (
+  userId: string,
+  update: (pending: PendingSyncState) => void
+): void => {
+  const pending = getPendingSyncState(userId);
+  update(pending);
+  savePending(userId, pending);
+};
+
+const updateBaselines = (): void => {
+  const state = useAppStore.getState();
+  previousSessionIds = state.sessions.map((session) => session.id);
+};
+
+export const setSyncEnabled = (enabled: boolean, userId?: string | null): void => {
+  const nextIdentity = userId === undefined
+    ? (enabled ? syncIdentity ?? '__authenticated__' : syncIdentity)
+    : userId;
+  const identityChanged = nextIdentity !== syncIdentity;
+  syncIdentity = nextIdentity;
+  syncEnabled = enabled && Boolean(syncIdentity);
+
+  if (identityChanged || syncEnabled) {
+    updateBaselines();
+  }
+  if (syncEnabled && syncIdentity) {
+    const enabledIdentity = syncIdentity;
+    queueMicrotask(() => {
+      if (syncEnabled && syncIdentity === enabledIdentity) {
+        flushPendingSync(enabledIdentity).catch((error) => {
+          console.error('[SyncSubscriptions] Failed to flush pending changes:', error);
+        });
+      }
+    });
+  }
+};
+
+export const markSessionAsSynced = (sessionId: string): void => {
   if (!previousSessionIds.includes(sessionId)) {
     previousSessionIds.push(sessionId);
   }
 };
 
-/**
- * Set flag to suppress sync during cloud load
- * This prevents subscriptions from triggering syncs when cloud data is merged into the store
- */
-export const setSyncingFromCloud = (syncing: boolean) => {
-  console.log('[SyncSubscriptions] setSyncingFromCloud:', syncing);
+export const setSyncingFromCloud = (syncing: boolean): void => {
   isSyncingFromCloud = syncing;
-  if (!syncing) {
-    // After cloud sync completes, update baselines with current state
-    // This ensures we don't try to re-sync data that just came from the cloud
-    const state = useAppStore.getState();
-    previousSessionIds = state.sessions.map((s) => s.id);
-    previousExerciseIds = state.customExercises.map((e) => e.id);
-    previousWeightDates = state.weightEntries.map((e) => e.date);
-    console.log('[SyncSubscriptions] Baselines updated after cloud sync');
+  if (!syncing) updateBaselines();
+};
+
+export const pauseSyncForDataClear = async (
+  userId: string
+): Promise<SyncPauseState> => {
+  const previous = {
+    enabled: syncEnabled,
+    identity: syncIdentity,
+    syncingFromCloud: isSyncingFromCloud,
+  };
+  setSyncEnabled(false, userId);
+  setSyncingFromCloud(true);
+  try {
+    const activeFlush = flushesInFlight.get(userId);
+    if (activeFlush) await activeFlush;
+    clearPendingSyncState(userId);
+    return previous;
+  } catch (error) {
+    resumeSyncAfterDataClear(previous);
+    throw error;
   }
 };
 
-/**
- * Check if sync is enabled (user is authenticated and online)
- * This is a synchronous check - syncEnabled is managed by setSyncEnabled()
- * which is called from SyncContext when auth state changes
- * Also returns false if we're currently syncing FROM cloud (to prevent re-syncing cloud data)
- */
-const isSyncEnabled = (): boolean => {
-  const enabled = syncEnabled && !isSyncingFromCloud;
-  if (!enabled && syncEnabled) {
-    console.log('[SyncSubscriptions] Sync blocked - syncing from cloud in progress');
-  }
-  return enabled;
+export const resumeSyncAfterDataClear = (previous: SyncPauseState): void => {
+  setSyncingFromCloud(previous.syncingFromCloud);
+  setSyncEnabled(previous.enabled, previous.identity);
 };
 
-/**
- * Setup subscriptions for syncing store changes to Supabase
- */
-export const setupSyncSubscriptions = () => {
-  // Preferences sync
-  useAppStore.subscribe(
-    (state) => state.preferences,
-    (preferences, prevPreferences) => {
-      if (!isSyncEnabled()) return;
-      if (JSON.stringify(preferences) === JSON.stringify(prevPreferences)) return;
+const clearIfUnchanged = (
+  userId: string,
+  matches: (pending: PendingSyncState) => boolean,
+  clear: (pending: PendingSyncState) => void
+): void => {
+  updatePending(userId, (pending) => {
+    if (matches(pending)) clear(pending);
+  });
+};
 
-      // Only sync the changed fields
-      const changes: Partial<typeof preferences> = {};
-      const keys = Object.keys(preferences) as Array<keyof typeof preferences>;
+const performPendingFlush = async (
+  userId: string,
+  isCurrent: () => boolean
+): Promise<void> => {
+  while (isCurrent()) {
+    const pending = getPendingSyncState(userId);
+    if (!hasPendingOperations(pending)) return;
 
-      for (const key of keys) {
-        if (preferences[key] !== prevPreferences[key]) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (changes as any)[key] = preferences[key];
+    if (pending.preferences) {
+      const snapshot = pending.preferences;
+      await syncPreferences(snapshot, userId);
+      clearIfUnchanged(userId, (current) => valuesEqual(current.preferences, snapshot), (current) => {
+        delete current.preferences;
+      });
+    }
+    if (!isCurrent()) return;
+
+    if (pending.workoutGoal !== undefined) {
+      const snapshot = pending.workoutGoal;
+      await syncWorkoutGoal(snapshot, userId);
+      clearIfUnchanged(userId, (current) => current.workoutGoal === snapshot, (current) => {
+        delete current.workoutGoal;
+      });
+    }
+
+    if (pending.cycleState) {
+      const snapshot = pending.cycleState;
+      await syncCycleState(snapshot, userId);
+      clearIfUnchanged(userId, (current) => valuesEqual(current.cycleState, snapshot), (current) => {
+        delete current.cycleState;
+      });
+    }
+
+    if (pending.hasCompletedIntro !== undefined) {
+      const snapshot = pending.hasCompletedIntro;
+      await syncHasCompletedIntro(snapshot, userId);
+      clearIfUnchanged(userId, (current) => current.hasCompletedIntro === snapshot, (current) => {
+        delete current.hasCompletedIntro;
+      });
+    }
+
+    for (const [id, operation] of Object.entries(pending.templates)) {
+      if (!isCurrent()) return;
+      if (operation.kind === 'delete') {
+        await syncDeleteTemplate(id, userId);
+      } else {
+        await syncAddTemplate(operation.value, userId);
+      }
+      clearIfUnchanged(userId, (current) => valuesEqual(current.templates[id], operation), (current) => {
+        delete current.templates[id];
+      });
+    }
+
+    if (pending.templateOrder) {
+      const snapshot = pending.templateOrder;
+      await syncReorderTemplates(snapshot, userId);
+      clearIfUnchanged(userId, (current) => valuesEqual(current.templateOrder, snapshot), (current) => {
+        delete current.templateOrder;
+      });
+    }
+
+    for (const [id, operation] of Object.entries(pending.sessions)) {
+      if (!isCurrent()) return;
+      if (operation.kind === 'delete') {
+        await syncDeleteSession(id, userId);
+      } else {
+        await syncAddSession(operation.value, userId);
+        if (operation.value.completedAt) clearFeedCache();
+      }
+      clearIfUnchanged(userId, (current) => valuesEqual(current.sessions[id], operation), (current) => {
+        delete current.sessions[id];
+      });
+    }
+
+    if (pending.activeSessionSet) {
+      const snapshot = pending.activeSession ?? null;
+      await syncSetActiveSession(snapshot, userId);
+      clearIfUnchanged(
+        userId,
+        (current) => Boolean(current.activeSessionSet) && valuesEqual(current.activeSession ?? null, snapshot),
+        (current) => {
+          delete current.activeSessionSet;
+          delete current.activeSession;
         }
+      );
+    }
+
+    for (const [id, operation] of Object.entries(pending.customExercises)) {
+      if (!isCurrent()) return;
+      if (operation.kind === 'delete') {
+        await syncDeleteCustomExercise(id, userId);
+      } else {
+        await syncAddCustomExercise(operation.value, userId);
       }
-
-      if (Object.keys(changes).length > 0) {
-        syncPreferences(changes).catch(console.error);
-      }
-    }
-  );
-
-  // Workout goal sync
-  useAppStore.subscribe(
-    (state) => state.workoutGoal,
-    (goal) => {
-      if (!isSyncEnabled()) return;
-      syncWorkoutGoal(goal).catch(console.error);
-    }
-  );
-
-  // Cycle state sync
-  useAppStore.subscribe(
-    (state) => state.cycleState,
-    (cycleState, prevCycleState) => {
-      if (!isSyncEnabled()) return;
-      if (JSON.stringify(cycleState) === JSON.stringify(prevCycleState)) return;
-      syncCycleState(cycleState).catch(console.error);
-    }
-  );
-
-  // Has completed intro sync
-  useAppStore.subscribe(
-    (state) => state.hasCompletedIntro,
-    (value) => {
-      if (!isSyncEnabled()) return;
-      syncHasCompletedIntro(value).catch(console.error);
-    }
-  );
-
-  // Templates sync - only handles delete and reorder
-  // Add/update are handled directly in useWorkoutPlans.ts to avoid subscription complexity
-  useAppStore.subscribe(
-    (state) => state.templates,
-    (templates, prevTemplates) => {
-      if (!isSyncEnabled()) return;
-
-      const currentIds = templates.map((t) => t.id);
-      const prevIds = prevTemplates.map((t) => t.id);
-
-      // Check for deleted templates
-      for (const prevTemplate of prevTemplates) {
-        if (!currentIds.includes(prevTemplate.id)) {
-          console.log('[SyncSubscriptions] Template deleted, syncing:', prevTemplate.id);
-          syncDeleteTemplate(prevTemplate.id).catch(console.error);
+      clearIfUnchanged(
+        userId,
+        (current) => valuesEqual(current.customExercises[id], operation),
+        (current) => {
+          delete current.customExercises[id];
         }
-      }
-
-      // Check for reordering (same templates, different order)
-      if (
-        currentIds.length === prevIds.length &&
-        currentIds.every((id) => prevIds.includes(id)) &&
-        JSON.stringify(currentIds) !== JSON.stringify(prevIds)
-      ) {
-        console.log('[SyncSubscriptions] Templates reordered, syncing');
-        syncReorderTemplates(currentIds).catch(console.error);
-      }
+      );
     }
-  );
 
-  // Sessions sync
-  useAppStore.subscribe(
-    (state) => state.sessions,
-    (sessions, prevSessions) => {
-      if (!isSyncEnabled()) return;
-
-      const currentIds = sessions.map((s) => s.id);
-      const prevIds = prevSessions.map((s) => s.id);
-
-      // Check for added sessions
-      for (const session of sessions) {
-        if (!prevIds.includes(session.id) && !previousSessionIds.includes(session.id)) {
-          // Sync session, then clear feed cache so newly completed workouts show up
-          syncAddSession(session)
-            .then(() => clearFeedCache())
-            .catch(console.error);
-        }
+    for (const [date, operation] of Object.entries(pending.weights)) {
+      if (!isCurrent()) return;
+      if (operation.kind === 'delete') {
+        await syncDeleteWeightEntry(date, userId);
+      } else {
+        await syncAddWeightEntry(operation.value, userId);
       }
-
-      // Check for updated sessions
-      for (const session of sessions) {
-        const prevSession = prevSessions.find((s) => s.id === session.id);
-        if (prevSession && JSON.stringify(session) !== JSON.stringify(prevSession)) {
-          // If session was just completed, clear feed cache after sync
-          const wasJustCompleted = !prevSession.completedAt && session.completedAt;
-          syncUpdateSession(session)
-            .then(() => {
-              if (wasJustCompleted) clearFeedCache();
-            })
-            .catch(console.error);
-        }
-      }
-
-      previousSessionIds = currentIds;
+      clearIfUnchanged(userId, (current) => valuesEqual(current.weights[date], operation), (current) => {
+        delete current.weights[date];
+      });
     }
-  );
+  }
+};
 
-  // Active session sync
-  useAppStore.subscribe(
-    (state) => state.activeSession,
-    (session, prevSession) => {
-      if (!isSyncEnabled()) return;
+export const flushPendingSync = (
+  userId: string,
+  isCurrent: () => boolean = () => syncIdentity === userId
+): Promise<void> => {
+  const existing = flushesInFlight.get(userId);
+  if (existing) return existing;
 
-      // Only sync significant changes
-      if (JSON.stringify(session) !== JSON.stringify(prevSession)) {
-        syncSetActiveSession(session).catch(console.error);
-      }
+  const promise = performPendingFlush(userId, isCurrent).finally(() => {
+    flushesInFlight.delete(userId);
+    if (
+      syncEnabled &&
+      syncIdentity === userId &&
+      hasPendingOperations(getPendingSyncState(userId))
+    ) {
+      queueMicrotask(() => {
+        flushPendingSync(userId).catch((error) => {
+          console.error('[SyncSubscriptions] Failed to flush queued changes:', error);
+        });
+      });
     }
-  );
+  });
+  flushesInFlight.set(userId, promise);
+  return promise;
+};
 
-  // Custom exercises sync
-  useAppStore.subscribe(
-    (state) => state.customExercises,
-    (exercises, prevExercises) => {
-      if (!isSyncEnabled()) return;
+const queueFlush = (): void => {
+  if (!syncEnabled || !syncIdentity || isSyncingFromCloud) return;
+  flushPendingSync(syncIdentity).catch((error) => {
+    console.error('[SyncSubscriptions] Failed to synchronize local change:', error);
+  });
+};
 
-      const prevIds = prevExercises.map((e) => e.id);
+const getTrackingIdentity = (): string | null =>
+  isSyncingFromCloud ? null : syncIdentity;
 
-      // Check for added exercises
-      for (const exercise of exercises) {
-        if (!prevIds.includes(exercise.id) && !previousExerciseIds.includes(exercise.id)) {
-          syncAddCustomExercise(exercise).catch(console.error);
+export const setupSyncSubscriptions = (): (() => void) => {
+  const unsubscribers = [
+    useAppStore.subscribe(
+      (state) => state.preferences,
+      (preferences, previous) => {
+        const userId = getTrackingIdentity();
+        if (!userId || valuesEqual(preferences, previous)) return;
+        const changes: Partial<UserPreferences> = {};
+        for (const key of Object.keys(preferences) as Array<keyof UserPreferences>) {
+          if (preferences[key] !== previous[key]) {
+            Object.assign(changes, { [key]: preferences[key] });
+          }
         }
+        updatePending(userId, (pending) => {
+          pending.preferences = { ...pending.preferences, ...changes };
+        });
+        queueFlush();
       }
-
-      previousExerciseIds = exercises.map((e) => e.id);
-    }
-  );
-
-  // Weight entries sync
-  useAppStore.subscribe(
-    (state) => state.weightEntries,
-    (entries, prevEntries) => {
-      if (!isSyncEnabled()) return;
-
-      const currentDates = entries.map((e) => e.date);
-      const prevDates = prevEntries.map((e) => e.date);
-
-      // Check for added entries
-      for (const entry of entries) {
-        if (!prevDates.includes(entry.date) && !previousWeightDates.includes(entry.date)) {
-          syncAddWeightEntry(entry).catch(console.error);
-        }
+    ),
+    useAppStore.subscribe(
+      (state) => state.workoutGoal,
+      (goal, previous) => {
+        const userId = getTrackingIdentity();
+        if (!userId || goal === previous) return;
+        updatePending(userId, (pending) => {
+          pending.workoutGoal = goal;
+        });
+        queueFlush();
       }
-
-      // Check for deleted entries
-      for (const prevEntry of prevEntries) {
-        if (!currentDates.includes(prevEntry.date)) {
-          syncDeleteWeightEntry(prevEntry.date).catch(console.error);
-        }
+    ),
+    useAppStore.subscribe(
+      (state) => state.cycleState,
+      (cycleState, previous) => {
+        const userId = getTrackingIdentity();
+        if (!userId || valuesEqual(cycleState, previous)) return;
+        updatePending(userId, (pending) => {
+          pending.cycleState = cycleState;
+        });
+        queueFlush();
       }
+    ),
+    useAppStore.subscribe(
+      (state) => state.hasCompletedIntro,
+      (value, previous) => {
+        const userId = getTrackingIdentity();
+        if (!userId || value === previous) return;
+        updatePending(userId, (pending) => {
+          pending.hasCompletedIntro = value;
+        });
+        queueFlush();
+      }
+    ),
+    useAppStore.subscribe(
+      (state) => state.templates,
+      (templates, previous) => {
+        const userId = getTrackingIdentity();
+        if (!userId || valuesEqual(templates, previous)) return;
+        const currentIds = new Set(templates.map((template) => template.id));
+        updatePending(userId, (pending) => {
+          for (const template of previous) {
+            if (!currentIds.has(template.id)) pending.templates[template.id] = { kind: 'delete' };
+          }
+          for (const template of templates) {
+            const prior = previous.find((candidate) => candidate.id === template.id);
+            if (!prior || !valuesEqual(template, prior)) {
+              pending.templates[template.id] = { kind: 'upsert', value: template };
+            }
+          }
+          pending.templateOrder = templates.map((template) => template.id);
+        });
+        queueFlush();
+      }
+    ),
+    useAppStore.subscribe(
+      (state) => state.sessions,
+      (sessions, previous) => {
+        const userId = getTrackingIdentity();
+        if (!userId || valuesEqual(sessions, previous)) return;
+        const currentIds = new Set(sessions.map((session) => session.id));
+        updatePending(userId, (pending) => {
+          for (const session of previous) {
+            if (!currentIds.has(session.id)) pending.sessions[session.id] = { kind: 'delete' };
+          }
+          for (const session of sessions) {
+            const prior = previous.find((candidate) => candidate.id === session.id);
+            if (!prior || !valuesEqual(session, prior)) {
+              pending.sessions[session.id] = { kind: 'upsert', value: session };
+            }
+          }
+        });
+        previousSessionIds = sessions.map((session) => session.id);
+        queueFlush();
+      }
+    ),
+    useAppStore.subscribe(
+      (state) => state.activeSession,
+      (session, previous) => {
+        const userId = getTrackingIdentity();
+        if (!userId || valuesEqual(session, previous)) return;
+        updatePending(userId, (pending) => {
+          pending.activeSessionSet = true;
+          pending.activeSession = session;
+        });
+        queueFlush();
+      }
+    ),
+    useAppStore.subscribe(
+      (state) => state.customExercises,
+      (exercises, previous) => {
+        const userId = getTrackingIdentity();
+        if (!userId || valuesEqual(exercises, previous)) return;
+        const currentIds = new Set(exercises.map((exercise) => exercise.id));
+        updatePending(userId, (pending) => {
+          for (const exercise of previous) {
+            if (!currentIds.has(exercise.id)) {
+              pending.customExercises[exercise.id] = { kind: 'delete' };
+            }
+          }
+          for (const exercise of exercises) {
+            const prior = previous.find((candidate) => candidate.id === exercise.id);
+            if (!prior || !valuesEqual(exercise, prior)) {
+              pending.customExercises[exercise.id] = { kind: 'upsert', value: exercise };
+            }
+          }
+        });
+        queueFlush();
+      }
+    ),
+    useAppStore.subscribe(
+      (state) => state.weightEntries,
+      (entries, previous) => {
+        const userId = getTrackingIdentity();
+        if (!userId || valuesEqual(entries, previous)) return;
+        const currentDates = new Set(entries.map((entry) => entry.date));
+        updatePending(userId, (pending) => {
+          for (const entry of previous) {
+            if (!currentDates.has(entry.date)) pending.weights[entry.date] = { kind: 'delete' };
+          }
+          for (const entry of entries) {
+            const prior = previous.find((candidate) => candidate.date === entry.date);
+            if (!prior || !valuesEqual(entry, prior)) {
+              pending.weights[entry.date] = { kind: 'upsert', value: entry };
+            }
+          }
+        });
+        queueFlush();
+      }
+    ),
+  ];
 
-      previousWeightDates = currentDates;
-    }
-  );
+  return () => {
+    for (const unsubscribe of unsubscribers) unsubscribe();
+  };
 };

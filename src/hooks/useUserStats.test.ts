@@ -598,6 +598,22 @@ describe('useUserStats', () => {
       expect(result.current.averageWeightChangePerWeek).toBeCloseTo(-1, 1);
     });
 
+    it('should normalize mixed weight-entry units', () => {
+      const oldDate = new Date();
+      oldDate.setDate(oldDate.getDate() - 7);
+      const weightEntries = [
+        { weight: 150, date: oldDate.toISOString(), unit: 'lbs' as const },
+        { weight: 68.95, date: new Date().toISOString(), unit: 'kg' as const },
+      ];
+      const sessions = [createMockSession({}, 0)];
+
+      const { result } = renderHook(() =>
+        useUserStats(sessions, 'all', [], weightEntries, 'lbs')
+      );
+
+      expect(result.current.averageWeightChangePerWeek).toBeCloseTo(1.33, 1);
+    });
+
     it('should return 0 with only one weight entry', () => {
       const weightEntries = [
         { weight: 150, date: new Date().toISOString(), unit: 'lbs' as const },

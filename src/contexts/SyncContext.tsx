@@ -2,6 +2,17 @@ import { createContext, FC, ReactNode, useCallback, useEffect, useRef, useState 
 import { useAuth } from '../hooks/useAuth';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { useAppStore } from '../store/useAppStore';
+import type {
+  Exercise,
+  TrainingCycleConfig,
+  UserCycleState,
+  UserPreferences,
+  WeightEntry,
+  WorkoutGoal,
+  WorkoutSession,
+  WorkoutTemplate,
+} from '../types';
+import { BUILD_5_WEEK_CYCLE, getDefaultCycleForGoal } from '../types';
 import {
   getProfile,
   getTemplates,
@@ -12,17 +23,151 @@ import {
   profileToPreferences,
   deduplicateTemplateExercises,
 } from '../services/supabase';
-import { setupSyncSubscriptions, setSyncEnabled, setSyncingFromCloud } from '../store/syncSubscriptions';
 import {
-  syncAddSession,
-  syncAddTemplate,
-  syncAddCustomExercise,
-  syncAddWeightEntry,
-} from '../services/supabase/sync';
+  flushPendingSync,
+  getPendingSyncState,
+  seedPendingSyncState,
+  setupSyncSubscriptions,
+  setSyncEnabled,
+  setSyncingFromCloud,
+  type PendingSyncState,
+} from '../store/syncSubscriptions';
+import { useCurrentWorkoutStore } from '../store/currentWorkoutStore';
+import {
+  getCloudSyncGeneration,
+  trackCloudSync,
+} from '../services/syncCoordinator';
 
-// UUID validation regex
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const isValidUUID = (id: string): boolean => UUID_REGEX.test(id);
+const ACCOUNT_STATE_PREFIX = 'workout-app-account-state-v2:';
+const CURRENT_IDENTITY_KEY = 'workout-app-current-state-identity-v2';
+const ANONYMOUS_IDENTITY = 'anonymous';
+
+interface AccountState {
+  templates: WorkoutTemplate[];
+  sessions: WorkoutSession[];
+  activeSession: WorkoutSession | null;
+  preferences: UserPreferences;
+  customExercises: Exercise[];
+  workoutGoal: WorkoutGoal;
+  hasCompletedIntro: boolean;
+  weightEntries: WeightEntry[];
+  cycleConfig: TrainingCycleConfig;
+  cycleState: UserCycleState;
+}
+
+const createEmptyAccountState = (): AccountState => ({
+  templates: [],
+  sessions: [],
+  activeSession: null,
+  preferences: {
+    weightUnit: 'lbs',
+    distanceUnit: 'mi',
+    defaultRestSeconds: 90,
+    darkMode: false,
+    experienceLevel: 'intermediate',
+    weeklyWorkoutGoal: 4,
+  },
+  customExercises: [],
+  workoutGoal: 'build',
+  hasCompletedIntro: false,
+  weightEntries: [],
+  cycleConfig: BUILD_5_WEEK_CYCLE,
+  cycleState: {
+    cycleConfigId: BUILD_5_WEEK_CYCLE.id,
+    cycleStartDate: new Date().toISOString(),
+    currentPhaseIndex: 0,
+    currentWeekInPhase: 1,
+  },
+});
+
+const captureAccountState = (): AccountState => {
+  const state = useAppStore.getState();
+  return {
+    templates: state.templates,
+    sessions: state.sessions,
+    activeSession: state.activeSession,
+    preferences: state.preferences,
+    customExercises: state.customExercises,
+    workoutGoal: state.workoutGoal,
+    hasCompletedIntro: state.hasCompletedIntro,
+    weightEntries: state.weightEntries,
+    cycleConfig: state.cycleConfig,
+    cycleState: state.cycleState,
+  };
+};
+
+const normalizeIdentityName = (value: unknown): string =>
+  typeof value === 'string' ? value.trim().toLowerCase() : '';
+
+const legacyStateMatchesUser = (
+  state: AccountState,
+  metadata: Record<string, unknown> | undefined
+): boolean => {
+  const stateFirstName = normalizeIdentityName(state.preferences.firstName);
+  const metadataFirstName = normalizeIdentityName(metadata?.firstName);
+  if (!stateFirstName || stateFirstName !== metadataFirstName) return false;
+
+  const stateLastName = normalizeIdentityName(state.preferences.lastName);
+  const metadataLastName = normalizeIdentityName(metadata?.lastName);
+  return Boolean(
+    stateLastName &&
+    metadataLastName &&
+    stateLastName === metadataLastName
+  );
+};
+
+const saveAccountState = (identity: string, state: AccountState): void => {
+  localStorage.setItem(`${ACCOUNT_STATE_PREFIX}${identity}`, JSON.stringify(state));
+};
+
+const loadAccountState = (identity: string): AccountState | null => {
+  const serialized = localStorage.getItem(`${ACCOUNT_STATE_PREFIX}${identity}`);
+  if (!serialized) return null;
+
+  try {
+    return JSON.parse(serialized) as AccountState;
+  } catch (error) {
+    console.error('[Sync] Invalid account-bound local state:', error);
+    return null;
+  }
+};
+
+const overlayPendingRecords = <T extends { id: string }>(
+  cloudRecords: T[],
+  pendingRecords: Record<string, { kind: 'delete' } | { kind: 'upsert'; value: T }>
+): T[] => {
+  const records = new Map(cloudRecords.map((record) => [record.id, record]));
+  for (const [id, operation] of Object.entries(pendingRecords)) {
+    if (operation.kind === 'delete') records.delete(id);
+    else records.set(id, operation.value);
+  }
+  return [...records.values()];
+};
+
+const overlayPendingWeights = (
+  cloudRecords: WeightEntry[],
+  pendingRecords: PendingSyncState['weights']
+): WeightEntry[] => {
+  const records = new Map(cloudRecords.map((record) => [record.date, record]));
+  for (const [date, operation] of Object.entries(pendingRecords)) {
+    if (operation.kind === 'delete') records.delete(date);
+    else records.set(date, operation.value);
+  }
+  return [...records.values()];
+};
+
+const applyPendingTemplateOrder = (
+  templates: WorkoutTemplate[],
+  order?: string[]
+): WorkoutTemplate[] => {
+  if (!order) return templates;
+  const byId = new Map(templates.map((template) => [template.id, template]));
+  const ordered = order
+    .map((id) => byId.get(id))
+    .filter((template): template is WorkoutTemplate => Boolean(template));
+  const orderedIds = new Set(order);
+  return [...ordered, ...templates.filter((template) => !orderedIds.has(template.id))];
+};
 
 export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'error' | 'offline';
 
@@ -41,241 +186,237 @@ interface SyncProviderProps {
 }
 
 export const SyncProvider: FC<SyncProviderProps> = ({ children }) => {
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const isOnline = useOnlineStatus();
-  const subscriptionsSetup = useRef(false);
+  const userId = isAuthenticated ? user?.id ?? null : null;
+  const userFirstName = user?.user_metadata?.firstName;
+  const userLastName = user?.user_metadata?.lastName;
+  const currentIdentityRef = useRef<string | null>(null);
+  const syncGenerationRef = useRef(0);
+  const syncInFlightRef = useRef<{ userId: string; promise: Promise<void> } | null>(null);
 
+  const [identityVersion, setIdentityVersion] = useState(0);
   const [status, setStatus] = useState<SyncStatus>('idle');
   const [error, setError] = useState<string | null>(null);
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
 
-  // Setup sync subscriptions once
+  useEffect(() => setupSyncSubscriptions(), []);
+
   useEffect(() => {
-    if (!subscriptionsSetup.current) {
-      setupSyncSubscriptions();
-      subscriptionsSetup.current = true;
+    if (authLoading) return;
+
+    const nextIdentity = userId ?? ANONYMOUS_IDENTITY;
+    const storedIdentity = localStorage.getItem(CURRENT_IDENTITY_KEY);
+    if (storedIdentity !== nextIdentity) {
+      useCurrentWorkoutStore.getState().reset();
     }
-  }, []);
+    syncGenerationRef.current += 1;
+    setSyncEnabled(false, userId);
+    setSyncingFromCloud(true);
 
-  // Enable/disable sync based on auth state
+    if (!storedIdentity) {
+      if (nextIdentity === ANONYMOUS_IDENTITY) {
+        saveAccountState(ANONYMOUS_IDENTITY, captureAccountState());
+      } else {
+        const legacyState = captureAccountState();
+        if (legacyStateMatchesUser(legacyState, {
+          firstName: userFirstName,
+          lastName: userLastName,
+        })) {
+          saveAccountState(nextIdentity, legacyState);
+          seedPendingSyncState(nextIdentity, legacyState);
+        } else {
+          saveAccountState(ANONYMOUS_IDENTITY, legacyState);
+          useAppStore.setState(loadAccountState(nextIdentity) ?? createEmptyAccountState());
+        }
+      }
+    } else if (storedIdentity !== nextIdentity) {
+      saveAccountState(storedIdentity, captureAccountState());
+      useAppStore.setState(loadAccountState(nextIdentity) ?? createEmptyAccountState());
+    }
+
+    localStorage.setItem(CURRENT_IDENTITY_KEY, nextIdentity);
+    currentIdentityRef.current = userId;
+    setSyncingFromCloud(false);
+    setIdentityVersion((version) => version + 1);
+    setIsInitialLoading(Boolean(userId));
+    setError(null);
+    if (!userId) setStatus('idle');
+  }, [authLoading, userFirstName, userId, userLastName]);
+
   useEffect(() => {
-    setSyncEnabled(isAuthenticated && isOnline);
-  }, [isAuthenticated, isOnline]);
+    setSyncEnabled(Boolean(userId) && isOnline, userId);
+  }, [identityVersion, isOnline, userId]);
 
-  // Sync data from Supabase to Zustand store
-  const syncFromCloud = useCallback(async () => {
-    if (!isAuthenticated || !isOnline) {
+  const syncFromCloud = useCallback(async (): Promise<void> => {
+    const requestedUserId = userId;
+    if (!requestedUserId || currentIdentityRef.current !== requestedUserId) {
       setStatus(isOnline ? 'idle' : 'offline');
       return;
     }
+    if (!isOnline) {
+      setStatus('offline');
+      return;
+    }
 
-    setStatus('syncing');
-    setError(null);
+    const existing = syncInFlightRef.current;
+    if (existing?.userId === requestedUserId) return existing.promise;
 
-    // Suppress sync subscriptions while we're loading from cloud
-    // This prevents the subscriptions from trying to re-sync data we just fetched
-    setSyncingFromCloud(true);
+    const generation = syncGenerationRef.current;
+    const cloudSyncGeneration = getCloudSyncGeneration();
+    const isCurrent = (): boolean =>
+      currentIdentityRef.current === requestedUserId &&
+      syncGenerationRef.current === generation &&
+      getCloudSyncGeneration() === cloudSyncGeneration &&
+      isOnline;
 
-    try {
-      // Fetch all data in parallel
-      const [
-        profileResult,
-        templatesResult,
-        sessionsResult,
-        activeSessionResult,
-        exercisesResult,
-        weightEntriesResult,
-      ] = await Promise.all([
-        getProfile(),
-        getTemplates(),
-        getSessions(),
-        getActiveSession(),
-        getCustomExercises(),
-        getWeightEntries(),
-      ]);
+    const promise = (async () => {
+      setStatus('syncing');
+      setError(null);
+      // Keep observing local edits during the pull, but defer uploads so pending
+      // snapshots cannot be cleared before they are overlaid onto fetched data.
+      setSyncEnabled(false, requestedUserId);
 
-      // Check for errors
-      const errors = [
-        profileResult.error,
-        templatesResult.error,
-        sessionsResult.error,
-        activeSessionResult.error,
-        exercisesResult.error,
-        weightEntriesResult.error,
-      ].filter(Boolean);
+      try {
+        await flushPendingSync(requestedUserId, isCurrent);
+        if (!isCurrent()) return;
 
-      if (errors.length > 0) {
-        throw new Error(errors[0]?.message || 'Failed to sync data');
-      }
+        const [
+          profileResult,
+          templatesResult,
+          sessionsResult,
+          activeSessionResult,
+          exercisesResult,
+          weightEntriesResult,
+        ] = await Promise.all([
+          getProfile(),
+          getTemplates(),
+          getSessions(),
+          getActiveSession(),
+          getCustomExercises(),
+          getWeightEntries(),
+        ]);
+        if (!isCurrent()) return;
 
-      // Update Zustand store with fetched data
-      const store = useAppStore.getState();
+        const firstError = [
+          profileResult.error,
+          templatesResult.error,
+          sessionsResult.error,
+          activeSessionResult.error,
+          exercisesResult.error,
+          weightEntriesResult.error,
+        ].find(Boolean);
+        if (firstError) throw new Error(firstError.message || 'Failed to sync data');
 
-      // Update preferences from profile
-      if (profileResult.profile) {
-        const prefs = profileToPreferences(profileResult.profile);
-        store.updatePreferences(prefs);
+        const pending = getPendingSyncState(requestedUserId);
+        const localState = useAppStore.getState();
+        const cloudPreferences = profileResult.profile
+          ? profileToPreferences(profileResult.profile)
+          : createEmptyAccountState().preferences;
+        const workoutGoal = pending.workoutGoal ??
+          profileResult.profile?.workout_goal ??
+          createEmptyAccountState().workoutGoal;
+        const cycleState = pending.cycleState ??
+          profileResult.profile?.cycle_state ??
+          createEmptyAccountState().cycleState;
+        const cycleConfig = localState.cycleConfig.id === cycleState.cycleConfigId
+          ? localState.cycleConfig
+          : getDefaultCycleForGoal(workoutGoal);
 
-        // Update goal (cycle will be set by setWorkoutGoal if needed)
-        if (profileResult.profile.workout_goal) {
-          store.setWorkoutGoal(profileResult.profile.workout_goal);
-        }
-        // Restore cycle state from cloud if available
-        if (profileResult.profile.cycle_state) {
-          useAppStore.setState({ cycleState: profileResult.profile.cycle_state });
-        }
-        if (profileResult.profile.has_completed_intro) {
-          store.setHasCompletedIntro(true);
-        }
-      }
+        setSyncingFromCloud(true);
+        useAppStore.setState({
+          preferences: { ...cloudPreferences, ...pending.preferences },
+          workoutGoal,
+          cycleState,
+          cycleConfig,
+          hasCompletedIntro: pending.hasCompletedIntro ??
+            profileResult.profile?.has_completed_intro ??
+            false,
+          templates: applyPendingTemplateOrder(
+            overlayPendingRecords(templatesResult.templates, pending.templates),
+            pending.templateOrder
+          ),
+          sessions: overlayPendingRecords(sessionsResult.sessions, pending.sessions),
+          activeSession: pending.activeSessionSet
+            ? pending.activeSession ?? null
+            : activeSessionResult.session,
+          customExercises: overlayPendingRecords(
+            exercisesResult.exercises,
+            pending.customExercises
+          ),
+          weightEntries: overlayPendingWeights(weightEntriesResult.entries, pending.weights),
+        });
+        setSyncingFromCloud(false);
 
-      // Update templates - merge cloud with local (cloud wins for conflicts, local-only preserved)
-      if (templatesResult.templates.length > 0) {
-        const localTemplates = useAppStore.getState().templates;
-        const cloudTemplateIds = new Set(templatesResult.templates.map(t => t.id));
-        // Keep local-only templates (not in cloud yet) + all cloud templates
-        const localOnlyTemplates = localTemplates.filter(t => !cloudTemplateIds.has(t.id));
-        const mergedTemplates = [...templatesResult.templates, ...localOnlyTemplates];
-        useAppStore.setState({ templates: mergedTemplates });
-      }
+        await flushPendingSync(requestedUserId, isCurrent);
+        if (!isCurrent()) return;
 
-      // Update sessions - merge cloud with local (cloud wins for conflicts, local-only preserved)
-      if (sessionsResult.sessions.length > 0) {
-        const localSessions = useAppStore.getState().sessions;
-        const cloudSessionIds = new Set(sessionsResult.sessions.map(s => s.id));
-        // Keep local-only sessions (not in cloud yet) + all cloud sessions
-        const localOnlySessions = localSessions.filter(s => !cloudSessionIds.has(s.id));
-        const mergedSessions = [...sessionsResult.sessions, ...localOnlySessions];
-        useAppStore.setState({ sessions: mergedSessions });
-      } else {
-        // No cloud sessions - keep local sessions as-is (don't clear them)
-      }
-
-      // Update active session
-      if (activeSessionResult.session) {
-        store.setActiveSession(activeSessionResult.session);
-      }
-
-      // Update custom exercises - merge cloud with local
-      if (exercisesResult.exercises.length > 0) {
-        const localExercises = useAppStore.getState().customExercises;
-        const cloudExerciseIds = new Set(exercisesResult.exercises.map(e => e.id));
-        const localOnlyExercises = localExercises.filter(e => !cloudExerciseIds.has(e.id));
-        const mergedExercises = [...exercisesResult.exercises, ...localOnlyExercises];
-        useAppStore.setState({ customExercises: mergedExercises });
-      }
-
-      // Update weight entries - merge cloud with local (by date)
-      if (weightEntriesResult.entries.length > 0) {
-        const localEntries = useAppStore.getState().weightEntries;
-        const cloudDates = new Set(weightEntriesResult.entries.map(e => e.date));
-        const localOnlyEntries = localEntries.filter(e => !cloudDates.has(e.date));
-        const mergedEntries = [...weightEntriesResult.entries, ...localOnlyEntries];
-        useAppStore.setState({ weightEntries: mergedEntries });
-      }
-
-      // After merge, sync any local-only data TO the cloud (fire and forget)
-      // This ensures data that failed to sync previously eventually makes it to the cloud
-      const currentState = useAppStore.getState();
-
-      // Sync local-only sessions (skip invalid UUIDs from legacy data)
-      {
-        const cloudIds = new Set(sessionsResult.sessions.map(s => s.id));
-        const localOnly = currentState.sessions.filter(s => !cloudIds.has(s.id) && isValidUUID(s.id));
-        for (const session of localOnly) {
-          syncAddSession(session).catch(console.error);
-        }
-      }
-
-      // Sync local-only templates (skip invalid UUIDs from legacy data)
-      {
-        const cloudIds = new Set(templatesResult.templates.map(t => t.id));
-        const localOnly = currentState.templates.filter(t => !cloudIds.has(t.id) && isValidUUID(t.id));
-        for (const template of localOnly) {
-          syncAddTemplate(template).catch(console.error);
-        }
-      }
-
-      // Sync local-only custom exercises (skip invalid UUIDs from legacy data)
-      {
-        const cloudIds = new Set(exercisesResult.exercises.map(e => e.id));
-        const localOnly = currentState.customExercises.filter(e => !cloudIds.has(e.id) && isValidUUID(e.id));
-        for (const exercise of localOnly) {
-          syncAddCustomExercise(exercise).catch(console.error);
-        }
-      }
-
-      // Sync local-only weight entries
-      {
-        const cloudIds = new Set(weightEntriesResult.entries.map(e => e.date));
-        const localOnly = currentState.weightEntries.filter(e => !cloudIds.has(e.date));
-        for (const entry of localOnly) {
-          syncAddWeightEntry(entry).catch(console.error);
-        }
-      }
-
-      // One-time fix for duplicate template exercises bug
-      const dedupeKey = 'workout-app-dedupe-fix-v1';
-      if (!localStorage.getItem(dedupeKey)) {
-        try {
+        const dedupeKey = `workout-app-dedupe-fix-v1:${requestedUserId}`;
+        if (!localStorage.getItem(dedupeKey)) {
           const { fixed, error: dedupeError } = await deduplicateTemplateExercises();
-          if (!dedupeError && fixed > 0) {
-            console.log(`[Sync] Fixed ${fixed} duplicate template exercises`);
-            // Re-fetch templates after fix
-            const { templates: refreshedTemplates } = await getTemplates();
-            if (refreshedTemplates.length > 0) {
-              useAppStore.setState({ templates: refreshedTemplates });
+          if (!isCurrent()) return;
+          if (dedupeError) throw dedupeError;
+          if (fixed > 0) {
+            const refreshed = await getTemplates();
+            if (refreshed.error) throw refreshed.error;
+            if (isCurrent()) {
+              const latestPending = getPendingSyncState(requestedUserId);
+              useAppStore.setState({
+                templates: applyPendingTemplateOrder(
+                  overlayPendingRecords(refreshed.templates, latestPending.templates),
+                  latestPending.templateOrder
+                ),
+              });
             }
           }
           localStorage.setItem(dedupeKey, 'true');
-        } catch (dedupeErr) {
-          console.error('[Sync] Failed to deduplicate:', dedupeErr);
+        }
+
+        if (!isCurrent()) return;
+        saveAccountState(requestedUserId, captureAccountState());
+        setStatus('synced');
+        setLastSyncedAt(new Date());
+      } catch (syncError) {
+        if (!isCurrent()) return;
+        setStatus('error');
+        setError(syncError instanceof Error ? syncError.message : 'Sync failed');
+      } finally {
+        if (isCurrent()) {
+          setSyncingFromCloud(false);
+          setSyncEnabled(true, requestedUserId);
         }
       }
+    })();
 
-      // Re-enable sync subscriptions now that cloud sync is complete
-      // This also updates the baseline IDs to prevent re-syncing cloud data
-      setSyncingFromCloud(false);
-
-      setStatus('synced');
-      setLastSyncedAt(new Date());
-    } catch (err) {
-      // Re-enable sync even on error
-      setSyncingFromCloud(false);
-      setStatus('error');
-      setError(err instanceof Error ? err.message : 'Sync failed');
-    }
-  }, [isAuthenticated, isOnline]);
-
-  // Initial sync when user authenticates
-  useEffect(() => {
-    const initSync = async () => {
-      if (authLoading) return;
-
-      if (isAuthenticated && isOnline) {
-        // Sync from cloud - wait for this to complete before showing app
-        await syncFromCloud();
-        setIsInitialLoading(false);
-      } else if (!isAuthenticated) {
-        // Not authenticated - no sync needed, will redirect to auth
-        setIsInitialLoading(false);
+    syncInFlightRef.current = { userId: requestedUserId, promise };
+    trackCloudSync(promise);
+    try {
+      await promise;
+    } finally {
+      if (syncInFlightRef.current?.promise === promise) {
+        syncInFlightRef.current = null;
       }
-      // If authenticated but offline, keep isInitialLoading true until online
-    };
+    }
+  }, [isOnline, userId]);
 
-    initSync();
-  }, [isAuthenticated, isOnline, authLoading, syncFromCloud]);
-
-  // Update status when going offline/online
   useEffect(() => {
+    if (authLoading || currentIdentityRef.current !== userId) return;
+
+    if (!userId) {
+      setIsInitialLoading(false);
+      return;
+    }
     if (!isOnline) {
       setStatus('offline');
-    } else if (status === 'offline' && isAuthenticated) {
-      // Back online, trigger sync
-      syncFromCloud();
+      setIsInitialLoading(false);
+      return;
     }
-  }, [isOnline, isAuthenticated, status, syncFromCloud]);
+
+    syncFromCloud().finally(() => {
+      if (currentIdentityRef.current === userId) setIsInitialLoading(false);
+    });
+  }, [authLoading, identityVersion, isOnline, syncFromCloud, userId]);
 
   const value: SyncContextType = {
     status,

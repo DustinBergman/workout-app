@@ -27,13 +27,21 @@ vi.mock('../../hooks/useComments', () => ({
 }));
 
 vi.mock('../../store/useAppStore', () => ({
-  useAppStore: vi.fn((selector) => {
+  useAppStore: Object.assign(vi.fn((selector) => {
     const state = {
       customExercises: [],
       deleteSession: vi.fn(),
       addTemplate: mockAddTemplate,
+      addCustomExercise: vi.fn(),
+      preferences: {
+        weightUnit: 'lbs',
+        distanceUnit: 'mi',
+      },
     };
     return selector(state);
+  }), {
+    subscribe: vi.fn(() => vi.fn()),
+    getState: vi.fn(() => ({ activeSession: null })),
   }),
 }));
 
@@ -207,6 +215,18 @@ describe('FeedWorkoutCard', () => {
 
     // Comment button should show count
     expect(screen.getByText('3')).toBeInTheDocument();
+  });
+
+  it('should update the displayed comment count when engagement data arrives', () => {
+    const { rerender } = render(
+      <FeedWorkoutCard workout={mockWorkout} initialCommentCount={0} />
+    );
+
+    rerender(
+      <FeedWorkoutCard workout={mockWorkout} initialCommentCount={4} />
+    );
+
+    expect(screen.getByText('4')).toBeInTheDocument();
   });
 
   it('should show comments section expanded when defaultCommentsExpanded is true', () => {

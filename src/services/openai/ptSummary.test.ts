@@ -488,6 +488,24 @@ describe('ptSummary', () => {
       expect(result.exercisesOnPlateau).toEqual([]);
       expect(result.exercisesImproving).toEqual([]);
     });
+
+    it('should group quadriceps exercises under Legs', () => {
+      const result = aggregatePTSummaryData(
+        [createMockSessionWithExercises(0, ['squat'])],
+        [],
+        [],
+        defaultParams.firstName,
+        defaultParams.experienceLevel,
+        defaultParams.workoutGoal,
+        defaultParams.currentPhase
+      );
+
+      expect(result.muscleGroupProgress).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ muscleGroup: 'Legs' }),
+        ])
+      );
+    });
   });
 
   describe('getPTSummary', () => {

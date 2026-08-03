@@ -88,6 +88,17 @@ describe('RestTimer', () => {
       // Timer should show 0:00 since it hasn't started
       expect(screen.getByText(/Time Remaining: 0:00/)).toBeInTheDocument();
     });
+
+    it('should complete an expired persisted timer instead of restarting it', () => {
+      const onComplete = vi.fn();
+      useCurrentWorkoutStore.setState({ timerEndTime: Date.now() - 1000 });
+
+      render(<RestTimer duration={60} autoStart onComplete={onComplete} />);
+
+      expect(screen.getByText('Rest Complete!')).toBeInTheDocument();
+      expect(useCurrentWorkoutStore.getState().timerEndTime).toBeNull();
+      expect(onComplete).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('countdown', () => {

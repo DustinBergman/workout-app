@@ -76,6 +76,32 @@ describe('getWorkoutScore', () => {
     expect(result.improvements).toContain('Could increase weight next time');
   });
 
+  it('should preserve a legitimate zero score', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  score: 0,
+                  grade: 'F',
+                  summary: 'No completed work',
+                  highlights: [],
+                  improvements: ['Complete at least one set'],
+                }),
+              },
+            },
+          ],
+        }),
+    });
+
+    const result = await getWorkoutScore('test-key', createMockSession(), [], 'lbs');
+
+    expect(result.score).toBe(0);
+  });
+
   it('should include completed workout in prompt', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,

@@ -67,6 +67,7 @@ export const Settings: FC = () => {
   const [usernameError, setUsernameError] = useState('');
   const [usernameSaving, setUsernameSaving] = useState(false);
   const [usernameSaved, setUsernameSaved] = useState(false);
+  const [isClearingData, setIsClearingData] = useState(false);
 
   // Load current username on mount
   useEffect(() => {
@@ -158,11 +159,20 @@ export const Settings: FC = () => {
     reader.readAsText(file);
   };
 
-  const handleClearData = () => {
+  const handleClearData = async () => {
     if (confirm('Are you sure? This will delete all your workout data permanently.')) {
       if (confirm('This cannot be undone. Are you really sure?')) {
-        clearAllData();
-        window.location.reload();
+        setIsClearingData(true);
+        try {
+          await clearAllData();
+          toast.success('All workout data was deleted.');
+          navigate('/');
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Failed to clear workout data';
+          toast.error(message);
+        } finally {
+          setIsClearingData(false);
+        }
       }
     }
   };
@@ -267,17 +277,20 @@ export const Settings: FC = () => {
       {/* Tab Bar */}
       <div className="flex gap-1 mb-6 bg-muted/50 p-1 rounded-xl">
         {TABS.map((tab) => (
-          <button
+          <Button
             key={tab.id}
+            type="button"
+            variant="ghost"
+            size="sm"
             onClick={() => setActiveTab(tab.id)}
-            className={`flex-1 py-2 px-3 text-sm font-medium rounded-lg transition-all ${
+            className={`flex-1 h-auto py-2 px-3 text-sm font-medium rounded-lg transition-all ${
               activeTab === tab.id
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             {tab.label}
-          </button>
+          </Button>
         ))}
       </div>
 
@@ -806,8 +819,12 @@ export const Settings: FC = () => {
                     Permanently delete all workout data
                   </p>
                 </div>
-                <Button variant="danger" onClick={handleClearData}>
-                  Clear
+                <Button
+                  variant="danger"
+                  onClick={handleClearData}
+                  disabled={isClearingData}
+                >
+                  {isClearingData ? 'Clearing...' : 'Clear'}
                 </Button>
               </div>
             </Card>

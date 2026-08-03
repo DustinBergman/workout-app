@@ -1,5 +1,12 @@
 import { useMemo } from 'react';
-import { WorkoutSession, SessionExercise, CompletedSet } from '../types';
+import {
+  WorkoutSession,
+  SessionExercise,
+  CompletedSet,
+  WeightUnit,
+  DistanceUnit,
+} from '../types';
+import { convertDistance, convertWeight } from '../utils/workoutUtils';
 
 interface SessionStats {
   totalSets: number;
@@ -10,20 +17,36 @@ interface SessionStats {
   totalCardioCalories: number;
 }
 
-const processSet = (set: CompletedSet) => {
+const processSet = (
+  set: CompletedSet,
+  weightUnit: WeightUnit,
+  distanceUnit: DistanceUnit
+) => {
   if (set.type === 'cardio') {
     return {
       volume: 0,
       reps: 0,
-      distance: set.distance ?? 0,
+      distance: set.distance !== undefined && set.distanceUnit
+        ? convertDistance(set.distance, set.distanceUnit, distanceUnit)
+        : 0,
       duration: set.durationSeconds,
       calories: set.calories ?? 0,
     };
   }
   // Handle strength sets (including legacy sets without type)
-  const strengthSet = set as { weight: number; reps: number; type?: string };
+  const strengthSet = set as {
+    weight: number;
+    reps: number;
+    unit?: WeightUnit;
+    type?: string;
+  };
+  const normalizedWeight = convertWeight(
+    strengthSet.weight,
+    strengthSet.unit ?? weightUnit,
+    weightUnit
+  );
   return {
-    volume: strengthSet.weight * strengthSet.reps,
+    volume: normalizedWeight * strengthSet.reps,
     reps: strengthSet.reps,
     distance: 0,
     duration: 0,
@@ -31,7 +54,11 @@ const processSet = (set: CompletedSet) => {
   };
 };
 
-export const useSessionStats = (session: WorkoutSession | null): SessionStats => {
+export const useSessionStats = (
+  session: WorkoutSession | null,
+  weightUnit: WeightUnit = 'lbs',
+  distanceUnit: DistanceUnit = 'mi'
+): SessionStats => {
   return useMemo(() => {
     if (!session) {
       return {
@@ -54,7 +81,7 @@ export const useSessionStats = (session: WorkoutSession | null): SessionStats =>
     session.exercises.forEach((ex: SessionExercise) => {
       ex.sets.forEach((set) => {
         totalSets++;
-        const processed = processSet(set);
+        const processed = processSet(set, weightUnit, distanceUnit);
         totalVolume += processed.volume;
         totalReps += processed.reps;
         totalCardioDistance += processed.distance;
@@ -71,11 +98,15 @@ export const useSessionStats = (session: WorkoutSession | null): SessionStats =>
       totalCardioDurationSeconds,
       totalCardioCalories,
     };
-  }, [session]);
+  }, [session, weightUnit, distanceUnit]);
 };
 
 // Pure function version for when you need to calculate stats without hooks
-export const calculateSessionStats = (session: WorkoutSession): SessionStats => {
+export const calculateSessionStats = (
+  session: WorkoutSession,
+  weightUnit: WeightUnit = 'lbs',
+  distanceUnit: DistanceUnit = 'mi'
+): SessionStats => {
   let totalSets = 0;
   let totalVolume = 0;
   let totalReps = 0;
@@ -86,7 +117,7 @@ export const calculateSessionStats = (session: WorkoutSession): SessionStats => 
   session.exercises.forEach((ex: SessionExercise) => {
     ex.sets.forEach((set) => {
       totalSets++;
-      const processed = processSet(set);
+      const processed = processSet(set, weightUnit, distanceUnit);
       totalVolume += processed.volume;
       totalReps += processed.reps;
       totalCardioDistance += processed.distance;

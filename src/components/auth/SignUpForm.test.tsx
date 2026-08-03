@@ -159,6 +159,22 @@ describe('SignUpForm', () => {
         lastName: 'Doe',
       });
     });
+
+  });
+
+  it('should close the disclaimer without resubmitting when declined', async () => {
+    const user = userEvent.setup();
+    renderSignUpForm();
+
+    await user.type(screen.getByLabelText(/username/i), 'johnd');
+    await user.type(screen.getByLabelText(/^email$/i), 'john@example.com');
+    await user.type(screen.getByLabelText(/^password$/i), 'password123');
+    await user.type(screen.getByLabelText(/confirm password/i), 'password123');
+    await user.click(screen.getByRole('button', { name: /create account/i }));
+    await user.click(await screen.findByRole('button', { name: /decline/i }));
+
+    expect(screen.queryByRole('button', { name: /decline/i })).not.toBeInTheDocument();
+    expect(mockSignUp).not.toHaveBeenCalled();
   });
 
   it('should show confirmation screen after successful signup', async () => {

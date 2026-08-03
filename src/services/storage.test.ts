@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   getTemplates,
   saveTemplates,
@@ -20,14 +20,89 @@ import {
   importAllData,
   clearAllData,
 } from './storage';
-import { STORAGE_KEYS } from '../types';
+import { BUILD_5_WEEK_CYCLE } from '../types';
 import { createMockTemplate } from '../test/fixtures/templates';
 import { createMockSession } from '../test/fixtures/sessions';
 import { createMockExercise } from '../test/fixtures/exercises';
+import { useAppStore } from '../store/useAppStore';
+
+const {
+  mockGetAuthUser,
+  mockFrom,
+  mockDeleteEq,
+  mockProfileEq,
+  mockPauseSync,
+  mockResumeSync,
+  mockWaitForQueuedSyncs,
+} = vi.hoisted(() => ({
+  mockGetAuthUser: vi.fn(),
+  mockFrom: vi.fn(),
+  mockDeleteEq: vi.fn(),
+  mockProfileEq: vi.fn(),
+  mockPauseSync: vi.fn(),
+  mockResumeSync: vi.fn(),
+  mockWaitForQueuedSyncs: vi.fn(),
+}));
+
+vi.mock('./supabase/authHelper', () => ({
+  getAuthUser: mockGetAuthUser,
+}));
+
+vi.mock('../lib/supabase', () => ({
+  supabase: {
+    from: mockFrom,
+  },
+}));
+
+vi.mock('../store/syncSubscriptions', () => ({
+  pauseSyncForDataClear: mockPauseSync,
+  resumeSyncAfterDataClear: mockResumeSync,
+}));
+
+vi.mock('./supabase/sync', () => ({
+  waitForQueuedSyncs: mockWaitForQueuedSyncs,
+}));
 
 describe('Storage Service', () => {
   beforeEach(() => {
     localStorage.clear();
+    mockGetAuthUser.mockResolvedValue(null);
+    mockDeleteEq.mockResolvedValue({ error: null });
+    mockProfileEq.mockResolvedValue({ error: null });
+    mockPauseSync.mockResolvedValue({
+      enabled: true,
+      identity: 'user-1',
+      syncingFromCloud: false,
+    });
+    mockWaitForQueuedSyncs.mockResolvedValue(undefined);
+    mockFrom.mockImplementation(() => ({
+      delete: () => ({ eq: mockDeleteEq }),
+      update: () => ({ eq: mockProfileEq }),
+    }));
+    useAppStore.setState({
+      templates: [],
+      sessions: [],
+      activeSession: null,
+      preferences: {
+        weightUnit: 'lbs',
+        distanceUnit: 'mi',
+        defaultRestSeconds: 90,
+        darkMode: false,
+        experienceLevel: 'intermediate',
+        weeklyWorkoutGoal: 4,
+      },
+      customExercises: [],
+      workoutGoal: 'build',
+      hasCompletedIntro: false,
+      weightEntries: [],
+      cycleConfig: BUILD_5_WEEK_CYCLE,
+      cycleState: {
+        cycleConfigId: BUILD_5_WEEK_CYCLE.id,
+        cycleStartDate: new Date().toISOString(),
+        currentPhaseIndex: 0,
+        currentWeekInPhase: 1,
+      },
+    });
   });
 
   describe('Templates', () => {
@@ -183,7 +258,7 @@ describe('Storage Service', () => {
     });
 
     it('should merge with defaults for partial preferences', () => {
-      localStorage.setItem(STORAGE_KEYS.PREFERENCES, JSON.stringify({ darkMode: true }));
+      savePreferences({ darkMode: true } as never);
       const prefs = getPreferences();
       expect(prefs.darkMode).toBe(true);
       expect(prefs.weightUnit).toBe('lbs'); // default
@@ -240,6 +315,7 @@ describe('Storage Service', () => {
       const exported = exportAllData();
       const parsed = JSON.parse(exported);
 
+      expect(parsed.version).toBe(1);
       expect(parsed.templates).toHaveLength(1);
       expect(parsed.sessions).toHaveLength(1);
       expect(parsed.customExercises).toHaveLength(1);
@@ -256,6 +332,8 @@ describe('Storage Service', () => {
 
     it('should import all data from JSON string', () => {
       const data = {
+        version: 1,
+        exportedAt: new Date().toISOString(),
         templates: [createMockTemplate({ name: 'Imported Template' })],
         sessions: [createMockSession({ name: 'Imported Session' })],
         preferences: { weightUnit: 'kg', distanceUnit: 'mi' as const, defaultRestSeconds: 60, darkMode: true },
@@ -279,25 +357,25 @@ describe('Storage Service', () => {
     it('should handle partial import data', () => {
       const data = { templates: [createMockTemplate()] };
       const result = importAllData(JSON.stringify(data));
-      expect(result).toBe(true);
-      expect(getTemplates()).toHaveLength(1);
+      expect(result).toBe(false);
+      expect(getTemplates()).toHaveLength(0);
     });
 
     it('should handle empty import data', () => {
       const result = importAllData('{}');
-      expect(result).toBe(true);
+      expect(result).toBe(false);
     });
   });
 
   describe('Clear All Data', () => {
-    it('should clear all stored data', () => {
+    it('should clear all stored data', async () => {
       addTemplate(createMockTemplate());
       addSession(createMockSession());
       saveActiveSession(createMockSession());
       savePreferences({ weightUnit: 'kg', distanceUnit: 'mi' as const, defaultRestSeconds: 120, darkMode: true });
       addCustomExercise(createMockExercise());
 
-      clearAllData();
+      await clearAllData();
 
       expect(getTemplates()).toEqual([]);
       expect(getSessions()).toEqual([]);
@@ -307,10 +385,37 @@ describe('Storage Service', () => {
       expect(getPreferences().weightUnit).toBe('lbs');
     });
 
-    it('should handle clearing already empty storage', () => {
-      clearAllData();
+    it('should handle clearing already empty storage', async () => {
+      await clearAllData();
       expect(getTemplates()).toEqual([]);
       expect(getSessions()).toEqual([]);
+    });
+
+    it('should clear cloud workout rows without clearing authentication storage', async () => {
+      mockGetAuthUser.mockResolvedValue({ id: 'user-1' });
+      localStorage.setItem('supabase.auth.token', 'keep-me');
+      localStorage.setItem('workout-app-account-state-v2:user-1', '{}');
+      localStorage.setItem('workout-app-pending-sync-v2:user-1', '{}');
+
+      await clearAllData();
+
+      expect(mockPauseSync).toHaveBeenCalledWith('user-1');
+      expect(mockWaitForQueuedSyncs).toHaveBeenCalled();
+      expect(mockResumeSync).toHaveBeenCalledWith({
+        enabled: true,
+        identity: 'user-1',
+        syncingFromCloud: false,
+      });
+      expect(mockFrom.mock.calls.map(([table]) => table)).toEqual([
+        'workout_sessions',
+        'workout_templates',
+        'custom_exercises',
+        'weight_entries',
+        'profiles',
+      ]);
+      expect(localStorage.getItem('supabase.auth.token')).toBe('keep-me');
+      expect(localStorage.getItem('workout-app-account-state-v2:user-1')).toBeNull();
+      expect(localStorage.getItem('workout-app-pending-sync-v2:user-1')).toBeNull();
     });
   });
 });

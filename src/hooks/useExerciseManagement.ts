@@ -26,7 +26,7 @@ interface UseExerciseManagementReturn {
   updateSetForExercise: (exerciseIndex: number, setIndex: number, reps: number, weight: number) => void;
   addExerciseToSession: (exerciseId: string) => void;
   removeExercise: (index: number) => void;
-  updateTargetSets: (exerciseId: string, delta: number) => void;
+  updateTargetSets: (exerciseIndex: number, delta: number) => void;
   reorderExercises: (activeId: string, overId: string) => void;
 }
 
@@ -253,10 +253,10 @@ export const useExerciseManagement = (): UseExerciseManagementReturn => {
   }, [session, expandedIndex, setActiveSession, setExpandedIndex]);
 
   // Update target sets for an exercise
-  const updateTargetSets = useCallback((exerciseId: string, delta: number) => {
+  const updateTargetSets = useCallback((exerciseIndex: number, delta: number) => {
     if (!session) return;
-    const newExercises = session.exercises.map(ex => {
-      if (ex.exerciseId === exerciseId && ex.type === 'strength') {
+    const newExercises = session.exercises.map((ex, index) => {
+      if (index === exerciseIndex && ex.type === 'strength') {
         return { ...ex, targetSets: Math.max(1, ex.targetSets + delta) };
       }
       return ex;

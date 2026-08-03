@@ -1,4 +1,4 @@
-import { createContext, FC, ReactNode, useCallback, useEffect, useState } from 'react';
+import { createContext, FC, ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import type { User, Session, AuthError } from '@supabase/supabase-js';
 import {
   signIn as authSignIn,
@@ -44,9 +44,11 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(initialState.user);
   const [session, setSession] = useState<Session | null>(initialState.session);
   const [isLoading, setIsLoading] = useState(initialState.isLoading);
+  const authGenerationRef = useRef(0);
 
   // Initialize auth state
   useEffect(() => {
+    const generation = ++authGenerationRef.current;
     const initAuth = async () => {
       // First, check our local cache for a quick start
       const cachedAuth = getCachedAuth();
@@ -58,6 +60,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
         // Still fetch the real session in background to ensure it's fresh
         // but user sees the app immediately
         getSession().then(({ session: freshSession }) => {
+          if (authGenerationRef.current !== generation) return;
           if (freshSession) {
             setSession(freshSession);
             setUser(freshSession.user);
@@ -76,6 +79,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
 
       // No cache, do the normal flow
       const { session: currentSession } = await getSession();
+      if (authGenerationRef.current !== generation) return;
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
       if (currentSession?.user) {
@@ -89,6 +93,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
 
     // Subscribe to auth changes
     const subscription = onAuthStateChange((event, newSession) => {
+      authGenerationRef.current += 1;
       setSession(newSession);
       setUser(newSession?.user ?? null);
       if (newSession?.user) {
@@ -118,6 +123,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
   ) => {
     const { user: newUser, session: newSession, error } = await authSignUp(email, password, metadata);
     if (!error && newUser && newSession) {
+      authGenerationRef.current += 1;
       setUser(newUser);
       setSession(newSession);
       setCachedAuth(newUser, newSession);
@@ -129,6 +135,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
   const signIn = useCallback(async (email: string, password: string) => {
     const { user: newUser, session: newSession, error } = await authSignIn(email, password);
     if (!error && newUser && newSession) {
+      authGenerationRef.current += 1;
       setUser(newUser);
       setSession(newSession);
       setCachedAuth(newUser, newSession);
@@ -140,6 +147,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
   const signOut = useCallback(async () => {
     const { error } = await authSignOut();
     if (!error) {
+      authGenerationRef.current += 1;
       setUser(null);
       setSession(null);
       clearCachedAuth();

@@ -25,6 +25,7 @@ export const CardioFields: FC<CardioFieldsProps> = ({ exercise, index, onUpdate 
         label="Duration (min)"
         value={'targetDurationMinutes' in exercise ? exercise.targetDurationMinutes : undefined}
         onChange={(v) => onUpdate(index, { targetDurationMinutes: v })}
+        min={1}
       />
       <NumberInput
         label="Rest (s)"
@@ -47,6 +48,7 @@ export const CardioFields: FC<CardioFieldsProps> = ({ exercise, index, onUpdate 
         label="Work (s)"
         value={'workSeconds' in exercise ? exercise.workSeconds : undefined}
         onChange={(v) => onUpdate(index, { workSeconds: v })}
+        min={1}
       />
       <NumberInput
         label="Rest between (s)"
@@ -86,6 +88,7 @@ export const CardioFields: FC<CardioFieldsProps> = ({ exercise, index, onUpdate 
         label="Duration (min)"
         value={'targetDurationMinutes' in exercise ? exercise.targetDurationMinutes : undefined}
         onChange={(v) => onUpdate(index, { targetDurationMinutes: v })}
+        min={1}
       />
       <IntensitySelector
         value={'targetIntensity' in exercise ? exercise.targetIntensity : undefined}
@@ -106,6 +109,7 @@ export const CardioFields: FC<CardioFieldsProps> = ({ exercise, index, onUpdate 
         label="Duration (min)"
         value={'targetDurationMinutes' in exercise ? exercise.targetDurationMinutes : undefined}
         onChange={(v) => onUpdate(index, { targetDurationMinutes: v })}
+        min={1}
       />
       <NumberInput
         label="Rest (s)"

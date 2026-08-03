@@ -99,6 +99,19 @@ export const useCurrentWorkoutStore = create<CurrentWorkoutState>()(
       }),
       {
         name: 'workout-app-current-workout',
+        partialize: (state) => ({
+          ...state,
+          isScoring: false,
+          scoreResult: null,
+          scoreError: null,
+        }),
+        merge: (persistedState, currentState) => ({
+          ...currentState,
+          ...(persistedState as Partial<CurrentWorkoutState>),
+          isScoring: false,
+          scoreResult: null,
+          scoreError: null,
+        }),
       }
     )
   )
@@ -107,8 +120,11 @@ export const useCurrentWorkoutStore = create<CurrentWorkoutState>()(
 // Auto-clear when workout ends (activeSession becomes null)
 useAppStore.subscribe(
   (state) => state.activeSession,
-  (activeSession) => {
-    if (activeSession === null) {
+  (activeSession, previousSession) => {
+    if (
+      activeSession === null ||
+      (previousSession !== null && activeSession.id !== previousSession.id)
+    ) {
       useCurrentWorkoutStore.getState().reset();
     }
   }

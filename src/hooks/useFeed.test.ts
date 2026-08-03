@@ -15,9 +15,14 @@ vi.mock('../services/supabase/comments', () => ({
   getBatchPreviewComments: vi.fn(),
 }));
 
+vi.mock('./useAuth', () => ({
+  useAuth: vi.fn(),
+}));
+
 import { getFriendWorkouts } from '../services/supabase/feed';
 import { getBatchLikeSummaries } from '../services/supabase/likes';
 import { getBatchCommentCounts, getBatchPreviewComments } from '../services/supabase/comments';
+import { useAuth } from './useAuth';
 import { useFeed, clearFeedCache } from './useFeed';
 
 describe('useFeed', () => {
@@ -83,6 +88,9 @@ describe('useFeed', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     clearFeedCache();
+    vi.mocked(useAuth).mockReturnValue({
+      user: { id: 'viewer-1' },
+    } as never);
 
     vi.mocked(getFriendWorkouts).mockResolvedValue({
       workouts: mockWorkouts,
@@ -249,6 +257,84 @@ describe('useFeed', () => {
 
     expect(result.current.workouts).toHaveLength(21);
     expect(result.current.workouts[20].name).toBe('Third Workout');
+  });
+
+  it('should coalesce concurrent loadMore calls and deduplicate workout IDs', async () => {
+    const initialWorkouts = Array.from({ length: 20 }, (_, i) => ({
+      ...mockWorkouts[0],
+      id: `workout-${i}`,
+    }));
+    let resolvePage: ((value: { workouts: typeof mockWorkouts; error: null }) => void) | undefined;
+    vi.mocked(getFriendWorkouts)
+      .mockResolvedValueOnce({ workouts: initialWorkouts, error: null })
+      .mockImplementationOnce(() => new Promise((resolve) => {
+        resolvePage = resolve as typeof resolvePage;
+      }));
+
+    const { result } = renderHook(() => useFeed());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let first: Promise<void>;
+    let second: Promise<void>;
+    act(() => {
+      first = result.current.loadMore();
+      second = result.current.loadMore();
+    });
+    expect(getFriendWorkouts).toHaveBeenCalledTimes(2);
+
+    resolvePage?.({
+      workouts: [
+        initialWorkouts[19],
+        { ...mockWorkouts[0], id: 'workout-20' },
+      ],
+      error: null,
+    });
+    await act(async () => {
+      await Promise.all([first, second]);
+    });
+
+    expect(result.current.workouts).toHaveLength(21);
+    expect(new Set(result.current.workouts.map((workout) => workout.id)).size).toBe(21);
+  });
+
+  it('does not expose cached workouts after the authenticated user changes', async () => {
+    const { result, unmount } = renderHook(() => useFeed());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.workouts).toHaveLength(2);
+    unmount();
+
+    vi.mocked(useAuth).mockReturnValue({
+      user: { id: 'viewer-2' },
+    } as never);
+    vi.mocked(getFriendWorkouts).mockResolvedValueOnce({ workouts: [], error: null });
+
+    const secondRender = renderHook(() => useFeed());
+    expect(secondRender.result.current.workouts).toEqual([]);
+    await waitFor(() => expect(secondRender.result.current.isLoading).toBe(false));
+    expect(getFriendWorkouts).toHaveBeenLastCalledWith(20, 0);
+  });
+
+  it('does not recreate an invalidated cache after engagement loading finishes', async () => {
+    let resolveLikes: ((value: {
+      summaries: typeof mockLikeSummaries;
+      error: null;
+    }) => void) | undefined;
+    vi.mocked(getBatchLikeSummaries).mockImplementationOnce(
+      () => new Promise((resolve) => {
+        resolveLikes = resolve;
+      })
+    );
+
+    const firstRender = renderHook(() => useFeed());
+    await waitFor(() => expect(firstRender.result.current.workouts).toHaveLength(2));
+    clearFeedCache();
+    resolveLikes?.({ summaries: mockLikeSummaries, error: null });
+    await waitFor(() => expect(firstRender.result.current.isLoading).toBe(false));
+    firstRender.unmount();
+
+    renderHook(() => useFeed());
+
+    await waitFor(() => expect(getFriendWorkouts).toHaveBeenCalledTimes(2));
   });
 
   it('should handle errors gracefully', async () => {

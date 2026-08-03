@@ -23,7 +23,7 @@ export const SessionDetailModal: FC<SessionDetailModalProps> = ({
 }) => {
   if (!session) return null;
 
-  const sessionStats = calculateSessionStats(session);
+  const sessionStats = calculateSessionStats(session, weightUnit, distanceUnit);
   const hasStrength = sessionStats.totalVolume > 0;
   const hasCardio = sessionStats.totalCardioDistance > 0;
 

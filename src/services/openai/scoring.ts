@@ -101,9 +101,12 @@ Be encouraging but honest. Use ${weightUnit} when referencing weights.`;
   });
 
   const parsed = parseJSONResponse<Partial<WorkoutScoreResult>>(content, {});
+  const parsedScore = typeof parsed.score === 'number' && Number.isFinite(parsed.score)
+    ? Math.min(100, Math.max(0, parsed.score))
+    : DEFAULT_SCORE_RESULT.score;
 
   return {
-    score: parsed.score || DEFAULT_SCORE_RESULT.score,
+    score: parsedScore,
     grade: parsed.grade || DEFAULT_SCORE_RESULT.grade,
     summary: parsed.summary || DEFAULT_SCORE_RESULT.summary,
     highlights: parsed.highlights || DEFAULT_SCORE_RESULT.highlights,

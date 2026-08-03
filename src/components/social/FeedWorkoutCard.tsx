@@ -16,7 +16,12 @@ import { useAuth } from '../../hooks/useAuth';
 import { WORKOUT_MOOD_CONFIG, getWeekConfigForGoal, CardioType, DistanceUnit } from '../../types';
 import { deleteSession } from '../../services/supabase/sessions';
 import { toast } from '../../store/toastStore';
-import { convertFeedWorkoutToTemplate, estimateCardioCalories, convertWeight } from '../../utils/workoutUtils';
+import {
+  convertDistance,
+  convertFeedWorkoutToTemplate,
+  estimateCardioCalories,
+  convertWeight,
+} from '../../utils/workoutUtils';
 import { WeightUnit } from '../../types';
 import { syncAddTemplate, syncAddCustomExercise } from '../../services/supabase/sync';
 
@@ -32,17 +37,20 @@ interface FeedWorkoutCardProps {
   onDelete?: (workoutId: string) => void;
 }
 
+const EMPTY_PREVIEW_COMMENTS: WorkoutComment[] = [];
+
 export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
   workout,
   initialLikeSummary,
   initialCommentCount = 0,
-  initialPreviewComments = [],
+  initialPreviewComments: initialPreviewCommentsProp,
   defaultCommentsExpanded = false,
   onLikeSummaryChange,
   onCommentCountChange,
   onPreviewCommentsChange,
   onDelete,
 }) => {
+  const initialPreviewComments = initialPreviewCommentsProp ?? EMPTY_PREVIEW_COMMENTS;
   const [isExpanded, setIsExpanded] = useState(false);
   const [showComments, setShowComments] = useState(defaultCommentsExpanded);
   const [showLikersModal, setShowLikersModal] = useState(false);
@@ -58,6 +66,7 @@ export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
 
   const customExercises = useAppStore((state) => state.customExercises);
   const preferredWeightUnit = useAppStore((state) => state.preferences?.weightUnit ?? 'lbs');
+  const preferredDistanceUnit = useAppStore((state) => state.preferences?.distanceUnit ?? 'mi');
   const deleteSessionFromStore = useAppStore((state) => state.deleteSession);
   const addTemplate = useAppStore((state) => state.addTemplate);
   const addCustomExercise = useAppStore((state) => state.addCustomExercise);
@@ -77,6 +86,14 @@ export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
     }
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showMenu]);
+
+  useEffect(() => {
+    setCommentCount(initialCommentCount);
+  }, [initialCommentCount]);
+
+  useEffect(() => {
+    setPreviewComments(initialPreviewComments);
+  }, [initialPreviewComments]);
 
   const {
     likeSummary,
@@ -111,15 +128,11 @@ export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
   }, []);
 
   const handleToggleLike = useCallback(async () => {
-    await toggleLike();
-    if (likeSummary && onLikeSummaryChange) {
-      onLikeSummaryChange(workout.id, {
-        ...likeSummary,
-        hasLiked: !likeSummary.hasLiked,
-        count: likeSummary.hasLiked ? likeSummary.count - 1 : likeSummary.count + 1,
-      });
+    const updatedSummary = await toggleLike();
+    if (updatedSummary && onLikeSummaryChange) {
+      onLikeSummaryChange(workout.id, updatedSummary);
     }
-  }, [toggleLike, likeSummary, onLikeSummaryChange, workout.id]);
+  }, [toggleLike, onLikeSummaryChange, workout.id]);
 
   const handleCommentCountChange = useCallback((count: number) => {
     setCommentCount(count);
@@ -145,9 +158,11 @@ export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
 
     try {
       if (comment.has_liked) {
-        await unlikeComment(commentId);
+        const { error } = await unlikeComment(commentId);
+        if (error) throw error;
       } else {
-        await likeComment(commentId);
+        const { error } = await likeComment(commentId);
+        if (error) throw error;
       }
     } catch {
       // Revert on error
@@ -323,7 +338,9 @@ export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
           const cardioExercises = workout.session_exercises.filter(ex => ex.type === 'cardio');
           const totalCardioDistance = cardioExercises.reduce((sum, ex) => {
             return sum + ex.completed_sets.reduce((setSum, set) => {
-              return setSum + (set.distance || 0);
+              if (!set.distance) return setSum;
+              const setUnit = (set.distance_unit || 'mi') as DistanceUnit;
+              return setSum + convertDistance(set.distance, setUnit, preferredDistanceUnit);
             }, 0);
           }, 0);
 
@@ -354,12 +371,6 @@ export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
               return setSum;
             }, 0);
           }, 0);
-
-          // Determine distance unit from first cardio set
-          const firstCardioSet = cardioExercises
-            .flatMap(ex => ex.completed_sets)
-            .find(set => set.distance_unit);
-          const distanceUnit = firstCardioSet?.distance_unit || 'mi';
 
           // 1. Mood chip (always show if set)
           if (workout.mood) {
@@ -395,7 +406,7 @@ export const FeedWorkoutCard: FC<FeedWorkoutCardProps> = ({
           if (totalCardioDistance >= 0.5) {
             chips.push(
               <span key="cardio-distance" className="px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-300 text-xs">
-                🏃 {totalCardioDistance.toFixed(1)} {distanceUnit}
+                🏃 {totalCardioDistance.toFixed(1)} {preferredDistanceUnit}
               </span>
             );
           }

@@ -1,5 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { markSessionAsSynced, setSyncEnabled, setupSyncSubscriptions } from './syncSubscriptions';
+import {
+  flushPendingSync,
+  getPendingSyncState,
+  markSessionAsSynced,
+  setSyncEnabled,
+  setupSyncSubscriptions,
+} from './syncSubscriptions';
 
 // Store subscription callbacks for testing
 type SubscribeCallback = (state: unknown, prevState: unknown) => void;
@@ -18,8 +24,10 @@ const {
   mockSyncReorderTemplates,
   mockSyncAddSession,
   mockSyncUpdateSession,
+  mockSyncDeleteSession,
   mockSyncSetActiveSession,
   mockSyncAddCustomExercise,
+  mockSyncDeleteCustomExercise,
   mockSyncAddWeightEntry,
   mockSyncDeleteWeightEntry,
 } = vi.hoisted(() => ({
@@ -34,8 +42,10 @@ const {
   mockSyncReorderTemplates: vi.fn().mockResolvedValue({}),
   mockSyncAddSession: vi.fn().mockResolvedValue({}),
   mockSyncUpdateSession: vi.fn().mockResolvedValue({}),
+  mockSyncDeleteSession: vi.fn().mockResolvedValue({}),
   mockSyncSetActiveSession: vi.fn().mockResolvedValue({}),
   mockSyncAddCustomExercise: vi.fn().mockResolvedValue({}),
+  mockSyncDeleteCustomExercise: vi.fn().mockResolvedValue({}),
   mockSyncAddWeightEntry: vi.fn().mockResolvedValue({}),
   mockSyncDeleteWeightEntry: vi.fn().mockResolvedValue({}),
 }));
@@ -95,8 +105,10 @@ vi.mock('../services/supabase/sync', () => ({
   syncReorderTemplates: mockSyncReorderTemplates,
   syncAddSession: mockSyncAddSession,
   syncUpdateSession: mockSyncUpdateSession,
+  syncDeleteSession: mockSyncDeleteSession,
   syncSetActiveSession: mockSyncSetActiveSession,
   syncAddCustomExercise: mockSyncAddCustomExercise,
+  syncDeleteCustomExercise: mockSyncDeleteCustomExercise,
   syncAddWeightEntry: mockSyncAddWeightEntry,
   syncDeleteWeightEntry: mockSyncDeleteWeightEntry,
 }));
@@ -105,10 +117,13 @@ vi.mock('../hooks/useFeed', () => ({
   clearFeedCache: vi.fn(),
 }));
 
+import { useAppStore } from './useAppStore';
+
 describe('syncSubscriptions', () => {
   beforeEach(() => {
     // Reset sync state between tests
-    setSyncEnabled(false);
+    setSyncEnabled(false, null);
+    localStorage.clear();
     // Clear all mocks
     vi.clearAllMocks();
     // Clear subscription callbacks
@@ -295,7 +310,7 @@ describe('syncSubscriptions', () => {
       expect(mockGetUser).not.toHaveBeenCalled();
     });
 
-    it('should handle multiple rapid state changes without auth calls', () => {
+    it('should coalesce multiple rapid state changes to the newest values', async () => {
       setSyncEnabled(true);
 
       const prefsCallback = subscriptionCallbacks.get('preferences');
@@ -309,13 +324,77 @@ describe('syncSubscriptions', () => {
       prefsCallback!({ weightUnit: 'lbs' }, { weightUnit: 'kg' });
       goalCallback!('hypertrophy', 'strength');
 
-      // All sync functions should have been called
-      expect(mockSyncPreferences).toHaveBeenCalledTimes(2);
-      expect(mockSyncWorkoutGoal).toHaveBeenCalledTimes(2);
+      await vi.waitFor(() => {
+        expect(mockSyncPreferences).toHaveBeenCalledTimes(2);
+        expect(mockSyncWorkoutGoal).toHaveBeenCalledTimes(1);
+      });
+      expect(mockSyncWorkoutGoal).toHaveBeenLastCalledWith(
+        'hypertrophy',
+        '__authenticated__'
+      );
       expect(mockSyncHasCompletedIntro).toHaveBeenCalledTimes(1);
 
       // But NO auth network calls should have been made
       expect(mockGetUser).not.toHaveBeenCalled();
+    });
+
+    it('persists offline changes and flushes them for the same identity', async () => {
+      setSyncEnabled(false, 'offline-user');
+      const callback = subscriptionCallbacks.get('preferences');
+
+      callback!({ weightUnit: 'kg' }, { weightUnit: 'lbs' });
+
+      expect(getPendingSyncState('offline-user').preferences).toEqual({ weightUnit: 'kg' });
+      expect(mockSyncPreferences).not.toHaveBeenCalled();
+
+      setSyncEnabled(true, 'offline-user');
+      await flushPendingSync('offline-user');
+
+      expect(mockSyncPreferences).toHaveBeenCalledWith(
+        { weightUnit: 'kg' },
+        'offline-user'
+      );
+      expect(getPendingSyncState('offline-user').preferences).toBeUndefined();
+    });
+
+    it('syncs custom exercise updates, not only additions', async () => {
+      setSyncEnabled(true, 'exercise-user');
+      const callback = subscriptionCallbacks.get('customExercises');
+      const previous = { id: 'exercise-1', name: 'Old name', type: 'strength' };
+      const updated = { ...previous, name: 'New name' };
+
+      callback!([updated], [previous]);
+
+      await vi.waitFor(() => {
+        expect(mockSyncAddCustomExercise).toHaveBeenCalledWith(updated, 'exercise-user');
+      });
+    });
+
+    it('persists deletion tombstones until the cloud delete succeeds', async () => {
+      setSyncEnabled(false, 'delete-user');
+      const callback = subscriptionCallbacks.get('templates');
+      const deleted = { id: 'template-1', name: 'Deleted template', exercises: [] };
+
+      callback!([], [deleted]);
+
+      expect(getPendingSyncState('delete-user').templates['template-1']).toEqual({
+        kind: 'delete',
+      });
+      setSyncEnabled(true, 'delete-user');
+      await flushPendingSync('delete-user');
+
+      expect(mockSyncDeleteTemplate).toHaveBeenCalledWith('template-1', 'delete-user');
+      expect(getPendingSyncState('delete-user').templates['template-1']).toBeUndefined();
+    });
+
+    it('returns a cleanup that unsubscribes every store listener', () => {
+      const unsubscribe = vi.fn();
+      vi.mocked(useAppStore.subscribe).mockReturnValue(unsubscribe);
+
+      const cleanup = setupSyncSubscriptions();
+      cleanup();
+
+      expect(unsubscribe).toHaveBeenCalledTimes(9);
     });
   });
 });

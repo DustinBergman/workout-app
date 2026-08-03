@@ -1,5 +1,5 @@
 import { FC } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Navigate, Routes, Route } from 'react-router-dom';
 import {
   Home,
   ExerciseLibrary,
@@ -29,5 +29,6 @@ export const AppRoutes: FC = () => (
     <Route path="/feed/workout/:workoutId" element={<WorkoutDetail />} />
     <Route path="/friends" element={<Friends />} />
     <Route path="/settings" element={<Settings />} />
+    <Route path="*" element={<Navigate to="/" replace />} />
   </Routes>
 );

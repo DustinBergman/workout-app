@@ -9,6 +9,8 @@ import { Auth, Intro } from '../../pages';
 import { Header } from './Header';
 import { AppRoutes } from './AppRoutes';
 import { WorkoutInProgressBanner } from './WorkoutInProgressBanner';
+import { ScoreResultModal, ScoringModal } from '../active-workout';
+import { useCurrentWorkoutStore } from '../../store/currentWorkoutStore';
 
 export const MainLayout: FC = () => {
   const location = useLocation();
@@ -16,6 +18,9 @@ export const MainLayout: FC = () => {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { isInitialLoading } = useSync();
   const hasCompletedIntro = useAppStore((state) => state.hasCompletedIntro);
+  const isScoring = useCurrentWorkoutStore((state) => state.isScoring);
+  const scoreResult = useCurrentWorkoutStore((state) => state.scoreResult);
+  const clearScoreResult = useCurrentWorkoutStore((state) => state.clearScoreResult);
 
   // Redirect to /auth if not authenticated (except when already on /auth)
   useEffect(() => {
@@ -56,6 +61,15 @@ export const MainLayout: FC = () => {
       <div className="min-h-screen">
         {/* Global Timer Notification - plays ding on any page */}
         <GlobalTimerNotification />
+        <ScoringModal isOpen={isScoring} />
+        <ScoreResultModal
+          isOpen={scoreResult !== null}
+          scoreResult={scoreResult}
+          onClose={() => {
+            clearScoreResult();
+            navigate('/history');
+          }}
+        />
 
         {/* Header */}
         <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-sm border-b border-border safe-area-pt">

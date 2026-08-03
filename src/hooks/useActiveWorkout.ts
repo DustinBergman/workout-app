@@ -71,6 +71,8 @@ export const useActiveWorkout = (): UseActiveWorkoutReturn => {
   const templates = useAppStore((state) => state.templates);
   const customExercises = useAppStore((state) => state.customExercises);
   const workoutGoal = useAppStore((state) => state.workoutGoal);
+  const weightUnit = useAppStore((state) => state.preferences.weightUnit);
+  const distanceUnit = useAppStore((state) => state.preferences.distanceUnit);
   const weeklyWorkoutGoal = useAppStore((state) => state.preferences.weeklyWorkoutGoal ?? 4);
   const setActiveSession = useAppStore((state) => state.setActiveSession);
   const addSession = useAppStore((state) => state.addSession);
@@ -83,12 +85,15 @@ export const useActiveWorkout = (): UseActiveWorkoutReturn => {
   const setExpandedIndex = useCurrentWorkoutStore((state) => state.setExpandedIndex);
 
   // Get suggestions from session (persisted with the session)
-  const suggestions = session?.suggestions ?? [];
+  const suggestions = useMemo(
+    () => session?.suggestions ?? [],
+    [session?.suggestions]
+  );
 
   // Compose sub-hooks
   const { elapsedSeconds } = useWorkoutTimer(session);
   const scoring = useWorkoutScoring();
-  const sessionStats = useSessionStats(session);
+  const sessionStats = useSessionStats(session, weightUnit, distanceUnit);
 
   // Computed values
   const hasDeviated = useMemo(
@@ -244,9 +249,9 @@ export const useActiveWorkout = (): UseActiveWorkoutReturn => {
             return {
               type: 'strength' as const,
               exerciseId: ex.exerciseId,
-              // Grow the target if the user completed more sets than planned;
-              // never shrink it silently (a short session shouldn't rewrite the plan).
-              targetSets: Math.max(ex.sets.length, ex.targetSets),
+              // Add/Remove Set changes targetSets directly during the workout.
+              // Completed-set count must not override that explicit plan edit.
+              targetSets: ex.targetSets,
               targetReps: ex.targetReps,
               restSeconds: ex.restSeconds,
             };
@@ -288,7 +293,7 @@ export const useActiveWorkout = (): UseActiveWorkoutReturn => {
     if (scoring.hasApiKey) {
       setShowFinishConfirm(false);
       const success = await scoring.scoreWorkout(completedSession);
-      if (!success && scoring.scoreError) {
+      if (!success) {
         // Navigate to history on error after brief delay
         setTimeout(() => navigate('/history'), 2000);
       }
@@ -296,7 +301,7 @@ export const useActiveWorkout = (): UseActiveWorkoutReturn => {
       // No API key, go directly to history
       navigate('/history');
     }
-  }, [session, sessions, updatePlan, hasDeviated, templates, addSession, setActiveSession, updateTemplate, scoring, navigate, setShowFinishConfirm, customExercises, workoutGoal]);
+  }, [session, sessions, updatePlan, hasDeviated, templates, addSession, setActiveSession, updateTemplate, scoring, navigate, setShowFinishConfirm, customExercises, workoutGoal, weeklyWorkoutGoal]);
 
   // Cancel workout
   const cancelWorkout = useCallback(() => {

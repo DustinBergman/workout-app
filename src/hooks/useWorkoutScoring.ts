@@ -1,7 +1,11 @@
-import { useState, useCallback } from 'react';
+import { useCallback } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { getWorkoutScore } from '../services/openai';
 import { WorkoutSession, WorkoutScoreResult } from '../types';
+import { useCurrentWorkoutStore } from '../store/currentWorkoutStore';
+import { getAuthUser } from '../services/supabase/authHelper';
+
+let scoringRequestGeneration = 0;
 
 interface UseWorkoutScoringReturn {
   isScoring: boolean;
@@ -16,21 +20,28 @@ export const useWorkoutScoring = (): UseWorkoutScoringReturn => {
   const sessions = useAppStore((state) => state.sessions);
   const preferences = useAppStore((state) => state.preferences);
 
-  const [isScoring, setIsScoring] = useState(false);
-  const [scoreResult, setScoreResult] = useState<WorkoutScoreResult | null>(null);
-  const [scoreError, setScoreError] = useState<string | null>(null);
+  const isScoring = useCurrentWorkoutStore((state) => state.isScoring);
+  const scoreResult = useCurrentWorkoutStore((state) => state.scoreResult);
+  const scoreError = useCurrentWorkoutStore((state) => state.scoreError);
+  const setIsScoring = useCurrentWorkoutStore((state) => state.setIsScoring);
+  const setScoreResult = useCurrentWorkoutStore((state) => state.setScoreResult);
+  const setScoreError = useCurrentWorkoutStore((state) => state.setScoreError);
+  const clearStoredScoreResult = useCurrentWorkoutStore((state) => state.clearScoreResult);
 
   const clearScoreResult = useCallback(() => {
-    setScoreResult(null);
-    setScoreError(null);
-  }, []);
+    clearStoredScoreResult();
+  }, [clearStoredScoreResult]);
 
   const hasApiKey = Boolean(preferences.openaiApiKey?.trim());
 
   const scoreWorkout = useCallback(async (completedSession: WorkoutSession): Promise<boolean> => {
     const apiKey = preferences.openaiApiKey?.trim();
     if (!apiKey) return false;
+    const requestUserId = (await getAuthUser())?.id;
+    if (!requestUserId) return false;
+    const requestGeneration = ++scoringRequestGeneration;
 
+    clearStoredScoreResult();
     setIsScoring(true);
     setScoreError(null);
 
@@ -41,16 +52,39 @@ export const useWorkoutScoring = (): UseWorkoutScoringReturn => {
         sessions,
         preferences.weightUnit
       );
+      const currentUserId = (await getAuthUser())?.id;
+      if (
+        requestGeneration !== scoringRequestGeneration ||
+        currentUserId !== requestUserId
+      ) {
+        return false;
+      }
       setScoreResult(score);
       return true;
     } catch (err) {
       console.error('Scoring error:', err);
-      setScoreError(err instanceof Error ? err.message : 'Failed to get score');
+      const currentUserId = (await getAuthUser())?.id;
+      if (
+        requestGeneration === scoringRequestGeneration &&
+        currentUserId === requestUserId
+      ) {
+        setScoreError(err instanceof Error ? err.message : 'Failed to get score');
+      }
       return false;
     } finally {
-      setIsScoring(false);
+      if (requestGeneration === scoringRequestGeneration) {
+        setIsScoring(false);
+      }
     }
-  }, [sessions, preferences.openaiApiKey, preferences.weightUnit]);
+  }, [
+    sessions,
+    preferences.openaiApiKey,
+    preferences.weightUnit,
+    clearStoredScoreResult,
+    setIsScoring,
+    setScoreError,
+    setScoreResult,
+  ]);
 
   return {
     isScoring,

@@ -1,14 +1,39 @@
 import { describe, it, expect } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useSessionStats, calculateSessionStats } from './useSessionStats';
-import { WorkoutSession, StrengthSessionExercise, StrengthCompletedSet } from '../types';
+import {
+  WorkoutSession,
+  StrengthSessionExercise,
+  StrengthCompletedSet,
+  CardioSessionExercise,
+} from '../types';
 
-const createStrengthSet = (weight: number, reps: number): StrengthCompletedSet => ({
+const createStrengthSet = (
+  weight: number,
+  reps: number,
+  unit: 'lbs' | 'kg' = 'lbs'
+): StrengthCompletedSet => ({
   type: 'strength',
   weight,
   reps,
-  unit: 'lbs',
+  unit,
   completedAt: new Date().toISOString(),
+});
+
+const createCardioExercise = (): CardioSessionExercise => ({
+  id: 'cardio-1',
+  type: 'cardio',
+  exerciseId: 'running',
+  restSeconds: 60,
+  sets: [
+    {
+      type: 'cardio',
+      distance: 5,
+      distanceUnit: 'km',
+      durationSeconds: 1500,
+      completedAt: new Date().toISOString(),
+    },
+  ],
 });
 
 const createStrengthExercise = (
@@ -150,6 +175,23 @@ describe('useSessionStats', () => {
       totalCardioDurationSeconds: 0,
       totalCardioCalories: 0,
     });
+  });
+
+  it('should normalize mixed weight and distance units', () => {
+    const session = createMockSession({
+      exercises: [
+        createStrengthExercise('bench-press', [
+          createStrengthSet(100, 10, 'lbs'),
+          createStrengthSet(45.36, 10, 'kg'),
+        ]),
+        createCardioExercise(),
+      ],
+    });
+
+    const { result } = renderHook(() => useSessionStats(session, 'lbs', 'mi'));
+
+    expect(result.current.totalVolume).toBeCloseTo(2000, 0);
+    expect(result.current.totalCardioDistance).toBe(3.11);
   });
 });
 

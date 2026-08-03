@@ -12,6 +12,30 @@ describe('currentWorkoutStore', () => {
       expect(useCurrentWorkoutStore.getState().expandedIndex).toBeNull();
     });
 
+    describe('persistence', () => {
+      it('does not persist transient scoring state', () => {
+        useCurrentWorkoutStore.setState({
+          isScoring: true,
+          scoreResult: {
+            score: 90,
+            grade: 'A',
+            summary: 'Strong workout',
+            highlights: [],
+            improvements: [],
+          },
+          scoreError: 'temporary error',
+        });
+
+        const persisted = JSON.parse(
+          localStorage.getItem('workout-app-current-workout') || '{}'
+        );
+
+        expect(persisted.state.isScoring).toBe(false);
+        expect(persisted.state.scoreResult).toBeNull();
+        expect(persisted.state.scoreError).toBeNull();
+      });
+    });
+
     it('should have showTimer as false', () => {
       expect(useCurrentWorkoutStore.getState().showTimer).toBe(false);
     });

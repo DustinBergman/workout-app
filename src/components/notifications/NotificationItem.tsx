@@ -90,7 +90,15 @@ export const NotificationItem: FC<NotificationItemProps> = ({
   return (
     <div
       onClick={handleClick}
-      className={`flex items-start gap-3 p-3 cursor-pointer hover:bg-muted/50 transition-colors ${
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          handleClick();
+        }
+      }}
+      role="button"
+      tabIndex={0}
+      className={`group flex items-start gap-3 p-3 cursor-pointer hover:bg-muted/50 transition-colors ${
         !notification.read ? 'bg-primary/5' : ''
       }`}
     >
@@ -113,7 +121,7 @@ export const NotificationItem: FC<NotificationItemProps> = ({
           e.stopPropagation();
           onDelete(notification.id);
         }}
-        className="p-1 text-muted-foreground hover:text-foreground transition-colors opacity-0 group-hover:opacity-100"
+        className="p-1 text-muted-foreground hover:text-foreground transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100"
         aria-label="Delete notification"
       >
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

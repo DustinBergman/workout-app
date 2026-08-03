@@ -18,7 +18,7 @@ export const SessionDetailModalWrapper: FC<SessionDetailModalWrapperProps> = ({ 
   const weightUnit = useAppStore((state) => state.preferences.weightUnit);
   const distanceUnit = useAppStore((state) => state.preferences.distanceUnit);
 
-  const sessionStats = calculateSessionStats(session);
+  const sessionStats = calculateSessionStats(session, weightUnit, distanceUnit);
   const hasStrength = sessionStats.totalVolume > 0;
   const hasCardio = sessionStats.totalCardioDistance > 0;
 
@@ -72,7 +72,7 @@ export const SessionDetailModalWrapper: FC<SessionDetailModalWrapperProps> = ({ 
                         in {formatCardioDuration(set.durationSeconds)}
                         {set.distance !== undefined && set.distance > 0 && set.distanceUnit && (
                           <span className="text-gray-500 dark:text-gray-500 ml-2">
-                            ({calculatePace(set.durationSeconds, set.distance, set.distanceUnit)})
+                            ({calculatePace(set.distance, set.durationSeconds, set.distanceUnit)})
                           </span>
                         )}
                       </span>
