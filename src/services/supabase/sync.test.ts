@@ -4,28 +4,19 @@ import type { WorkoutSession, WorkoutTemplate } from '../../types';
 // Mock supabase
 vi.mock('../../lib/supabase', () => ({
   supabase: {
-    from: vi.fn(() => ({
-      select: vi.fn(() => ({
-        eq: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            maybeSingle: vi.fn(() => Promise.resolve({ data: null, error: null })),
-          })),
-        })),
-      })),
-      insert: vi.fn(() => ({
-        select: vi.fn(() => ({
-          single: vi.fn(() => Promise.resolve({ data: { id: 'test-id' }, error: null })),
-        })),
-      })),
-      update: vi.fn(() => ({
-        eq: vi.fn(() => ({
-          eq: vi.fn(() => Promise.resolve({ error: null })),
-        })),
-      })),
-      delete: vi.fn(() => ({
-        eq: vi.fn(() => Promise.resolve({ error: null })),
-      })),
-    })),
+    from: vi.fn(() => {
+      const builder: Record<string, ReturnType<typeof vi.fn>> = {};
+      builder.select = vi.fn(() => builder);
+      builder.eq = vi.fn(() => builder);
+      builder.abortSignal = vi.fn(() => builder);
+      builder.insert = vi.fn(() => builder);
+      builder.update = vi.fn(() => builder);
+      builder.delete = vi.fn(() => builder);
+      builder.upsert = vi.fn(() => builder);
+      builder.maybeSingle = vi.fn(() => Promise.resolve({ data: null, error: null }));
+      builder.single = vi.fn(() => Promise.resolve({ data: { id: 'test-id' }, error: null }));
+      return builder;
+    }),
   },
 }));
 
@@ -39,6 +30,7 @@ import {
   syncAddTemplate,
   syncSetActiveSession,
   syncUpdateTemplate,
+  waitForQueuedSyncs,
 } from './sync';
 import { supabase } from '../../lib/supabase';
 import { getAuthUser } from './authHelper';
@@ -338,6 +330,36 @@ describe('sync', () => {
           builder.insert.mock.calls.map((call) => (call[0] as { name: string }).name)
         );
         expect(insertedNames).toContain('Newest');
+      });
+
+      it('evicts a timed-out resource queue so the next write can retry', async () => {
+        vi.useFakeTimers();
+        vi.mocked(getAuthUser).mockImplementationOnce(
+          () => new Promise(() => {}) as never
+        );
+        const template: WorkoutTemplate = {
+          id: 'timeout-template',
+          name: 'Timed out',
+          templateType: 'strength',
+          exercises: [],
+          inRotation: true,
+          createdAt: '2026-01-01T00:00:00.000Z',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+        };
+
+        const timedOutWrite = syncUpdateTemplate(template);
+        const rejection = expect(timedOutWrite).rejects.toThrow(
+          'Template synchronization timed out'
+        );
+        await vi.advanceTimersByTimeAsync(15000);
+        await rejection;
+        await waitForQueuedSyncs();
+
+        vi.mocked(getAuthUser).mockResolvedValue({ id: 'test-user-id' } as never);
+        await expect(
+          syncUpdateTemplate({ ...template, name: 'Retry' })
+        ).resolves.toBeUndefined();
+        vi.useRealTimers();
       });
 
       it('upserts a new active session parent row', async () => {

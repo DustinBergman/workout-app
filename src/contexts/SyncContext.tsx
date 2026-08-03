@@ -37,6 +37,11 @@ import {
   getCloudSyncGeneration,
   trackCloudSync,
 } from '../services/syncCoordinator';
+import { withTimeout } from '../services/asyncTimeout';
+import { enqueueErrorToast } from '../services/errorToast';
+
+export const INITIAL_SYNC_LOADING_TIMEOUT_MS = 6000;
+const SYNC_OPERATION_TIMEOUT_MS = 15000;
 
 const ACCOUNT_STATE_PREFIX = 'workout-app-account-state-v2:';
 const CURRENT_IDENTITY_KEY = 'workout-app-current-state-identity-v2';
@@ -289,14 +294,18 @@ export const SyncProvider: FC<SyncProviderProps> = ({ children }) => {
           activeSessionResult,
           exercisesResult,
           weightEntriesResult,
-        ] = await Promise.all([
-          getProfile(),
-          getTemplates(),
-          getSessions(),
-          getActiveSession(),
-          getCustomExercises(),
-          getWeightEntries(),
-        ]);
+        ] = await withTimeout(
+          Promise.all([
+            getProfile(),
+            getTemplates(),
+            getSessions(),
+            getActiveSession(),
+            getCustomExercises(),
+            getWeightEntries(),
+          ]),
+          SYNC_OPERATION_TIMEOUT_MS,
+          'Cloud data loading timed out'
+        );
         if (!isCurrent()) return;
 
         const firstError = [
@@ -354,11 +363,19 @@ export const SyncProvider: FC<SyncProviderProps> = ({ children }) => {
 
         const dedupeKey = `workout-app-dedupe-fix-v1:${requestedUserId}`;
         if (!localStorage.getItem(dedupeKey)) {
-          const { fixed, error: dedupeError } = await deduplicateTemplateExercises();
+          const { fixed, error: dedupeError } = await withTimeout(
+            deduplicateTemplateExercises(),
+            SYNC_OPERATION_TIMEOUT_MS,
+            'Template cleanup timed out'
+          );
           if (!isCurrent()) return;
           if (dedupeError) throw dedupeError;
           if (fixed > 0) {
-            const refreshed = await getTemplates();
+            const refreshed = await withTimeout(
+              getTemplates(),
+              SYNC_OPERATION_TIMEOUT_MS,
+              'Template reload timed out'
+            );
             if (refreshed.error) throw refreshed.error;
             if (isCurrent()) {
               const latestPending = getPendingSyncState(requestedUserId);
@@ -381,6 +398,10 @@ export const SyncProvider: FC<SyncProviderProps> = ({ children }) => {
         if (!isCurrent()) return;
         setStatus('error');
         setError(syncError instanceof Error ? syncError.message : 'Sync failed');
+        enqueueErrorToast(
+          syncError,
+          'Unable to sync workout data. Local data is still available.'
+        );
       } finally {
         if (isCurrent()) {
           setSyncingFromCloud(false);
@@ -413,9 +434,18 @@ export const SyncProvider: FC<SyncProviderProps> = ({ children }) => {
       return;
     }
 
-    syncFromCloud().finally(() => {
+    const loadingTimeout = setTimeout(() => {
+      if (currentIdentityRef.current === userId) {
+        setIsInitialLoading(false);
+      }
+    }, INITIAL_SYNC_LOADING_TIMEOUT_MS);
+
+    void syncFromCloud().finally(() => {
+      clearTimeout(loadingTimeout);
       if (currentIdentityRef.current === userId) setIsInitialLoading(false);
     });
+
+    return () => clearTimeout(loadingTimeout);
   }, [authLoading, identityVersion, isOnline, syncFromCloud, userId]);
 
   const value: SyncContextType = {

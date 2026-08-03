@@ -19,10 +19,44 @@ export const getAuthRedirectUrl = () => {
   return `${window.location.origin}/auth`;
 };
 
+export const SUPABASE_AUTH_STORAGE_KEY =
+  `sb-${new URL(supabaseUrl).hostname.split('.')[0]}-auth-token`;
+
+export const clearPersistedSupabaseAuth = (): void => {
+  localStorage.removeItem(SUPABASE_AUTH_STORAGE_KEY);
+};
+
+const SUPABASE_REQUEST_TIMEOUT_MS = 15000;
+const fetchWithTimeout: typeof fetch = async (input, init = {}) => {
+  const controller = new AbortController();
+  const externalSignal = init.signal;
+  const handleExternalAbort = () => controller.abort();
+  if (externalSignal?.aborted) {
+    controller.abort();
+  } else {
+    externalSignal?.addEventListener('abort', handleExternalAbort, { once: true });
+  }
+  const timeoutId = setTimeout(
+    () => controller.abort(),
+    SUPABASE_REQUEST_TIMEOUT_MS
+  );
+
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeoutId);
+    externalSignal?.removeEventListener('abort', handleExternalAbort);
+  }
+};
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,
+    storageKey: SUPABASE_AUTH_STORAGE_KEY,
+  },
+  global: {
+    fetch: fetchWithTimeout,
   },
 });

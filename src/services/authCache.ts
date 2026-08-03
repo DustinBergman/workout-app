@@ -23,13 +23,9 @@ export const getCachedAuth = (): CachedAuth | null => {
       return null;
     }
 
-    // Check if the session itself hasn't expired
-    const expiresAt = data.session.expires_at;
-    if (expiresAt && expiresAt * 1000 < now) {
-      localStorage.removeItem(AUTH_CACHE_KEY);
-      return null;
-    }
-
+    // Supabase access tokens are short-lived, but the refresh token can recover
+    // the session when connectivity returns. Keep the bounded app cache so an
+    // expired access token does not block offline startup.
     return data;
   } catch {
     return null;

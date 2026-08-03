@@ -11,6 +11,7 @@ import type {
 import { preferencesToProfileUpdates } from './profiles';
 
 import { getAuthUser } from './authHelper';
+import { withAbortableTimeout } from '../asyncTimeout';
 
 /**
  * Check if user is authenticated (uses cached auth)
@@ -32,12 +33,38 @@ interface SyncQueueEntry<T> {
   promise: Promise<void>;
 }
 
+interface ExistingTemplateExercise {
+  id: string;
+  exercise_id: string;
+  type: 'strength' | 'cardio';
+  sort_order: number;
+}
+
+interface ExistingCompletedSet {
+  id: string;
+  type: 'strength' | 'cardio';
+  reps: number | null;
+  weight: number | null;
+  weight_unit: string | null;
+  distance: number | null;
+  distance_unit: string | null;
+  calories: number | null;
+  duration_seconds: number | null;
+  completed_at: string;
+}
+
+interface ExistingSessionExercise {
+  id: string;
+  completed_sets?: ExistingCompletedSet[];
+}
+
 const templateSyncQueues = new Map<string, SyncQueueEntry<WorkoutTemplate>>();
 const sessionSyncQueues = new Map<string, SyncQueueEntry<WorkoutSession>>();
+const RESOURCE_SYNC_TIMEOUT_MS = 15000;
 
 export const waitForQueuedSyncs = async (): Promise<void> => {
   while (templateSyncQueues.size > 0 || sessionSyncQueues.size > 0) {
-    await Promise.all([
+    await Promise.allSettled([
       ...[...templateSyncQueues.values()].map((entry) => entry.promise),
       ...[...sessionSyncQueues.values()].map((entry) => entry.promise),
     ]);
@@ -48,7 +75,8 @@ const enqueueLatest = <T>(
   queues: Map<string, SyncQueueEntry<T>>,
   id: string,
   value: T,
-  sync: (snapshot: T) => Promise<void>
+  sync: (snapshot: T, signal: AbortSignal) => Promise<void>,
+  description: string
 ): Promise<void> => {
   const existing = queues.get(id);
   if (existing) {
@@ -62,7 +90,11 @@ const enqueueLatest = <T>(
     while (entry.latest) {
       const snapshot = entry.latest;
       entry.latest = null;
-      await sync(snapshot);
+      await withAbortableTimeout(
+        (signal) => sync(snapshot, signal),
+        RESOURCE_SYNC_TIMEOUT_MS,
+        `${description} timed out`
+      );
     }
   })().finally(() => {
     queues.delete(id);
@@ -71,42 +103,161 @@ const enqueueLatest = <T>(
   return entry.promise;
 };
 
+const templateExerciseToRow = (
+  templateId: string,
+  ex: WorkoutTemplate['exercises'][number],
+  sortOrder: number
+) => {
+  const base = {
+    template_id: templateId,
+    exercise_id: ex.exerciseId,
+    type: ex.type,
+    sort_order: sortOrder,
+    rest_seconds: ex.restSeconds ?? null,
+  };
+
+  if (ex.type === 'cardio') {
+    return {
+      ...base,
+      cardio_category: ex.cardioCategory,
+      tracking_mode: ex.trackingMode || 'detailed',
+      target_calories: ex.targetCalories ?? null,
+      target_duration_minutes:
+        'targetDurationMinutes' in ex ? ex.targetDurationMinutes ?? null : null,
+      target_intensity:
+        'targetIntensity' in ex ? ex.targetIntensity ?? null : null,
+      rounds: 'rounds' in ex ? ex.rounds ?? null : null,
+      work_seconds: 'workSeconds' in ex ? ex.workSeconds ?? null : null,
+      rest_between_rounds_seconds:
+        'restBetweenRoundsSeconds' in ex
+          ? ex.restBetweenRoundsSeconds ?? null
+          : null,
+      target_laps: 'targetLaps' in ex ? ex.targetLaps ?? null : null,
+      target_sets: null,
+      target_reps: null,
+    };
+  }
+
+  return {
+    ...base,
+    target_sets: ex.targetSets ?? null,
+    target_reps: ex.targetReps ?? null,
+    cardio_category: null,
+    tracking_mode: null,
+    target_calories: null,
+    target_duration_minutes: null,
+    target_intensity: null,
+    rounds: null,
+    work_seconds: null,
+    rest_between_rounds_seconds: null,
+    target_laps: null,
+  };
+};
+
+const completedSetToRow = (
+  sessionExerciseId: string,
+  set: WorkoutSession['exercises'][number]['sets'][number]
+) => ({
+  session_exercise_id: sessionExerciseId,
+  type: set.type,
+  reps: set.type === 'strength' ? set.reps : null,
+  weight: set.type === 'strength' ? set.weight : null,
+  weight_unit: set.type === 'strength' ? set.unit : null,
+  distance: set.type === 'cardio' ? (set.distance ?? null) : null,
+  distance_unit: set.type === 'cardio' ? (set.distanceUnit ?? null) : null,
+  calories: set.type === 'cardio' ? (set.calories ?? null) : null,
+  duration_seconds: set.type === 'cardio' ? set.durationSeconds : null,
+  completed_at: set.completedAt,
+});
+
+const completedSetSignature = (
+  set: {
+    type: 'strength' | 'cardio';
+    reps: number | null;
+    weight: number | null;
+    weight_unit: string | null;
+    distance: number | null;
+    distance_unit: string | null;
+    calories: number | null;
+    duration_seconds: number | null;
+    completed_at: string;
+  }
+): string => JSON.stringify({
+  type: set.type,
+  reps: set.reps,
+  weight: set.weight,
+  weight_unit: set.weight_unit,
+  distance: set.distance,
+  distance_unit: set.distance_unit,
+  calories: set.calories,
+  duration_seconds: set.duration_seconds,
+  completed_at: set.completed_at,
+});
+
 // ============================================
 // Profile Sync
 // ============================================
 
-export const syncPreferences = async (prefs: Partial<UserPreferences>, expectedUserId?: string): Promise<void> => {
+export const syncPreferences = async (
+  prefs: Partial<UserPreferences>,
+  expectedUserId?: string,
+  signal: AbortSignal = new AbortController().signal
+): Promise<void> => {
   const userId = await getUserId(expectedUserId);
   if (!userId) return;
 
   const updates = preferencesToProfileUpdates(prefs);
-  const { error } = await supabase.from('profiles').update(updates).eq('id', userId);
+  const { error } = await supabase
+    .from('profiles')
+    .update(updates)
+    .eq('id', userId)
+    .abortSignal(signal);
   if (error) throw error;
 };
 
-export const syncWorkoutGoal = async (goal: WorkoutGoal, expectedUserId?: string): Promise<void> => {
+export const syncWorkoutGoal = async (
+  goal: WorkoutGoal,
+  expectedUserId?: string,
+  signal: AbortSignal = new AbortController().signal
+): Promise<void> => {
   const userId = await getUserId(expectedUserId);
   if (!userId) return;
 
-  const { error } = await supabase.from('profiles').update({ workout_goal: goal }).eq('id', userId);
+  const { error } = await supabase
+    .from('profiles')
+    .update({ workout_goal: goal })
+    .eq('id', userId)
+    .abortSignal(signal);
   if (error) throw error;
 };
 
-export const syncCycleState = async (cycleState: UserCycleState, expectedUserId?: string): Promise<void> => {
+export const syncCycleState = async (
+  cycleState: UserCycleState,
+  expectedUserId?: string,
+  signal: AbortSignal = new AbortController().signal
+): Promise<void> => {
   const userId = await getUserId(expectedUserId);
   if (!userId) return;
 
   const { error } = await supabase.from('profiles').update({
     cycle_state: cycleState,
-  }).eq('id', userId);
+  }).eq('id', userId).abortSignal(signal);
   if (error) throw error;
 };
 
-export const syncHasCompletedIntro = async (value: boolean, expectedUserId?: string): Promise<void> => {
+export const syncHasCompletedIntro = async (
+  value: boolean,
+  expectedUserId?: string,
+  signal: AbortSignal = new AbortController().signal
+): Promise<void> => {
   const userId = await getUserId(expectedUserId);
   if (!userId) return;
 
-  const { error } = await supabase.from('profiles').update({ has_completed_intro: value }).eq('id', userId);
+  const { error } = await supabase
+    .from('profiles')
+    .update({ has_completed_intro: value })
+    .eq('id', userId)
+    .abortSignal(signal);
   if (error) throw error;
 };
 
@@ -114,7 +265,11 @@ export const syncHasCompletedIntro = async (value: boolean, expectedUserId?: str
 // Template Sync
 // ============================================
 
-const performAddTemplate = async (template: WorkoutTemplate, expectedUserId?: string): Promise<void> => {
+const performAddTemplate = async (
+  template: WorkoutTemplate,
+  signal: AbortSignal,
+  expectedUserId?: string
+): Promise<void> => {
   const userId = await getUserId(expectedUserId);
   if (!userId) return;
     // Guard against corrupted data - templates should never have more than 50 exercises
@@ -140,11 +295,12 @@ const performAddTemplate = async (template: WorkoutTemplate, expectedUserId?: st
       .select('id')
       .eq('id', template.id)
       .eq('user_id', userId)
+      .abortSignal(signal)
       .maybeSingle();
     if (existingError) throw existingError;
 
     if (existing) {
-      await performUpdateTemplate(template, expectedUserId);
+      await performUpdateTemplate(template, signal, expectedUserId);
       return;
     }
 
@@ -162,6 +318,7 @@ const performAddTemplate = async (template: WorkoutTemplate, expectedUserId?: st
         updated_at: template.updatedAt,
       })
       .select()
+      .abortSignal(signal)
       .single();
 
     if (templateError) {
@@ -203,19 +360,27 @@ const performAddTemplate = async (template: WorkoutTemplate, expectedUserId?: st
         };
       });
 
-      const { error: exerciseError } = await supabase.from('template_exercises').insert(exercisesToInsert);
+      const { error: exerciseError } = await supabase
+        .from('template_exercises')
+        .insert(exercisesToInsert)
+        .abortSignal(signal);
       if (exerciseError) throw exerciseError;
     }
 };
 
-const performUpdateTemplate = async (template: WorkoutTemplate, expectedUserId?: string): Promise<void> => {
+const performUpdateTemplate = async (
+  template: WorkoutTemplate,
+  signal: AbortSignal,
+  expectedUserId?: string
+): Promise<void> => {
   const userId = await getUserId(expectedUserId);
   if (!userId) return;
     // SAFETY: Fetch current DB state first
     const { data: existingExercises, error: existingExercisesError } = await supabase
       .from('template_exercises')
-      .select('id')
-      .eq('template_id', template.id);
+      .select('id, exercise_id, type, sort_order')
+      .eq('template_id', template.id)
+      .abortSignal(signal);
     if (existingExercisesError) throw existingExercisesError;
 
     const dbExerciseCount = existingExercises?.length || 0;
@@ -259,7 +424,8 @@ const performUpdateTemplate = async (template: WorkoutTemplate, expectedUserId?:
         updated_at: template.updatedAt,
       })
       .eq('id', template.id)
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .abortSignal(signal);
     if (templateError) throw templateError;
 
     // ONLY sync exercises if local has exercises AND count matches or exceeds DB
@@ -269,48 +435,49 @@ const performUpdateTemplate = async (template: WorkoutTemplate, expectedUserId?:
       return;
     }
 
-    // Delete and re-insert (only if we passed all safety checks)
-    const { error: deleteError } = await supabase
-      .from('template_exercises')
-      .delete()
-      .eq('template_id', template.id);
-    if (deleteError) throw deleteError;
+    const availableByKey = new Map<string, ExistingTemplateExercise[]>();
+    for (const existing of (existingExercises ?? []) as ExistingTemplateExercise[]) {
+      const key = `${existing.type}:${existing.exercise_id}`;
+      const matches = availableByKey.get(key) ?? [];
+      matches.push(existing);
+      availableByKey.set(key, matches);
+    }
+    for (const matches of availableByKey.values()) {
+      matches.sort((left, right) => left.sort_order - right.sort_order);
+    }
 
-    const exercisesToInsert = template.exercises.map((ex, idx) => {
-      const base = {
-        template_id: template.id,
-        exercise_id: ex.exerciseId,
-        type: ex.type,
-        sort_order: idx,
-        rest_seconds: ex.restSeconds ?? null,
-      };
+    const retainedIds = new Set<string>();
+    for (let index = 0; index < template.exercises.length; index++) {
+      const exercise = template.exercises[index];
+      const key = `${exercise.type}:${exercise.exerciseId}`;
+      const existing = availableByKey.get(key)?.shift();
+      const row = templateExerciseToRow(template.id, exercise, index);
 
-      if (ex.type === 'cardio') {
-        return {
-          ...base,
-          cardio_category: ex.cardioCategory,
-          tracking_mode: ex.trackingMode || 'detailed',
-          target_calories: ex.targetCalories ?? null,
-          target_duration_minutes: 'targetDurationMinutes' in ex ? ex.targetDurationMinutes ?? null : null,
-          target_intensity: 'targetIntensity' in ex ? ex.targetIntensity ?? null : null,
-          rounds: 'rounds' in ex ? ex.rounds ?? null : null,
-          work_seconds: 'workSeconds' in ex ? ex.workSeconds ?? null : null,
-          rest_between_rounds_seconds: 'restBetweenRoundsSeconds' in ex ? ex.restBetweenRoundsSeconds ?? null : null,
-          target_laps: 'targetLaps' in ex ? ex.targetLaps ?? null : null,
-        };
+      if (existing) {
+        retainedIds.add(existing.id);
+        const { error } = await supabase
+          .from('template_exercises')
+          .update(row)
+          .eq('id', existing.id)
+          .abortSignal(signal);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('template_exercises')
+          .insert(row)
+          .abortSignal(signal);
+        if (error) throw error;
       }
+    }
 
-      return {
-        ...base,
-        target_sets: ex.targetSets ?? null,
-        target_reps: ex.targetReps ?? null,
-      };
-    });
-
-    const { error: insertError } = await supabase.from('template_exercises').insert(exercisesToInsert);
-    if (insertError) {
-      console.error('[Sync] Failed to insert template exercises:', insertError.message, insertError.code);
-      throw insertError;
+    for (const existing of (existingExercises ?? []) as ExistingTemplateExercise[]) {
+      if (retainedIds.has(existing.id)) continue;
+      const { error } = await supabase
+        .from('template_exercises')
+        .delete()
+        .eq('id', existing.id)
+        .abortSignal(signal);
+      if (error) throw error;
     }
 };
 
@@ -321,7 +488,8 @@ const queueTemplateSync = (
   templateSyncQueues,
   template.id,
   template,
-  (snapshot) => performAddTemplate(snapshot, expectedUserId)
+  (snapshot, signal) => performAddTemplate(snapshot, signal, expectedUserId),
+  'Template synchronization'
 );
 
 export const syncAddTemplate = async (
@@ -334,7 +502,11 @@ export const syncUpdateTemplate = async (
   expectedUserId?: string
 ): Promise<void> => queueTemplateSync(template, expectedUserId);
 
-export const syncDeleteTemplate = async (templateId: string, expectedUserId?: string): Promise<void> => {
+export const syncDeleteTemplate = async (
+  templateId: string,
+  expectedUserId?: string,
+  signal: AbortSignal = new AbortController().signal
+): Promise<void> => {
   const userId = await getUserId(expectedUserId);
   if (!userId) return;
 
@@ -342,11 +514,16 @@ export const syncDeleteTemplate = async (templateId: string, expectedUserId?: st
     .from('workout_templates')
     .delete()
     .eq('id', templateId)
-    .eq('user_id', userId);
+    .eq('user_id', userId)
+    .abortSignal(signal);
   if (error) throw error;
 };
 
-export const syncReorderTemplates = async (templateIds: string[], expectedUserId?: string): Promise<void> => {
+export const syncReorderTemplates = async (
+  templateIds: string[],
+  expectedUserId?: string,
+  signal: AbortSignal = new AbortController().signal
+): Promise<void> => {
   const userId = await getUserId(expectedUserId);
   if (!userId) return;
 
@@ -357,6 +534,7 @@ export const syncReorderTemplates = async (templateIds: string[], expectedUserId
         .update({ sort_order: index })
         .eq('id', id)
         .eq('user_id', userId)
+        .abortSignal(signal)
     )
   );
   const failed = results.find((result) => result.error);
@@ -367,7 +545,11 @@ export const syncReorderTemplates = async (templateIds: string[], expectedUserId
 // Session Sync
 // ============================================
 
-const performAddSession = async (session: WorkoutSession, expectedUserId?: string): Promise<void> => {
+const performAddSession = async (
+  session: WorkoutSession,
+  signal: AbortSignal,
+  expectedUserId?: string
+): Promise<void> => {
   const userId = await getUserId(expectedUserId);
   if (!userId) return;
 
@@ -396,11 +578,12 @@ const performAddSession = async (session: WorkoutSession, expectedUserId?: strin
       .select('id')
       .eq('id', session.id)
       .eq('user_id', userId)
+      .abortSignal(signal)
       .maybeSingle();
     if (existingError) throw existingError;
 
     if (existing) {
-      await performUpdateSession(session, expectedUserId);
+      await performUpdateSession(session, signal, expectedUserId);
       return;
     }
 
@@ -423,6 +606,7 @@ const performAddSession = async (session: WorkoutSession, expectedUserId?: strin
         is_active: !session.completedAt,
       })
       .select()
+      .abortSignal(signal)
       .single();
 
     if (sessionError) {
@@ -447,6 +631,7 @@ const performAddSession = async (session: WorkoutSession, expectedUserId?: strin
       const { data: exercisesData, error: exercisesError } = await supabase
         .from('session_exercises')
         .insert(exercisesToInsert)
+        .abortSignal(signal)
         .select();
       if (exercisesError) throw exercisesError;
 
@@ -470,7 +655,10 @@ const performAddSession = async (session: WorkoutSession, expectedUserId?: strin
               completed_at: set.completedAt,
             }));
 
-            const { error: setsError } = await supabase.from('completed_sets').insert(setsToInsert);
+            const { error: setsError } = await supabase
+              .from('completed_sets')
+              .insert(setsToInsert)
+              .abortSignal(signal);
             if (setsError) throw setsError;
           }
         }
@@ -478,14 +666,19 @@ const performAddSession = async (session: WorkoutSession, expectedUserId?: strin
     }
 };
 
-const performUpdateSession = async (session: WorkoutSession, expectedUserId?: string): Promise<void> => {
+const performUpdateSession = async (
+  session: WorkoutSession,
+  signal: AbortSignal,
+  expectedUserId?: string
+): Promise<void> => {
   const userId = await getUserId(expectedUserId);
   if (!userId) return;
     // SAFETY: Fetch current DB state first
     const { data: existingExercises, error: existingExercisesError } = await supabase
       .from('session_exercises')
-      .select('id')
-      .eq('session_id', session.id);
+      .select('id, completed_sets(*)')
+      .eq('session_id', session.id)
+      .abortSignal(signal);
     if (existingExercisesError) throw existingExercisesError;
 
     const dbExerciseCount = existingExercises?.length || 0;
@@ -528,7 +721,8 @@ const performUpdateSession = async (session: WorkoutSession, expectedUserId?: st
         is_active: !session.completedAt,
       })
       .eq('id', session.id)
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .abortSignal(signal);
 
     if (updateError) {
       console.error('[Sync] Failed to update session:', updateError.message, updateError.code);
@@ -541,55 +735,75 @@ const performUpdateSession = async (session: WorkoutSession, expectedUserId?: st
       return;
     }
 
-    // Delete and re-insert exercises + sets (only if we passed all safety checks)
-    const { error: deleteError } = await supabase
-      .from('session_exercises')
-      .delete()
-      .eq('session_id', session.id);
-    if (deleteError) throw deleteError;
+    const existingById = new Map(
+      ((existingExercises ?? []) as ExistingSessionExercise[]).map((exercise) => [
+        exercise.id,
+        exercise,
+      ])
+    );
+    const retainedExerciseIds = new Set<string>();
 
-    if (session.exercises.length > 0) {
-      const exercisesToInsert = session.exercises.map((ex, idx) => ({
-        id: ex.id || `${session.id}-ex-${idx}`,
+    for (let index = 0; index < session.exercises.length; index++) {
+      const ex = session.exercises[index];
+      const exerciseId = ex.id || `${session.id}-ex-${index}`;
+      retainedExerciseIds.add(exerciseId);
+      const { error: exerciseError } = await supabase
+        .from('session_exercises')
+        .upsert({
+        id: exerciseId,
         session_id: session.id,
         exercise_id: ex.exerciseId,
         type: ex.type,
-        sort_order: idx,
+        sort_order: index,
         target_sets: ex.type === 'strength' ? ex.targetSets : null,
         target_reps: ex.type === 'strength' ? ex.targetReps : null,
         rest_seconds: ex.restSeconds,
-      }));
+      }, { onConflict: 'id' })
+        .abortSignal(signal);
+      if (exerciseError) throw exerciseError;
 
-      const { data: exercisesData, error: exercisesError } = await supabase
-        .from('session_exercises')
-        .insert(exercisesToInsert)
-        .select();
-      if (exercisesError) throw exercisesError;
+      const existingSetIdsBySignature = new Map<string, string[]>();
+      for (const existingSet of existingById.get(exerciseId)?.completed_sets ?? []) {
+        const { id, ...row } = existingSet;
+        const signature = completedSetSignature(row);
+        const ids = existingSetIdsBySignature.get(signature) ?? [];
+        ids.push(id);
+        existingSetIdsBySignature.set(signature, ids);
+      }
 
-      if (exercisesData) {
-        for (let i = 0; i < session.exercises.length; i++) {
-          const ex = session.exercises[i];
-          const dbExId = exercisesData[i]?.id;
+      for (const set of ex.sets) {
+        const row = completedSetToRow(exerciseId, set);
+        const signature = completedSetSignature(row);
+        const matchedId = existingSetIdsBySignature.get(signature)?.shift();
+        if (matchedId) continue;
 
-          if (dbExId && ex.sets.length > 0) {
-            const setsToInsert = ex.sets.map((set) => ({
-              session_exercise_id: dbExId,
-              type: set.type,
-              reps: set.type === 'strength' ? set.reps : null,
-              weight: set.type === 'strength' ? set.weight : null,
-              weight_unit: set.type === 'strength' ? set.unit : null,
-              distance: set.type === 'cardio' ? (set.distance ?? null) : null,
-              distance_unit: set.type === 'cardio' ? (set.distanceUnit ?? null) : null,
-              calories: set.type === 'cardio' ? (set.calories ?? null) : null,
-              duration_seconds: set.type === 'cardio' ? set.durationSeconds : null,
-              completed_at: set.completedAt,
-            }));
+        const { error } = await supabase
+          .from('completed_sets')
+          .insert(row)
+          .abortSignal(signal);
+        if (error) throw error;
+      }
 
-            const { error: setsError } = await supabase.from('completed_sets').insert(setsToInsert);
-            if (setsError) throw setsError;
-          }
+      for (const staleIds of existingSetIdsBySignature.values()) {
+        for (const staleId of staleIds) {
+          const { error } = await supabase
+            .from('completed_sets')
+            .delete()
+            .eq('id', staleId)
+            .abortSignal(signal);
+          if (error) throw error;
         }
       }
+    }
+
+    for (const existing of (existingExercises ?? []) as ExistingSessionExercise[]) {
+      if (retainedExerciseIds.has(existing.id)) continue;
+      const { error } = await supabase
+        .from('session_exercises')
+        .delete()
+        .eq('id', existing.id)
+        .abortSignal(signal);
+      if (error) throw error;
     }
 };
 
@@ -600,7 +814,8 @@ const queueSessionSync = (
   sessionSyncQueues,
   session.id,
   session,
-  (snapshot) => performAddSession(snapshot, expectedUserId)
+  (snapshot, signal) => performAddSession(snapshot, signal, expectedUserId),
+  'Session synchronization'
 );
 
 export const syncAddSession = async (
@@ -615,7 +830,8 @@ export const syncUpdateSession = async (
 
 export const syncSetActiveSession = async (
   session: WorkoutSession | null,
-  expectedUserId?: string
+  expectedUserId?: string,
+  signal: AbortSignal = new AbortController().signal
 ): Promise<void> => {
   const userId = await getUserId(expectedUserId);
   if (!userId) return;
@@ -626,7 +842,8 @@ export const syncSetActiveSession = async (
       .from('workout_sessions')
       .update({ is_active: false })
       .eq('user_id', userId)
-      .eq('is_active', true);
+      .eq('is_active', true)
+      .abortSignal(signal);
     if (error) throw error;
   } else {
     // Upsert the parent row before marking it active.
@@ -636,7 +853,8 @@ export const syncSetActiveSession = async (
 
 export const syncDeleteSession = async (
   sessionId: string,
-  expectedUserId?: string
+  expectedUserId?: string,
+  signal: AbortSignal = new AbortController().signal
 ): Promise<void> => {
   const userId = await getUserId(expectedUserId);
   if (!userId) return;
@@ -645,7 +863,8 @@ export const syncDeleteSession = async (
     .from('workout_sessions')
     .delete()
     .eq('id', sessionId)
-    .eq('user_id', userId);
+    .eq('user_id', userId)
+    .abortSignal(signal);
   if (error) throw error;
 };
 
@@ -655,7 +874,8 @@ export const syncDeleteSession = async (
 
 export const syncAddCustomExercise = async (
   exercise: Exercise,
-  expectedUserId?: string
+  expectedUserId?: string,
+  signal: AbortSignal = new AbortController().signal
 ): Promise<void> => {
   const userId = await getUserId(expectedUserId);
   if (!userId) return;
@@ -673,7 +893,8 @@ export const syncAddCustomExercise = async (
 
   const { error } = await supabase
     .from('custom_exercises')
-    .upsert(insertData, { onConflict: 'id' });
+    .upsert(insertData, { onConflict: 'id' })
+    .abortSignal(signal);
   if (error) {
     console.error('[Sync] Failed to sync custom exercise:', error.message, error.code);
     throw error;
@@ -682,7 +903,8 @@ export const syncAddCustomExercise = async (
 
 export const syncDeleteCustomExercise = async (
   exerciseId: string,
-  expectedUserId?: string
+  expectedUserId?: string,
+  signal: AbortSignal = new AbortController().signal
 ): Promise<void> => {
   const userId = await getUserId(expectedUserId);
   if (!userId) return;
@@ -691,7 +913,8 @@ export const syncDeleteCustomExercise = async (
     .from('custom_exercises')
     .delete()
     .eq('id', exerciseId)
-    .eq('user_id', userId);
+    .eq('user_id', userId)
+    .abortSignal(signal);
   if (error) throw error;
 };
 
@@ -699,7 +922,11 @@ export const syncDeleteCustomExercise = async (
 // Weight Entry Sync
 // ============================================
 
-export const syncAddWeightEntry = async (entry: WeightEntry, expectedUserId?: string): Promise<void> => {
+export const syncAddWeightEntry = async (
+  entry: WeightEntry,
+  expectedUserId?: string,
+  signal: AbortSignal = new AbortController().signal
+): Promise<void> => {
   const userId = await getUserId(expectedUserId);
   if (!userId) return;
 
@@ -708,7 +935,7 @@ export const syncAddWeightEntry = async (entry: WeightEntry, expectedUserId?: st
     date: entry.date,
     weight: entry.weight,
     unit: entry.unit,
-  }, { onConflict: 'user_id,date' });
+  }, { onConflict: 'user_id,date' }).abortSignal(signal);
 
   if (error) {
     console.error('[Sync] Failed to sync weight entry:', error.message, error.code);
@@ -716,7 +943,11 @@ export const syncAddWeightEntry = async (entry: WeightEntry, expectedUserId?: st
   }
 };
 
-export const syncDeleteWeightEntry = async (date: string, expectedUserId?: string): Promise<void> => {
+export const syncDeleteWeightEntry = async (
+  date: string,
+  expectedUserId?: string,
+  signal: AbortSignal = new AbortController().signal
+): Promise<void> => {
   const userId = await getUserId(expectedUserId);
   if (!userId) return;
 
@@ -724,6 +955,7 @@ export const syncDeleteWeightEntry = async (date: string, expectedUserId?: strin
     .from('weight_entries')
     .delete()
     .eq('user_id', userId)
-    .eq('date', date);
+    .eq('date', date)
+    .abortSignal(signal);
   if (error) throw error;
 };

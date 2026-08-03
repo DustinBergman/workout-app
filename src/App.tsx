@@ -4,11 +4,12 @@ import { migrateTemplates, migrateToUUIDs } from './store/useAppStore';
 import { AuthProvider } from './contexts/AuthContext';
 import { SyncProvider } from './contexts/SyncContext';
 import { ModalProvider } from './contexts';
-import { ToastContainer } from './components/ui/ToastContainer';
+import { ErrorToastProvider } from './contexts/ErrorToastProvider';
 import { MainLayout } from './components/layout';
 import { Capacitor } from '@capacitor/core';
 import { App as CapApp } from '@capacitor/app';
 import { StatusBar, Style } from '@capacitor/status-bar';
+import { enqueueErrorToast } from './services/errorToast';
 
 const App: FC = () => {
   // Run migrations once on app startup
@@ -21,7 +22,10 @@ const App: FC = () => {
   useEffect(() => {
     if (Capacitor.isNativePlatform()) {
       // Set status bar style for dark theme
-      StatusBar.setStyle({ style: Style.Dark }).catch(console.error);
+      StatusBar.setStyle({ style: Style.Dark }).catch((error) => {
+        console.error(error);
+        enqueueErrorToast(error, 'Unable to configure the device status bar.');
+      });
 
       // Handle deep links for OAuth callbacks
       CapApp.addListener('appUrlOpen', (event) => {
@@ -38,16 +42,17 @@ const App: FC = () => {
   }, []);
 
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <SyncProvider>
-          <ModalProvider>
-            <MainLayout />
-            <ToastContainer />
-          </ModalProvider>
-        </SyncProvider>
-      </BrowserRouter>
-    </AuthProvider>
+    <ErrorToastProvider>
+      <AuthProvider>
+        <BrowserRouter>
+          <SyncProvider>
+            <ModalProvider>
+              <MainLayout />
+            </ModalProvider>
+          </SyncProvider>
+        </BrowserRouter>
+      </AuthProvider>
+    </ErrorToastProvider>
   );
 }
 

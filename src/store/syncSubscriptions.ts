@@ -25,6 +25,8 @@ import {
   syncDeleteWeightEntry,
 } from '../services/supabase/sync';
 import { clearFeedCache } from '../hooks/useFeed';
+import { withAbortableTimeout } from '../services/asyncTimeout';
+import { enqueueErrorToast } from '../services/errorToast';
 
 type PendingUpsert<T> = { kind: 'upsert'; value: T };
 type PendingDelete = { kind: 'delete' };
@@ -75,10 +77,19 @@ let syncIdentity: string | null = null;
 let isSyncingFromCloud = false;
 let previousSessionIds: string[] = [];
 const flushesInFlight = new Map<string, Promise<void>>();
+const PENDING_OPERATION_TIMEOUT_MS = 15000;
 
 const pendingKey = (userId: string): string => `${PENDING_KEY_PREFIX}${userId}`;
 const valuesEqual = (left: unknown, right: unknown): boolean =>
   JSON.stringify(left) === JSON.stringify(right);
+const runPendingOperation = <T>(
+  operation: (signal: AbortSignal) => Promise<T>,
+  description: string
+): Promise<T> => withAbortableTimeout(
+  operation,
+  PENDING_OPERATION_TIMEOUT_MS,
+  `${description} timed out`
+);
 
 export const getPendingSyncState = (userId: string): PendingSyncState => {
   const serialized = localStorage.getItem(pendingKey(userId));
@@ -175,7 +186,10 @@ export const setSyncEnabled = (enabled: boolean, userId?: string | null): void =
     queueMicrotask(() => {
       if (syncEnabled && syncIdentity === enabledIdentity) {
         flushPendingSync(enabledIdentity).catch((error) => {
-          console.error('[SyncSubscriptions] Failed to flush pending changes:', error);
+          reportPendingSyncError(
+            '[SyncSubscriptions] Failed to flush pending changes:',
+            error
+          );
         });
       }
     });
@@ -203,15 +217,16 @@ export const pauseSyncForDataClear = async (
   };
   setSyncEnabled(false, userId);
   setSyncingFromCloud(true);
-  try {
-    const activeFlush = flushesInFlight.get(userId);
-    if (activeFlush) await activeFlush;
-    clearPendingSyncState(userId);
-    return previous;
-  } catch (error) {
-    resumeSyncAfterDataClear(previous);
-    throw error;
+  const activeFlush = flushesInFlight.get(userId);
+  if (activeFlush) {
+    try {
+      await activeFlush;
+    } catch (error) {
+      console.warn('[SyncSubscriptions] Discarding failed writes before clearing data:', error);
+    }
   }
+  clearPendingSyncState(userId);
+  return previous;
 };
 
 export const resumeSyncAfterDataClear = (previous: SyncPauseState): void => {
@@ -239,7 +254,10 @@ const performPendingFlush = async (
 
     if (pending.preferences) {
       const snapshot = pending.preferences;
-      await syncPreferences(snapshot, userId);
+      await runPendingOperation(
+        (signal) => syncPreferences(snapshot, userId, signal),
+        'Preference synchronization'
+      );
       clearIfUnchanged(userId, (current) => valuesEqual(current.preferences, snapshot), (current) => {
         delete current.preferences;
       });
@@ -248,7 +266,10 @@ const performPendingFlush = async (
 
     if (pending.workoutGoal !== undefined) {
       const snapshot = pending.workoutGoal;
-      await syncWorkoutGoal(snapshot, userId);
+      await runPendingOperation(
+        (signal) => syncWorkoutGoal(snapshot, userId, signal),
+        'Workout goal synchronization'
+      );
       clearIfUnchanged(userId, (current) => current.workoutGoal === snapshot, (current) => {
         delete current.workoutGoal;
       });
@@ -256,7 +277,10 @@ const performPendingFlush = async (
 
     if (pending.cycleState) {
       const snapshot = pending.cycleState;
-      await syncCycleState(snapshot, userId);
+      await runPendingOperation(
+        (signal) => syncCycleState(snapshot, userId, signal),
+        'Training cycle synchronization'
+      );
       clearIfUnchanged(userId, (current) => valuesEqual(current.cycleState, snapshot), (current) => {
         delete current.cycleState;
       });
@@ -264,7 +288,10 @@ const performPendingFlush = async (
 
     if (pending.hasCompletedIntro !== undefined) {
       const snapshot = pending.hasCompletedIntro;
-      await syncHasCompletedIntro(snapshot, userId);
+      await runPendingOperation(
+        (signal) => syncHasCompletedIntro(snapshot, userId, signal),
+        'Introduction state synchronization'
+      );
       clearIfUnchanged(userId, (current) => current.hasCompletedIntro === snapshot, (current) => {
         delete current.hasCompletedIntro;
       });
@@ -273,9 +300,15 @@ const performPendingFlush = async (
     for (const [id, operation] of Object.entries(pending.templates)) {
       if (!isCurrent()) return;
       if (operation.kind === 'delete') {
-        await syncDeleteTemplate(id, userId);
+        await runPendingOperation(
+          (signal) => syncDeleteTemplate(id, userId, signal),
+          'Template deletion'
+        );
       } else {
-        await syncAddTemplate(operation.value, userId);
+        await runPendingOperation(
+          () => syncAddTemplate(operation.value, userId),
+          'Template synchronization'
+        );
       }
       clearIfUnchanged(userId, (current) => valuesEqual(current.templates[id], operation), (current) => {
         delete current.templates[id];
@@ -284,7 +317,10 @@ const performPendingFlush = async (
 
     if (pending.templateOrder) {
       const snapshot = pending.templateOrder;
-      await syncReorderTemplates(snapshot, userId);
+      await runPendingOperation(
+        (signal) => syncReorderTemplates(snapshot, userId, signal),
+        'Template order synchronization'
+      );
       clearIfUnchanged(userId, (current) => valuesEqual(current.templateOrder, snapshot), (current) => {
         delete current.templateOrder;
       });
@@ -293,9 +329,15 @@ const performPendingFlush = async (
     for (const [id, operation] of Object.entries(pending.sessions)) {
       if (!isCurrent()) return;
       if (operation.kind === 'delete') {
-        await syncDeleteSession(id, userId);
+        await runPendingOperation(
+          (signal) => syncDeleteSession(id, userId, signal),
+          'Session deletion'
+        );
       } else {
-        await syncAddSession(operation.value, userId);
+        await runPendingOperation(
+          () => syncAddSession(operation.value, userId),
+          'Session synchronization'
+        );
         if (operation.value.completedAt) clearFeedCache();
       }
       clearIfUnchanged(userId, (current) => valuesEqual(current.sessions[id], operation), (current) => {
@@ -305,7 +347,10 @@ const performPendingFlush = async (
 
     if (pending.activeSessionSet) {
       const snapshot = pending.activeSession ?? null;
-      await syncSetActiveSession(snapshot, userId);
+      await runPendingOperation(
+        (signal) => syncSetActiveSession(snapshot, userId, signal),
+        'Active session synchronization'
+      );
       clearIfUnchanged(
         userId,
         (current) => Boolean(current.activeSessionSet) && valuesEqual(current.activeSession ?? null, snapshot),
@@ -319,9 +364,15 @@ const performPendingFlush = async (
     for (const [id, operation] of Object.entries(pending.customExercises)) {
       if (!isCurrent()) return;
       if (operation.kind === 'delete') {
-        await syncDeleteCustomExercise(id, userId);
+        await runPendingOperation(
+          (signal) => syncDeleteCustomExercise(id, userId, signal),
+          'Custom exercise deletion'
+        );
       } else {
-        await syncAddCustomExercise(operation.value, userId);
+        await runPendingOperation(
+          (signal) => syncAddCustomExercise(operation.value, userId, signal),
+          'Custom exercise synchronization'
+        );
       }
       clearIfUnchanged(
         userId,
@@ -335,9 +386,15 @@ const performPendingFlush = async (
     for (const [date, operation] of Object.entries(pending.weights)) {
       if (!isCurrent()) return;
       if (operation.kind === 'delete') {
-        await syncDeleteWeightEntry(date, userId);
+        await runPendingOperation(
+          (signal) => syncDeleteWeightEntry(date, userId, signal),
+          'Weight entry deletion'
+        );
       } else {
-        await syncAddWeightEntry(operation.value, userId);
+        await runPendingOperation(
+          (signal) => syncAddWeightEntry(operation.value, userId, signal),
+          'Weight entry synchronization'
+        );
       }
       clearIfUnchanged(userId, (current) => valuesEqual(current.weights[date], operation), (current) => {
         delete current.weights[date];
@@ -362,7 +419,10 @@ export const flushPendingSync = (
     ) {
       queueMicrotask(() => {
         flushPendingSync(userId).catch((error) => {
-          console.error('[SyncSubscriptions] Failed to flush queued changes:', error);
+          reportPendingSyncError(
+            '[SyncSubscriptions] Failed to flush queued changes:',
+            error
+          );
         });
       });
     }
@@ -374,12 +434,23 @@ export const flushPendingSync = (
 const queueFlush = (): void => {
   if (!syncEnabled || !syncIdentity || isSyncingFromCloud) return;
   flushPendingSync(syncIdentity).catch((error) => {
-    console.error('[SyncSubscriptions] Failed to synchronize local change:', error);
+    reportPendingSyncError(
+      '[SyncSubscriptions] Failed to synchronize local change:',
+      error
+    );
   });
 };
 
 const getTrackingIdentity = (): string | null =>
   isSyncingFromCloud ? null : syncIdentity;
+
+const reportPendingSyncError = (message: string, error: unknown): void => {
+  console.error(message, error);
+  enqueueErrorToast(
+    error,
+    'Unable to sync recent changes. They remain saved on this device.'
+  );
+};
 
 export const setupSyncSubscriptions = (): (() => void) => {
   const unsubscribers = [

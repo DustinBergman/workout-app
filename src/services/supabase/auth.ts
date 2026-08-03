@@ -86,7 +86,7 @@ export const signIn = async (email: string, password: string): Promise<AuthRespo
  * Sign out the current user
  */
 export const signOut = async (): Promise<{ error: AuthError | null }> => {
-  const { error } = await supabase.auth.signOut();
+  const { error } = await supabase.auth.signOut({ scope: 'local' });
   return { error };
 };
 

@@ -118,12 +118,14 @@ vi.mock('../hooks/useFeed', () => ({
 }));
 
 import { useAppStore } from './useAppStore';
+import { useToastStore } from './toastStore';
 
 describe('syncSubscriptions', () => {
   beforeEach(() => {
     // Reset sync state between tests
     setSyncEnabled(false, null);
     localStorage.clear();
+    useToastStore.getState().clearToasts();
     // Clear all mocks
     vi.clearAllMocks();
     // Clear subscription callbacks
@@ -330,7 +332,8 @@ describe('syncSubscriptions', () => {
       });
       expect(mockSyncWorkoutGoal).toHaveBeenLastCalledWith(
         'hypertrophy',
-        '__authenticated__'
+        '__authenticated__',
+        expect.any(AbortSignal)
       );
       expect(mockSyncHasCompletedIntro).toHaveBeenCalledTimes(1);
 
@@ -352,7 +355,8 @@ describe('syncSubscriptions', () => {
 
       expect(mockSyncPreferences).toHaveBeenCalledWith(
         { weightUnit: 'kg' },
-        'offline-user'
+        'offline-user',
+        expect.any(AbortSignal)
       );
       expect(getPendingSyncState('offline-user').preferences).toBeUndefined();
     });
@@ -366,7 +370,11 @@ describe('syncSubscriptions', () => {
       callback!([updated], [previous]);
 
       await vi.waitFor(() => {
-        expect(mockSyncAddCustomExercise).toHaveBeenCalledWith(updated, 'exercise-user');
+        expect(mockSyncAddCustomExercise).toHaveBeenCalledWith(
+          updated,
+          'exercise-user',
+          expect.any(AbortSignal)
+        );
       });
     });
 
@@ -383,8 +391,28 @@ describe('syncSubscriptions', () => {
       setSyncEnabled(true, 'delete-user');
       await flushPendingSync('delete-user');
 
-      expect(mockSyncDeleteTemplate).toHaveBeenCalledWith('template-1', 'delete-user');
+      expect(mockSyncDeleteTemplate).toHaveBeenCalledWith(
+        'template-1',
+        'delete-user',
+        expect.any(AbortSignal)
+      );
       expect(getPendingSyncState('delete-user').templates['template-1']).toBeUndefined();
+    });
+
+    it('enqueues a toast when a background flush fails', async () => {
+      setupSyncSubscriptions();
+      setSyncEnabled(true, 'toast-user');
+      mockSyncPreferences.mockRejectedValueOnce(new Error('Network unavailable'));
+      const callback = subscriptionCallbacks.get('preferences');
+
+      callback!({ weightUnit: 'kg' }, { weightUnit: 'lbs' });
+
+      await vi.waitFor(() => {
+        const toasts = useToastStore.getState().toasts;
+        expect(toasts[toasts.length - 1]?.message).toBe(
+          'Unable to sync recent changes. They remain saved on this device.'
+        );
+      });
     });
 
     it('returns a cleanup that unsubscribes every store listener', () => {

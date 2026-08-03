@@ -73,7 +73,7 @@ describe('authCache', () => {
       expect(localStorage.getItem(AUTH_CACHE_KEY)).toBeNull();
     });
 
-    it('should return null and clear cache when session is expired', () => {
+    it('should keep a fresh cache when only the access token is expired', () => {
       const user = createMockUser();
       const session = createMockSession({
         expires_at: Math.floor(Date.now() / 1000) - 3600, // 1 hour ago
@@ -87,8 +87,8 @@ describe('authCache', () => {
 
       const result = getCachedAuth();
 
-      expect(result).toBeNull();
-      expect(localStorage.getItem(AUTH_CACHE_KEY)).toBeNull();
+      expect(result?.user.id).toBe(user.id);
+      expect(localStorage.getItem(AUTH_CACHE_KEY)).not.toBeNull();
     });
 
     it('should return null on invalid JSON', () => {
@@ -216,7 +216,7 @@ describe('authCache', () => {
       expect(result.isLoading).toBe(false);
     });
 
-    it('should return loading state when cache is expired', () => {
+    it('should return cached state when only the access token is expired', () => {
       const user = createMockUser();
       const session = createMockSession({
         expires_at: Math.floor(Date.now() / 1000) - 3600, // Expired
@@ -230,9 +230,9 @@ describe('authCache', () => {
 
       const result = getInitialAuthState();
 
-      expect(result.user).toBeNull();
-      expect(result.session).toBeNull();
-      expect(result.isLoading).toBe(true);
+      expect(result.user?.id).toBe(user.id);
+      expect(result.session).not.toBeNull();
+      expect(result.isLoading).toBe(false);
     });
   });
 

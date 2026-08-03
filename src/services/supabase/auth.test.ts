@@ -171,7 +171,7 @@ describe('Auth Service', () => {
 
       const result = await signOut();
 
-      expect(supabase.auth.signOut).toHaveBeenCalled();
+      expect(supabase.auth.signOut).toHaveBeenCalledWith({ scope: 'local' });
       expect(result.error).toBeNull();
     });
 

@@ -1,10 +1,23 @@
 import { FC, ReactNode, useContext } from 'react';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { SyncContext, SyncProvider } from './SyncContext';
+import {
+  INITIAL_SYNC_LOADING_TIMEOUT_MS,
+  SyncContext,
+  SyncProvider,
+} from './SyncContext';
 import { useAppStore } from '../store/useAppStore';
 import { useAuth } from '../hooks/useAuth';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
+import {
+  deduplicateTemplateExercises,
+  getActiveSession,
+  getCustomExercises,
+  getProfile,
+  getSessions,
+  getTemplates,
+  getWeightEntries,
+} from '../services/supabase';
 
 vi.mock('../hooks/useAuth', () => ({
   useAuth: vi.fn(),
@@ -93,6 +106,35 @@ describe('SyncProvider identity and offline behavior', () => {
     expect(useAppStore.getState().templates).toEqual([template]);
     unmount();
     expect(unsubscribe).toHaveBeenCalled();
+  });
+
+  it('releases initial loading when cloud data loading hangs', async () => {
+    vi.useFakeTimers();
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    localStorage.setItem('workout-app-current-state-identity-v2', 'user-a');
+    vi.mocked(useOnlineStatus).mockReturnValue(true);
+    vi.mocked(getProfile).mockImplementation(() => new Promise(() => {}));
+    vi.mocked(getTemplates).mockResolvedValue({ templates: [], error: null });
+    vi.mocked(getSessions).mockResolvedValue({ sessions: [], error: null });
+    vi.mocked(getActiveSession).mockResolvedValue({ session: null, error: null });
+    vi.mocked(getCustomExercises).mockResolvedValue({ exercises: [], error: null });
+    vi.mocked(getWeightEntries).mockResolvedValue({ entries: [], error: null });
+    vi.mocked(deduplicateTemplateExercises).mockResolvedValue({ fixed: 0, error: null });
+
+    const { result, unmount } = renderHook(useSyncContext, { wrapper });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(INITIAL_SYNC_LOADING_TIMEOUT_MS);
+    });
+
+    expect(result.current.isInitialLoading).toBe(false);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(15000);
+    });
+    unmount();
+    consoleSpy.mockRestore();
+    vi.useRealTimers();
   });
 
   it('saves and replaces account-bound state when the user changes', async () => {

@@ -20,6 +20,11 @@ import {
   setAuthUser,
   clearAuthCache,
 } from '../services/supabase/authHelper';
+import { withTimeout } from '../services/asyncTimeout';
+import { enqueueErrorToast } from '../services/errorToast';
+import { clearPersistedSupabaseAuth } from '../lib/supabase';
+
+export const AUTH_INITIALIZATION_TIMEOUT_MS = 8000;
 
 export interface AuthContextType {
   user: User | null;
@@ -45,6 +50,10 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
   const [session, setSession] = useState<Session | null>(initialState.session);
   const [isLoading, setIsLoading] = useState(initialState.isLoading);
   const authGenerationRef = useRef(0);
+  const cachedValidationPendingRef = useRef(false);
+  const locallySignedOutRef = useRef(false);
+  const pendingAuthEmailRef = useRef<string | null>(null);
+  const signOutOperationRef = useRef<Promise<{ error: AuthError | null }> | null>(null);
 
   // Initialize auth state
   useEffect(() => {
@@ -53,47 +62,113 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
       // First, check our local cache for a quick start
       const cachedAuth = getCachedAuth();
       if (cachedAuth) {
+        cachedValidationPendingRef.current = true;
         setSession(cachedAuth.session);
         setUser(cachedAuth.user);
         setAuthUser(cachedAuth.user); // Initialize in-memory auth cache
         setIsLoading(false);
         // Still fetch the real session in background to ensure it's fresh
         // but user sees the app immediately
-        getSession().then(({ session: freshSession }) => {
-          if (authGenerationRef.current !== generation) return;
-          if (freshSession) {
-            setSession(freshSession);
-            setUser(freshSession.user);
-            setCachedAuth(freshSession.user, freshSession);
-            setAuthUser(freshSession.user); // Update in-memory auth cache
-          } else {
-            // Session was invalid, clear everything
-            setSession(null);
-            setUser(null);
-            clearCachedAuth();
-            clearAuthCache(); // Clear in-memory auth cache
-          }
-        });
+        void withTimeout(
+          getSession(),
+          AUTH_INITIALIZATION_TIMEOUT_MS,
+          'Session refresh timed out'
+        )
+          .then(({ session: freshSession, error }) => {
+            if (authGenerationRef.current !== generation) return;
+            if (error) {
+              console.warn('[Auth] Session refresh failed; keeping cached auth:', error);
+              enqueueErrorToast(
+                error,
+                'Unable to refresh your session. Using cached access.'
+              );
+              return;
+            }
+            if (freshSession) {
+              setSession(freshSession);
+              setUser(freshSession.user);
+              setCachedAuth(freshSession.user, freshSession);
+              setAuthUser(freshSession.user); // Update in-memory auth cache
+            } else {
+              // Session was invalid, clear everything
+              setSession(null);
+              setUser(null);
+              clearCachedAuth();
+              clearAuthCache(); // Clear in-memory auth cache
+            }
+          })
+          .catch((error) => {
+            console.warn('[Auth] Background session refresh failed:', error);
+            enqueueErrorToast(
+              error,
+              'Unable to refresh your session. Using cached access.'
+            );
+          })
+          .finally(() => {
+            cachedValidationPendingRef.current = false;
+          });
         return;
       }
 
       // No cache, do the normal flow
-      const { session: currentSession } = await getSession();
-      if (authGenerationRef.current !== generation) return;
-      setSession(currentSession);
-      setUser(currentSession?.user ?? null);
-      if (currentSession?.user) {
-        setCachedAuth(currentSession.user, currentSession);
-        setAuthUser(currentSession.user); // Initialize in-memory auth cache
+      try {
+        const { session: currentSession, error } = await withTimeout(
+          getSession(),
+          AUTH_INITIALIZATION_TIMEOUT_MS,
+          'Authentication check timed out'
+        );
+        if (error) throw error;
+        if (authGenerationRef.current !== generation) return;
+        setSession(currentSession);
+        setUser(currentSession?.user ?? null);
+        if (currentSession?.user) {
+          setCachedAuth(currentSession.user, currentSession);
+          setAuthUser(currentSession.user); // Initialize in-memory auth cache
+        }
+      } catch (error) {
+        if (authGenerationRef.current !== generation) return;
+        console.error('[Auth] Initial authentication check failed:', error);
+        enqueueErrorToast(
+          error,
+          'Unable to verify your session. Please sign in again.'
+        );
+        setSession(null);
+        setUser(null);
+        clearAuthCache();
+      } finally {
+        if (authGenerationRef.current === generation) {
+          setIsLoading(false);
+        }
       }
-      setIsLoading(false);
     };
 
     initAuth();
 
     // Subscribe to auth changes
     const subscription = onAuthStateChange((event, newSession) => {
+      if (
+        event === 'INITIAL_SESSION' &&
+        !newSession &&
+        cachedValidationPendingRef.current
+      ) {
+        setIsLoading(false);
+        return;
+      }
+      if (locallySignedOutRef.current && newSession) {
+        const sessionEmail = newSession.user.email?.trim().toLowerCase();
+        if (
+          pendingAuthEmailRef.current &&
+          sessionEmail === pendingAuthEmailRef.current
+        ) {
+          locallySignedOutRef.current = false;
+          pendingAuthEmailRef.current = null;
+        } else {
+          clearPersistedSupabaseAuth();
+          return;
+        }
+      }
       authGenerationRef.current += 1;
+      cachedValidationPendingRef.current = false;
       setSession(newSession);
       setUser(newSession?.user ?? null);
       if (newSession?.user) {
@@ -121,39 +196,88 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
     password: string,
     metadata?: { username?: string; firstName?: string; lastName?: string }
   ) => {
-    const { user: newUser, session: newSession, error } = await authSignUp(email, password, metadata);
-    if (!error && newUser && newSession) {
-      authGenerationRef.current += 1;
-      setUser(newUser);
-      setSession(newSession);
-      setCachedAuth(newUser, newSession);
-      setAuthUser(newUser); // Update in-memory auth cache
+    const pendingSignOut = signOutOperationRef.current;
+    if (pendingSignOut) await pendingSignOut.catch(() => undefined);
+    pendingAuthEmailRef.current = email.trim().toLowerCase();
+    try {
+      const { user: newUser, session: newSession, error } = await authSignUp(email, password, metadata);
+      if (!error && newUser && newSession) {
+        locallySignedOutRef.current = false;
+        authGenerationRef.current += 1;
+        setUser(newUser);
+        setSession(newSession);
+        setCachedAuth(newUser, newSession);
+        setAuthUser(newUser); // Update in-memory auth cache
+      }
+      return { error };
+    } finally {
+      pendingAuthEmailRef.current = null;
     }
-    return { error };
   }, []);
 
   const signIn = useCallback(async (email: string, password: string) => {
-    const { user: newUser, session: newSession, error } = await authSignIn(email, password);
-    if (!error && newUser && newSession) {
-      authGenerationRef.current += 1;
-      setUser(newUser);
-      setSession(newSession);
-      setCachedAuth(newUser, newSession);
-      setAuthUser(newUser); // Update in-memory auth cache
+    const pendingSignOut = signOutOperationRef.current;
+    if (pendingSignOut) await pendingSignOut.catch(() => undefined);
+    pendingAuthEmailRef.current = email.trim().toLowerCase();
+    try {
+      const { user: newUser, session: newSession, error } = await authSignIn(email, password);
+      if (!error && newUser && newSession) {
+        locallySignedOutRef.current = false;
+        authGenerationRef.current += 1;
+        setUser(newUser);
+        setSession(newSession);
+        setCachedAuth(newUser, newSession);
+        setAuthUser(newUser); // Update in-memory auth cache
+      }
+      return { error };
+    } finally {
+      pendingAuthEmailRef.current = null;
     }
-    return { error };
   }, []);
 
   const signOut = useCallback(async () => {
-    const { error } = await authSignOut();
-    if (!error) {
-      authGenerationRef.current += 1;
-      setUser(null);
-      setSession(null);
-      clearCachedAuth();
-      clearAuthCache(); // Clear in-memory auth cache
+    locallySignedOutRef.current = true;
+    const signOutGeneration = ++authGenerationRef.current;
+    setUser(null);
+    setSession(null);
+    clearCachedAuth();
+    clearAuthCache();
+
+    const rawSignOutOperation = authSignOut();
+    const signOutOperation = rawSignOutOperation;
+    signOutOperationRef.current = signOutOperation;
+    const clearSignOutOperation = () => {
+      if (signOutOperationRef.current === signOutOperation) {
+        signOutOperationRef.current = null;
+      }
+    };
+    void signOutOperation.then(clearSignOutOperation, clearSignOutOperation);
+
+    try {
+      const result = await withTimeout(
+        rawSignOutOperation,
+        AUTH_INITIALIZATION_TIMEOUT_MS,
+        'Sign out timed out'
+      );
+      if (result.error) {
+        enqueueErrorToast(
+          result.error,
+          'Signed out locally, but the server could not be reached.'
+        );
+      }
+      return result;
+    } catch (error) {
+      console.warn('[Auth] Local auth was cleared, but Supabase sign out failed:', error);
+      enqueueErrorToast(
+        error,
+        'Signed out locally, but the server could not be reached.'
+      );
+      return { error: error as AuthError };
+    } finally {
+      if (authGenerationRef.current === signOutGeneration) {
+        clearPersistedSupabaseAuth();
+      }
     }
-    return { error };
   }, []);
 
   const resetPassword = useCallback(async (email: string) => {
