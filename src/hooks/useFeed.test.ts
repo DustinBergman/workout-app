@@ -87,7 +87,7 @@ describe('useFeed', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    clearFeedCache();
+    clearFeedCache(true);
     vi.mocked(useAuth).mockReturnValue({
       user: { id: 'viewer-1' },
     } as never);
@@ -159,6 +159,40 @@ describe('useFeed', () => {
 
     // Should not have called the API again
     expect(getFriendWorkouts).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the last feed visible when a stale re-entry refresh returns empty', async () => {
+    const firstRender = renderHook(() => useFeed());
+    await waitFor(() => expect(firstRender.result.current.workouts).toHaveLength(2));
+    firstRender.unmount();
+
+    clearFeedCache();
+    vi.mocked(getFriendWorkouts).mockResolvedValueOnce({
+      workouts: [],
+      error: null,
+    });
+
+    const secondRender = renderHook(() => useFeed());
+
+    expect(secondRender.result.current.isLoading).toBe(false);
+    expect(secondRender.result.current.workouts).toHaveLength(2);
+    await waitFor(() => expect(getFriendWorkouts).toHaveBeenCalledTimes(3));
+    expect(secondRender.result.current.workouts).toHaveLength(2);
+  });
+
+  it('accepts an empty feed after a confirmation request', async () => {
+    const firstRender = renderHook(() => useFeed());
+    await waitFor(() => expect(firstRender.result.current.workouts).toHaveLength(2));
+    firstRender.unmount();
+
+    clearFeedCache();
+    vi.mocked(getFriendWorkouts)
+      .mockResolvedValueOnce({ workouts: [], error: null })
+      .mockResolvedValueOnce({ workouts: [], error: null });
+
+    const secondRender = renderHook(() => useFeed());
+
+    await waitFor(() => expect(secondRender.result.current.workouts).toEqual([]));
   });
 
   it('should force refresh when refresh(true) is called', async () => {
@@ -297,6 +331,30 @@ describe('useFeed', () => {
     expect(new Set(result.current.workouts.map((workout) => workout.id)).size).toBe(21);
   });
 
+  it('revalidates a stale first page before paginating', async () => {
+    const initialWorkouts = Array.from({ length: 20 }, (_, i) => ({
+      ...mockWorkouts[0],
+      id: `workout-${i}`,
+    }));
+    const nextWorkout = { ...mockWorkouts[0], id: 'workout-20' };
+    vi.mocked(getFriendWorkouts)
+      .mockResolvedValueOnce({ workouts: initialWorkouts, error: null })
+      .mockResolvedValueOnce({ workouts: initialWorkouts, error: null })
+      .mockResolvedValueOnce({ workouts: [nextWorkout], error: null });
+
+    const { result } = renderHook(() => useFeed());
+    await waitFor(() => expect(result.current.workouts).toHaveLength(20));
+    clearFeedCache();
+
+    await act(async () => {
+      await result.current.loadMore();
+    });
+
+    expect(getFriendWorkouts).toHaveBeenNthCalledWith(2, 20, 0);
+    expect(getFriendWorkouts).toHaveBeenNthCalledWith(3, 20, 20);
+    expect(result.current.workouts).toHaveLength(21);
+  });
+
   it('does not expose cached workouts after the authenticated user changes', async () => {
     const { result, unmount } = renderHook(() => useFeed());
     await waitFor(() => expect(result.current.isLoading).toBe(false));
@@ -335,6 +393,36 @@ describe('useFeed', () => {
     renderHook(() => useFeed());
 
     await waitFor(() => expect(getFriendWorkouts).toHaveBeenCalledTimes(2));
+  });
+
+  it('does not let stale engagement overwrite a newer user update', async () => {
+    let resolveLikes: ((value: {
+      summaries: typeof mockLikeSummaries;
+      error: null;
+    }) => void) | undefined;
+    vi.mocked(getBatchLikeSummaries).mockImplementationOnce(
+      () => new Promise((resolve) => {
+        resolveLikes = resolve;
+      })
+    );
+    const { result } = renderHook(() => useFeed());
+    await waitFor(() => expect(result.current.workouts).toHaveLength(2));
+
+    const newerSummary = {
+      count: 8,
+      hasLiked: false,
+      recentLikers: [],
+    };
+    act(() => {
+      result.current.updateLikeSummary('workout-1', newerSummary);
+    });
+    resolveLikes?.({ summaries: mockLikeSummaries, error: null });
+
+    await waitFor(() => {
+      expect(result.current.likeSummaries['workout-1']).toEqual(newerSummary);
+    });
+    expect(result.current.commentCounts['workout-1']).toBe(2);
+    expect(result.current.previewComments['workout-1']).toHaveLength(1);
   });
 
   it('should handle errors gracefully', async () => {

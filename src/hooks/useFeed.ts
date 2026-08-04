@@ -45,6 +45,12 @@ interface FeedCache {
   timestamp: number;
 }
 
+interface EngagementVersions {
+  likes: number;
+  counts: number;
+  previews: number;
+}
+
 let feedCache: FeedCache | null = null;
 let feedCacheGeneration = 0;
 
@@ -53,13 +59,19 @@ const isCacheValid = (userId: string): boolean => {
   return Date.now() - feedCache.timestamp < CACHE_TTL_MS;
 };
 
-const clearFeedCache = () => {
-  feedCache = null;
+const clearFeedCache = (discard = false) => {
+  if (discard) {
+    feedCache = null;
+  } else if (feedCache) {
+    feedCache = { ...feedCache, timestamp: 0 };
+  }
   feedCacheGeneration += 1;
 };
 
 export const setFeedCacheUser = (userId: string | null): void => {
-  if (feedCache && feedCache.userId !== (userId ?? 'anonymous')) clearFeedCache();
+  if (feedCache && feedCache.userId !== (userId ?? 'anonymous')) {
+    clearFeedCache(true);
+  }
 };
 
 export { clearFeedCache };
@@ -73,7 +85,7 @@ export const useFeed = (): UseFeedReturn => {
   const [likeSummaries, setLikeSummaries] = useState<Record<string, LikeSummary>>(initialCache?.likeSummaries || {});
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>(initialCache?.commentCounts || {});
   const [previewComments, setPreviewComments] = useState<Record<string, WorkoutComment[]>>(initialCache?.previewComments || {});
-  const [isLoading, setIsLoading] = useState(!isCacheValid(feedUserId));
+  const [isLoading, setIsLoading] = useState(!initialCache);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -84,10 +96,12 @@ export const useFeed = (): UseFeedReturn => {
   const offsetRef = useRef(initialCache?.offset || 0);
   const hasMoreRef = useRef(initialCache?.hasMore ?? true);
   const loadMoreInFlightRef = useRef(false);
+  const refreshInFlightRef = useRef(false);
+  const engagementVersionsRef = useRef<Record<string, EngagementVersions>>({});
   identityRef.current = feedUserId;
 
   useEffect(() => {
-    const cache = feedCache?.userId === feedUserId && isCacheValid(feedUserId)
+    const cache = feedCache?.userId === feedUserId
       ? feedCache
       : null;
     setStateUserId(feedUserId);
@@ -99,8 +113,10 @@ export const useFeed = (): UseFeedReturn => {
     setHasMore(cache?.hasMore ?? true);
     hasMoreRef.current = cache?.hasMore ?? true;
     offsetRef.current = cache?.offset ?? 0;
-    initialLoadDone.current = Boolean(cache);
+    initialLoadDone.current = isCacheValid(feedUserId);
     loadMoreInFlightRef.current = false;
+    refreshInFlightRef.current = false;
+    engagementVersionsRef.current = {};
     setIsLoadingMore(false);
     setIsLoading(!cache);
   }, [feedUserId]);
@@ -115,6 +131,16 @@ export const useFeed = (): UseFeedReturn => {
     previews: Record<string, WorkoutComment[]>;
   }> => {
     if (workoutIds.length === 0) return { likes: {}, counts: {}, previews: {} };
+    const requestVersions = Object.fromEntries(
+      workoutIds.map((workoutId) => [
+        workoutId,
+        engagementVersionsRef.current[workoutId] ?? {
+          likes: 0,
+          counts: 0,
+          previews: 0,
+        },
+      ])
+    );
 
     // Load likes, comment counts, and preview comments in parallel
     const [likesResult, commentsResult, previewsResult] = await Promise.all([
@@ -123,9 +149,28 @@ export const useFeed = (): UseFeedReturn => {
       getBatchPreviewComments(workoutIds),
     ]);
 
-    const likes = likesResult.error ? {} : likesResult.summaries;
-    const counts = commentsResult.error ? {} : commentsResult.counts;
-    const previews = previewsResult.error ? {} : previewsResult.previews;
+    const filterUnchanged = <T>(
+      values: Record<string, T>,
+      category: keyof EngagementVersions
+    ): Record<string, T> =>
+      Object.fromEntries(
+        Object.entries(values).filter(([workoutId]) =>
+          (engagementVersionsRef.current[workoutId]?.[category] ?? 0) ===
+          requestVersions[workoutId][category]
+        )
+      );
+    const likes = filterUnchanged(
+      likesResult.error ? {} : likesResult.summaries,
+      'likes'
+    );
+    const counts = filterUnchanged(
+      commentsResult.error ? {} : commentsResult.counts,
+      'counts'
+    );
+    const previews = filterUnchanged(
+      previewsResult.error ? {} : previewsResult.previews,
+      'previews'
+    );
 
     if (
       identityRef.current !== requestUserId ||
@@ -149,6 +194,8 @@ export const useFeed = (): UseFeedReturn => {
       setIsLoading(false);
       return;
     }
+    if (refreshInFlightRef.current) return;
+    refreshInFlightRef.current = true;
 
     // Use isRefreshing if we already have data, isLoading for initial load
     if (workoutsRef.current.length > 0) {
@@ -159,13 +206,25 @@ export const useFeed = (): UseFeedReturn => {
     setError(null);
 
     try {
-      const { workouts: newWorkouts, error: fetchError } = await getFriendWorkouts(PAGE_SIZE, 0);
+      const { workouts: firstWorkouts, error: fetchError } =
+        await getFriendWorkouts(PAGE_SIZE, 0);
 
       if (fetchError) throw fetchError;
       if (
         identityRef.current !== requestUserId ||
         requestGeneration !== feedCacheGeneration
       ) return;
+
+      let newWorkouts = firstWorkouts;
+      if (!force && newWorkouts.length === 0 && workoutsRef.current.length > 0) {
+        const confirmation = await getFriendWorkouts(PAGE_SIZE, 0);
+        if (confirmation.error) throw confirmation.error;
+        if (
+          identityRef.current !== requestUserId ||
+          requestGeneration !== feedCacheGeneration
+        ) return;
+        newWorkouts = confirmation.workouts;
+      }
 
       const newHasMore = newWorkouts.length === PAGE_SIZE;
       const newOffset = newWorkouts.length;
@@ -180,6 +239,20 @@ export const useFeed = (): UseFeedReturn => {
       setHasMore(newHasMore);
       hasMoreRef.current = newHasMore;
       offsetRef.current = newOffset;
+      // Cache workouts immediately. Engagement requests can be slower and
+      // should not make a later feed visit lose the known-good workout list.
+      const existingEngagement =
+        feedCache?.userId === requestUserId ? feedCache : null;
+      feedCache = {
+        userId: requestUserId,
+        workouts: newWorkouts,
+        likeSummaries: existingEngagement?.likeSummaries ?? {},
+        commentCounts: existingEngagement?.commentCounts ?? {},
+        previewComments: existingEngagement?.previewComments ?? {},
+        offset: newOffset,
+        hasMore: newHasMore,
+        timestamp: 0,
+      };
 
       // Load engagement data for new workouts
       const workoutIds = newWorkouts.map((w) => w.id);
@@ -194,12 +267,23 @@ export const useFeed = (): UseFeedReturn => {
       ) return;
 
       // Update cache
+      const latestEngagement =
+        feedCache?.userId === requestUserId ? feedCache : null;
       feedCache = {
         userId: requestUserId,
         workouts: newWorkouts,
-        likeSummaries: engagement.likes,
-        commentCounts: engagement.counts,
-        previewComments: engagement.previews,
+        likeSummaries: {
+          ...latestEngagement?.likeSummaries,
+          ...engagement.likes,
+        },
+        commentCounts: {
+          ...latestEngagement?.commentCounts,
+          ...engagement.counts,
+        },
+        previewComments: {
+          ...latestEngagement?.previewComments,
+          ...engagement.previews,
+        },
         offset: newOffset,
         hasMore: newHasMore,
         timestamp: Date.now(),
@@ -216,11 +300,20 @@ export const useFeed = (): UseFeedReturn => {
         setIsLoading(false);
         setIsRefreshing(false);
       }
+      refreshInFlightRef.current = false;
     }
   }, [feedUserId, loadEngagementData]);
 
   const loadMore = useCallback(async () => {
-    if (loadMoreInFlightRef.current || !hasMoreRef.current) return;
+    if (
+      loadMoreInFlightRef.current ||
+      !hasMoreRef.current ||
+      refreshInFlightRef.current
+    ) return;
+    if (!isCacheValid(feedUserId)) {
+      await loadInitial(false);
+      if (!isCacheValid(feedUserId) || !hasMoreRef.current) return;
+    }
 
     const requestUserId = feedUserId;
     const requestGeneration = feedCacheGeneration;
@@ -295,10 +388,19 @@ export const useFeed = (): UseFeedReturn => {
       loadMoreInFlightRef.current = false;
       if (identityRef.current === requestUserId) setIsLoadingMore(false);
     }
-  }, [feedUserId, loadEngagementData]);
+  }, [feedUserId, loadEngagementData, loadInitial]);
 
   // Update functions for optimistic updates from child components
   const updateLikeSummary = useCallback((workoutId: string, summary: LikeSummary) => {
+    const versions = engagementVersionsRef.current[workoutId] ?? {
+      likes: 0,
+      counts: 0,
+      previews: 0,
+    };
+    engagementVersionsRef.current[workoutId] = {
+      ...versions,
+      likes: versions.likes + 1,
+    };
     setLikeSummaries((prev) => {
       const updated = { ...prev, [workoutId]: summary };
       // Also update cache
@@ -310,6 +412,15 @@ export const useFeed = (): UseFeedReturn => {
   }, [feedUserId]);
 
   const updateCommentCount = useCallback((workoutId: string, count: number) => {
+    const versions = engagementVersionsRef.current[workoutId] ?? {
+      likes: 0,
+      counts: 0,
+      previews: 0,
+    };
+    engagementVersionsRef.current[workoutId] = {
+      ...versions,
+      counts: versions.counts + 1,
+    };
     setCommentCounts((prev) => {
       const updated = { ...prev, [workoutId]: count };
       // Also update cache
@@ -321,6 +432,15 @@ export const useFeed = (): UseFeedReturn => {
   }, [feedUserId]);
 
   const updatePreviewComments = useCallback((workoutId: string, comments: WorkoutComment[]) => {
+    const versions = engagementVersionsRef.current[workoutId] ?? {
+      likes: 0,
+      counts: 0,
+      previews: 0,
+    };
+    engagementVersionsRef.current[workoutId] = {
+      ...versions,
+      previews: versions.previews + 1,
+    };
     setPreviewComments((prev) => {
       const updated = { ...prev, [workoutId]: comments };
       // Also update cache
@@ -332,6 +452,16 @@ export const useFeed = (): UseFeedReturn => {
   }, [feedUserId]);
 
   const removeWorkout = useCallback((workoutId: string) => {
+    const versions = engagementVersionsRef.current[workoutId] ?? {
+      likes: 0,
+      counts: 0,
+      previews: 0,
+    };
+    engagementVersionsRef.current[workoutId] = {
+      likes: versions.likes + 1,
+      counts: versions.counts + 1,
+      previews: versions.previews + 1,
+    };
     setWorkouts((prev) => {
       const updated = prev.filter((w) => w.id !== workoutId);
       workoutsRef.current = updated;
